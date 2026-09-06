@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: web-hotel-mis-backend
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Database and security configuration will be enabled per environment.
+# Never commit credentials here; use environment variables or a secret manager.
