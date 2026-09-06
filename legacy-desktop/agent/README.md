@@ -1,5 +1,7 @@
 # 🏨 KHU VỰC THỰC HÀNH AI AGENT - DỰ ÁN HOTEL MIS
 
+> Snapshot này chỉ phục vụ đối chiếu migration. Prototype truy cập DB trực tiếp và file credential đã được loại khỏi repository web. Không dùng snapshot này cho production.
+
 Chào mừng bạn đến với module **AI Agent** dành cho sinh viên CNTT định hướng **AI Engineer / GenAI Developer**!
 
 ---
