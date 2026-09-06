@@ -1,0 +1,14 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-QLKS}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in your shell or local .env}
+    ports:
+      - "3306:3306"
+    volumes:
+      - hotel-mis-mysql:/var/lib/mysql
+
+volumes:
+  hotel-mis-mysql:

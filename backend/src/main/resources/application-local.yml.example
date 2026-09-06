@@ -1,0 +1,14 @@
+spring:
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/QLKS?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8080}
