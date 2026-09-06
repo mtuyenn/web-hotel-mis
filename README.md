@@ -17,6 +17,8 @@ docs/                 Kiến trúc và kế hoạch chuyển đổi
 
 Không copy mã Swing, thư mục `target`, IDE metadata, credential DB hoặc file `.env` từ desktop sang repository này.
 
+Phần domain có thể tái sử dụng đã được chuyển vào `backend/src/main/java/com/hotelmanagement/web/legacy/`. Đây là lớp chuyển tiếp để refactor dần thành domain/application modules; không phải API public và không bê nguyên DAO/JPA utility desktop sang production.
+
 ## Nguyên tắc chuyển đổi
 
 1. Backend API là boundary duy nhất cho web và chatbot.
