@@ -2,6 +2,7 @@
 target/
 **/target/
 *.class
+**/__pycache__/
 
 # Frontend
 node_modules/
