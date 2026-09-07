@@ -9,6 +9,11 @@ services:
       - "3306:3306"
     volumes:
       - hotel-mis-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   hotel-mis-mysql:

@@ -1,42 +1,41 @@
-# Migration plan
+# Delivery plan — hard cut B
 
-## Phase 0 — baseline
+Hard cut B treats the web system as the sole production application boundary.
+There is no dual-writer phase, compatibility baseline or incremental handover
+plan. The backend API owns all business writes from the first deploy.
 
-- Freeze the current desktop behavior with characterization tests.
-- Decide ambiguous policies: hourly minimum, late checkout grace period, cancellation threshold and membership discount thresholds.
-- Baseline the legacy schema in `database/legacy/`; do not use Hibernate `ddl-auto=update` in production.
+## Schema and persistence contract
 
-## Phase 1 — backend foundation
+- `backend/src/main/resources/db/migration/V1__baseline_schema.sql` is the
+  canonical schema V1.
+- Flyway applies the complete ordered migration line to an empty MySQL
+  database. Every new schema change is a new immutable versioned migration.
+- Hibernate uses `ddl-auto=validate`; schema creation and changes belong to
+  Flyway only.
+- The backend is the only DB writer. Frontend, agent and integrations use
+  authenticated backend use cases, transactions and audit controls.
 
-- Add Flyway migrations and environment-based DB configuration.
-- Extract domain/application services from Swing controllers.
-- Introduce repository interfaces, dependency injection and use-case transactions.
-- Add password hashing, RBAC and audit primitives.
+## Delivery order
 
-The desktop repository remains unchanged and runnable.
+1. Keep the modular-monolith boundaries under `com.hospitality.mis` and expose
+   typed API contracts for identity, rooms, guests, reservations, billing,
+   operations, finance and governance.
+2. Complete authorization, approval, idempotency, concurrency protection and
+   audit behavior at the application-service boundary.
+3. Build the operations UI against the backend API.
+4. Add agent/RAG capabilities in this order: cited SOP/policy answers,
+   read-only live-data tools, confirmed action proposals, and authorized action
+   execution.
+5. Add operational monitoring, backup/restore exercises and incident
+   procedures for the canonical schema.
 
-## Phase 2 — read-only web
+## Definition of done
 
-Expose authenticated read APIs for rooms, availability, guests, reservations, services, invoices and current reports. Build the first web screens against these APIs while desktop remains the operational write client.
-
-## Phase 3 — incremental writes
-
-Move writes in this order: guest -> rooms -> reservations -> check-in/out -> services -> billing. Use feature flags so desktop can switch one use case at a time to the API. Use idempotency, concurrency protection against overbooking, contract tests and rollback per use case.
-
-## Phase 4 — missing business areas
-
-Add housekeeping, equipment compensation, minibar/inventory, shifts/cash handover, receipts/expenses, OTA/supplier debt, approvals and detailed audit reporting.
-
-## Phase 5 — agent/RAG
-
-1. SOP/policy question answering with citations.
-2. Read-only live-data tools through the API.
-3. Action proposal and user confirmation.
-4. Approved action execution with RBAC and audit.
-
-## Exit criteria for desktop retirement
-
-- All required use cases have API contract tests and operational monitoring.
-- Web and desktop produce equivalent totals for a defined regression dataset.
-- No production client requires direct DB credentials.
-- Backup/restore, audit, approval and rollback procedures are tested.
+- A clean MySQL instance migrates successfully from V1 through the current
+  Flyway version.
+- Hibernate validation passes against that migrated schema.
+- The full backend test suite runs with the real-MySQL migration test enabled;
+  the migration test is not skipped in CI.
+- Every production write has an authenticated actor, authorization,
+  transaction boundary and audit behavior appropriate to the use case.
+- No production client requires direct MySQL credentials.
