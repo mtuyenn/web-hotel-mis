@@ -1,8 +1,8 @@
 package com.hospitality.mis.reservation;
 
-import com.hospitality.mis.reservation.domain.Reservation;
-import com.hospitality.mis.reservation.domain.ReservationStatus;
-import com.hospitality.mis.reservation.domain.ReservationRoom;
+import com.hospitality.mis.entity.reservation.Reservation;
+import com.hospitality.mis.entity.reservation.ReservationStatus;
+import com.hospitality.mis.entity.reservation.ReservationRoom;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

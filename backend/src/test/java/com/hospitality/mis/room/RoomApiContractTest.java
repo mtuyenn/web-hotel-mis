@@ -1,9 +1,10 @@
 package com.hospitality.mis.room;
 
-import com.hospitality.mis.room.domain.RoomType;
-import com.hospitality.mis.room.domain.Room;
-import com.hospitality.mis.room.adapter.RoomRepository;
-import com.hospitality.mis.room.adapter.RoomTypeRepository;
+import com.hospitality.mis.dao.room.RoomRepository;
+import com.hospitality.mis.dao.room.RoomTypeRepository;
+import com.hospitality.mis.entity.room.Room;
+import com.hospitality.mis.entity.room.RoomStatus;
+import com.hospitality.mis.entity.room.RoomType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 
-import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -58,15 +58,13 @@ class RoomApiContractTest {
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void searchKeepsTheExistingRoomResponseShapeAndStatusCodes() throws Exception {
-        mockMvc.perform(get("/api/rooms")
-                        .param("type", "STD")
-                        .param("status", "SAN_SANG"))
+        mockMvc.perform(get("/api/rooms").param("type", "STD").param("status", "SAN_SANG"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value("R101"))
                 .andExpect(jsonPath("$[0].name").value("Room 101"))
-                .andExpect(jsonPath("$[0].roomTypeId").value("STD"))
-                .andExpect(jsonPath("$[0].roomTypeName").value("Standard"))
-                .andExpect(jsonPath("$[0].dailyPrice").value(2400.00))
+                .andExpect(jsonPath("$[0].room_type_id").value("STD"))
+                .andExpect(jsonPath("$[0].room_type_name").value("Standard"))
+                .andExpect(jsonPath("$[0].daily_price").value(2400.00))
                 .andExpect(jsonPath("$[0].floor").value(1))
                 .andExpect(jsonPath("$[0].status").value("SAN_SANG"));
     }
@@ -78,6 +76,32 @@ class RoomApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("R101"))
                 .andExpect(jsonPath("$.status").value("BAO_TRI"));
+    }
+
+    @Test
+    @WithMockUser(username = "manager", roles = "MANAGER")
+    void occupiedRoomCannotBeMadeAvailableThroughStatusPatch() throws Exception {
+        Room room = rooms.findById("R101").orElseThrow();
+        room.setStatus(RoomStatus.OCCUPIED);
+        rooms.saveAndFlush(room);
+
+        mockMvc.perform(patch("/api/rooms/R101/status").param("status", "SAN_SANG"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.status").value(422))
+                .andExpect(jsonPath("$.code").value("INVALID_ROOM_TRANSITION"))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "housekeeping", roles = "HOUSEKEEPING")
+    void housekeepingCannotMakeRoomAvailable() throws Exception {
+        Room room = rooms.findById("R101").orElseThrow();
+        room.setStatus(RoomStatus.MAINTENANCE);
+        rooms.saveAndFlush(room);
+
+        mockMvc.perform(patch("/api/rooms/R101/status").param("status", "SAN_SANG"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("ROOM_STATUS_FORBIDDEN"));
     }
 
     @Test

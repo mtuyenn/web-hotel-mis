@@ -24,7 +24,6 @@ hotel:
     hourly-minimum: ${HOTEL_HOURLY_MINIMUM:3}
     late-checkout-grace-minutes: ${HOTEL_LATE_GRACE_MINUTES:20}
     vip-discount-percent: ${HOTEL_VIP_DISCOUNT_PERCENT:10}
-    vip-spend-threshold: ${HOTEL_VIP_SPEND_THRESHOLD:10000000}
     vip-stay-threshold: ${HOTEL_VIP_STAY_THRESHOLD:10}
 
 server:

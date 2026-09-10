@@ -1,7 +1,7 @@
 package com.hospitality.mis.billing;
 
-import com.hospitality.mis.billing.domain.PaymentMethod;
-import com.hospitality.mis.billing.domain.PaymentStatus;
+import com.hospitality.mis.entity.billing.PaymentMethod;
+import com.hospitality.mis.entity.billing.PaymentStatus;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

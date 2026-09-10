@@ -4,18 +4,14 @@
 web-hotel-mis/
 ├── backend/
 │   ├── src/main/java/com/hospitality/mis/
-│   │   ├── auth/                   # token và authentication use cases
+│   │   ├── middleware/             # JWT, actor identity, authorization
+│   │   ├── controller/             # REST controllers theo module
+│   │   ├── service/                # xử lý nghiệp vụ theo module
+│   │   ├── dao/                    # repository và persistence theo module
+│   │   ├── dto/                    # request/response DTO theo module
+│   │   ├── entity/                 # JPA entity và kiểu nghiệp vụ theo module
 │   │   ├── common/                 # API contract, lỗi, cross-cutting concerns
-│   │   ├── config/                 # Spring, security, database, observability
-│   │   ├── identity/               # employee, role, permission
-│   │   ├── guest/                  # hồ sơ khách, membership
-│   │   ├── room/                   # phòng, loại phòng, availability
-│   │   ├── reservation/            # booking, check-in/out, chuyển phòng
-│   │   ├── billing/                # pricing, service, invoice, payment
-│   │   ├── operations/             # housekeeping, inventory, equipment
-│   │   ├── finance/                # cash handover, receipts, debt
-│   │   ├── governance/             # audit, approval, reports
-│   │   └── security/               # JWT, actor identity, authorization
+│   │   ├── config/                 # Spring, database, observability
 │   ├── src/main/resources/db/migration/ # canonical Flyway schema line
 │   └── src/test/                   # unit, contract, integration and DB tests
 ├── frontend/
@@ -37,12 +33,25 @@ web-hotel-mis/
 └── scripts/                        # developer/CI scripts
 ```
 
-Mỗi module backend giữ một boundary nhất quán:
+Backend dùng mô hình MVC và phân tầng rõ ràng:
 
-- `api`: REST controller và request/response DTO.
-- `application`: use case, transaction boundary, ports.
-- `domain`: aggregate, value object, policy, domain event.
-- `adapter`: JPA adapter, external integration, persistence implementation.
+- `middleware`: xác thực, phân quyền và xử lý request dùng chung.
+- `controller`: nhận HTTP request, validate DTO và trả JSON response.
+- `service`: xử lý nghiệp vụ và transaction boundary.
+- `dao`: truy vấn/lưu dữ liệu qua Spring Data JPA.
+- `dto`: cấu trúc dữ liệu giao tiếp API.
+- `entity`: đối tượng ánh xạ bảng dữ liệu và các kiểu nghiệp vụ liên quan.
+
+Các tầng giữ cùng tên module con, ví dụ `service/reservation` và
+`entity/reservation`, để dễ tìm kiếm.
 
 `backend/src/main/resources/db/migration/` là nơi duy nhất định nghĩa thay
 đổi schema. Backend là DB writer duy nhất; frontend và agent đi qua API.
+
+Schema hiện có 24 bảng/entity JPA, gồm 15 bảng core ban đầu và 9 bảng mở rộng
+cho tài khoản khách hàng, thanh toán, biên lai, tài chính, kho, thiết bị và
+lịch sử membership.
+
+Contract dùng chung nằm tại [docs/api-contract.md](api-contract.md) và
+[docs/authorization-matrix.md](authorization-matrix.md). `rule.md` giữ các
+quy tắc nghiệp vụ; không tạo thêm package/module cũ chỉ để chứa tài liệu.

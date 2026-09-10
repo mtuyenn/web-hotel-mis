@@ -1,190 +1,349 @@
 package com.hospitality.mis.security;
 
+import com.hospitality.mis.middleware.security.EmployeeUserDetailsService;
+
+
 import com.fasterxml.jackson.databind.JsonNode;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hospitality.mis.auth.adapter.RefreshTokenRepository;
-import com.hospitality.mis.auth.api.AuthDtos;
-import com.hospitality.mis.auth.application.JwtTokenService;
-import com.hospitality.mis.governance.adapter.ApprovalRepository;
-import com.hospitality.mis.governance.domain.ApprovalRequest;
-import com.hospitality.mis.identity.adapter.EmployeeRepository;
-import com.hospitality.mis.identity.domain.Employee;
-import com.hospitality.mis.identity.domain.EmployeeRole;
+
+import com.hospitality.mis.dao.auth.RefreshTokenRepository;
+
+import com.hospitality.mis.dto.auth.AuthDtos;
+
+import com.hospitality.mis.service.auth.JwtTokenService;
+
+import com.hospitality.mis.dao.governance.ApprovalRepository;
+
+import com.hospitality.mis.entity.governance.ApprovalRequest;
+
+import com.hospitality.mis.dao.identity.EmployeeRepository;
+
+import com.hospitality.mis.entity.identity.Employee;
+import com.hospitality.mis.entity.identity.EmployeeRole;
 import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 import org.springframework.boot.test.context.SpringBootTest;
+
 import org.springframework.jdbc.core.JdbcTemplate;
+
 import org.springframework.security.core.userdetails.UserDetails;
+
 import org.springframework.security.core.userdetails.UserDetailsService;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+
 import org.springframework.security.oauth2.jwt.JwsHeader;
+
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+
 import org.springframework.test.web.servlet.MockMvc;
 
+
+
 import java.nio.charset.StandardCharsets;
+
 import java.time.Instant;
+
 import java.util.Base64;
+
 import java.util.List;
 
+
+
 import static org.assertj.core.api.Assertions.assertThat;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
+
 import static org.springframework.http.HttpHeaders.ORIGIN;
+
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+
 @SpringBootTest(properties = {
+
         "spring.datasource.url=jdbc:h2:mem:securitytest;MODE=MySQL;DB_CLOSE_DELAY=-1",
+
         "spring.datasource.username=sa",
+
         "spring.datasource.password=",
+
         "spring.flyway.enabled=false",
+
         "spring.jpa.hibernate.ddl-auto=create-drop"
+
 })
+
 @AutoConfigureMockMvc
+
 class SecurityIntegrationTest {
+
     @Autowired MockMvc mockMvc;
+
     @Autowired EmployeeRepository employees;
+
     @Autowired ApprovalRepository approvals;
+
     @Autowired RefreshTokenRepository refreshTokens;
+
     @Autowired PasswordEncoder passwordEncoder;
+
     @Autowired UserDetailsService userDetailsService;
+
     @Autowired JwtEncoder jwtEncoder;
+
     @Autowired ObjectMapper objectMapper;
+
     @Autowired JdbcTemplate jdbc;
 
+
+
     @BeforeEach
+
     void seedUsers() {
+
         refreshTokens.deleteAll();
+
         approvals.deleteAll();
+
         employees.deleteAll();
+
         jdbc.update("delete from audit_logs");
+        employees.save(employee("admin", "admin-password", EmployeeRole.ADMIN, "0900000000"));
+        employees.save(employee("director", "director-password", EmployeeRole.DIRECTOR, "0900000010"));
         employees.save(employee("manager", "manager-password", EmployeeRole.MANAGER, "0900000001"));
+        employees.save(employee("hr", "hr-password", EmployeeRole.HR, "0900000011"));
         employees.save(employee("frontdesk", "frontdesk-password", EmployeeRole.FRONT_DESK, "0900000002"));
         employees.save(employee("staff", "staff-password", EmployeeRole.STAFF, "0900000003"));
         employees.save(employee("kitchen", "kitchen-password", EmployeeRole.KITCHEN, "0900000004"));
         employees.flush();
+
     }
 
+
+
     @Test
+
     void unauthenticatedApiRequestIsRejected() throws Exception {
+
         mockMvc.perform(get("/api/services"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
     }
 
+
+
     @Test
+
     void healthAndOpenApiRemainPublic() throws Exception {
+
         mockMvc.perform(get("/actuator/health"))
+
                 .andExpect(status().isOk());
+
         mockMvc.perform(get("/v3/api-docs"))
+
                 .andExpect(status().isOk());
+
     }
 
+
+
     @Test
+
     void loginReturnsBearerTokensAndBasicIsRejected() throws Exception {
+
         JsonNode tokens = login("manager", "manager-password");
-        assertThat(tokens.get("tokenType").asText()).isEqualTo("Bearer");
-        assertThat(tokens.get("expiresIn").asLong()).isEqualTo(900L);
-        assertThat(tokens.get("refreshExpiresIn").asLong()).isEqualTo(7L * 24 * 60 * 60);
-        assertThat(tokens.get("accessToken").asText()).isNotBlank();
-        assertThat(tokens.get("refreshToken").asText()).isNotBlank();
+
+        assertThat(tokens.get("token_type").asText()).isEqualTo("Bearer");
+        assertThat(tokens.get("expires_in").asLong()).isEqualTo(900L);
+        assertThat(tokens.get("refresh_expires_in").asLong()).isEqualTo(7L * 24 * 60 * 60);
+        assertThat(tokens.get("access_token").asText()).isNotBlank();
+        assertThat(tokens.get("refresh_token").asText()).isNotBlank();
+
 
         mockMvc.perform(get("/api/services")
-                        .header(AUTHORIZATION, bearer(tokens.get("accessToken").asText())))
+
+                        .header(AUTHORIZATION, bearer(tokens.get("access_token").asText())))
                 .andExpect(status().isOk());
 
+
+
         mockMvc.perform(get("/api/services")
+
                         .header(AUTHORIZATION, basic("manager", "manager-password")))
+
                 .andExpect(status().isUnauthorized());
+
     }
 
+
+
     @Test
+
     void refreshRotatesAndReuseRevokesTheFamily() throws Exception {
-        JsonNode first = login("manager", "manager-password");
-        assertThat(refreshTokens.findAll()).anySatisfy(token -> {
-            assertThat(token.getTokenHash()).isEqualTo(JwtTokenService.hash(first.get("refreshToken").asText()));
-            assertThat(token.getTokenHash()).isNotEqualTo(first.get("refreshToken").asText());
-        });
-        JsonNode rotated = refresh(first.get("refreshToken").asText());
 
-        assertThat(rotated.get("refreshToken").asText())
-                .isNotEqualTo(first.get("refreshToken").asText());
+        JsonNode first = login("manager", "manager-password");
+
+        assertThat(refreshTokens.findAll()).anySatisfy(token -> {
+
+            assertThat(token.getTokenHash()).isEqualTo(JwtTokenService.hash(first.get("refresh_token").asText()));
+            assertThat(token.getTokenHash()).isNotEqualTo(first.get("refresh_token").asText());
+        });
+
+        JsonNode rotated = refresh(first.get("refresh_token").asText());
+
+
+        assertThat(rotated.get("refresh_token").asText())
+                .isNotEqualTo(first.get("refresh_token").asText());
         mockMvc.perform(post("/api/auth/refresh")
+
                         .contentType(APPLICATION_JSON)
-                        .content(json(new AuthDtos.RefreshRequest(first.get("refreshToken").asText()))))
+
+                        .content(json(new AuthDtos.RefreshRequest(first.get("refresh_token").asText()))))
                 .andExpect(status().isUnauthorized());
+
         mockMvc.perform(post("/api/auth/refresh")
+
                         .contentType(APPLICATION_JSON)
-                        .content(json(new AuthDtos.RefreshRequest(rotated.get("refreshToken").asText()))))
+
+                        .content(json(new AuthDtos.RefreshRequest(rotated.get("refresh_token").asText()))))
                 .andExpect(status().isUnauthorized());
+
     }
 
+
+
     @Test
+
     void logoutRevokesRefreshToken() throws Exception {
+
         JsonNode tokens = login("manager", "manager-password");
+
         mockMvc.perform(post("/api/auth/logout")
-                        .header(AUTHORIZATION, bearer(tokens.get("accessToken").asText()))
+
+                        .header(AUTHORIZATION, bearer(tokens.get("access_token").asText()))
                         .contentType(APPLICATION_JSON)
-                        .content(json(new AuthDtos.LogoutRequest(tokens.get("refreshToken").asText()))))
+
+                        .content(json(new AuthDtos.LogoutRequest(tokens.get("refresh_token").asText()))))
                 .andExpect(status().isNoContent());
 
+
+
         mockMvc.perform(post("/api/auth/refresh")
+
                         .contentType(APPLICATION_JSON)
-                        .content(json(new AuthDtos.RefreshRequest(tokens.get("refreshToken").asText()))))
+
+                        .content(json(new AuthDtos.RefreshRequest(tokens.get("refresh_token").asText()))))
                 .andExpect(status().isUnauthorized());
+
     }
 
+
+
     @Test
+
     void invalidSignatureAndExpiredTokensAreRejected() throws Exception {
+
         JsonNode tokens = login("manager", "manager-password");
-        String access = tokens.get("accessToken").asText();
+
+        String access = tokens.get("access_token").asText();
         String[] parts = access.split("\\.");
+
         String invalidSignature = parts[0] + "." + parts[1] + "." + Base64.getUrlEncoder()
+
                 .withoutPadding().encodeToString("invalid-signature".getBytes(StandardCharsets.UTF_8));
+
         mockMvc.perform(get("/api/services").header(AUTHORIZATION, bearer(invalidSignature)))
+
                 .andExpect(status().isUnauthorized());
+
+
 
         String expired = jwtEncoder.encode(JwtEncoderParameters.from(
+
                         JwsHeader.with(MacAlgorithm.HS256).type("JWT").keyId("hotel-mis").build(),
+
                         JwtClaimsSet.builder()
+
                                 .subject("manager")
+
                                 .issuedAt(Instant.now().minusSeconds(120))
+
                                 .expiresAt(Instant.now().minusSeconds(60))
+
                                 .claim("token_type", "access")
+
                                 .build()))
+
                 .getTokenValue();
+
         mockMvc.perform(get("/api/services").header(AUTHORIZATION, bearer(expired)))
+
                 .andExpect(status().isUnauthorized());
+
     }
 
+
+
     @Test
+
     void wrongPlaintextAndMalformedCostCredentialsAreRejectedWith401() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.LoginRequest("manager", "wrong-password"))))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+
 
         Employee plaintext = employee("plaintext", "plaintext-password", EmployeeRole.FRONT_DESK, "0900000005");
         plaintext.setPassword("plaintext-password");
+
         employees.saveAndFlush(plaintext);
+
         Employee malformedCost = employee("badcost", "unused", EmployeeRole.FRONT_DESK, "0900000006");
         malformedCost.setPassword("$2a$03$" + "A".repeat(53));
+
         employees.saveAndFlush(malformedCost);
 
+
+
         for (String employeeId : List.of("plaintext", "badcost")) {
+
             mockMvc.perform(post("/api/auth/login")
+
                             .contentType(APPLICATION_JSON)
+
                             .content(json(new AuthDtos.LoginRequest(employeeId, "plaintext-password"))))
+
                     .andExpect(status().isUnauthorized());
+
         }
     }
 
@@ -207,7 +366,8 @@ class SecurityIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.LoginRequest("staff", "staff-password"))))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_LOCKED"));
     }
 
     @Test
@@ -219,141 +379,408 @@ class SecurityIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.LoginRequest("staff", "staff-password"))))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_DISABLED"));
     }
 
     @Test
+    void existingAccessTokenIsRejectedAfterAccountIsDisabledOrLocked() throws Exception {
+        JsonNode disabledTokens = login("staff", "staff-password");
+        Employee disabled = employees.findById("staff").orElseThrow();
+        disabled.setEnabled(false);
+        employees.saveAndFlush(disabled);
+
+        mockMvc.perform(get("/api/services")
+                        .header(AUTHORIZATION, bearer(disabledTokens.get("access_token").asText())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+
+        seedUsers();
+        JsonNode lockedTokens = login("staff", "staff-password");
+        Employee locked = employees.findById("staff").orElseThrow();
+        locked.setAccountNonLocked(false);
+        employees.saveAndFlush(locked);
+
+        mockMvc.perform(get("/api/services")
+                        .header(AUTHORIZATION, bearer(lockedTokens.get("access_token").asText())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+    }
+
+    @Test
+    void refreshRejectsDisabledOrLockedAccountAndRevokesCurrentToken() throws Exception {
+        JsonNode disabledTokens = login("staff", "staff-password");
+        Employee disabled = employees.findById("staff").orElseThrow();
+        disabled.setEnabled(false);
+        employees.saveAndFlush(disabled);
+
+        String disabledRefreshToken = disabledTokens.get("refresh_token").asText();
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content(json(new AuthDtos.RefreshRequest(
+                                disabledRefreshToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_DISABLED"));
+        assertThat(refreshTokens.findAll()).anySatisfy(token -> {
+            if (token.getTokenHash().equals(JwtTokenService.hash(disabledRefreshToken))) {
+                assertThat(token.getRevokedAt()).isNotNull();
+            }
+        });
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content(json(new AuthDtos.RefreshRequest(disabledRefreshToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+
+        seedUsers();
+        JsonNode lockedTokens = login("staff", "staff-password");
+        Employee locked = employees.findById("staff").orElseThrow();
+        locked.setAccountNonLocked(false);
+        employees.saveAndFlush(locked);
+
+        String lockedRefreshToken = lockedTokens.get("refresh_token").asText();
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content(json(new AuthDtos.RefreshRequest(
+                                lockedRefreshToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_LOCKED"));
+        assertThat(refreshTokens.findAll()).anySatisfy(token -> {
+            if (token.getTokenHash().equals(JwtTokenService.hash(lockedRefreshToken))) {
+                assertThat(token.getRevokedAt()).isNotNull();
+            }
+        });
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content(json(new AuthDtos.RefreshRequest(lockedRefreshToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+    }
+
+
+    @Test
+
     void roleMappingIsExhaustiveAndUserDetailsHasRealAuthority() {
+
         for (EmployeeRole role : EmployeeRole.values()) assertEquals(role.name(), EmployeeUserDetailsService.roleFor(role));
 
+
         UserDetails user = userDetailsService.loadUserByUsername("manager");
+
         assertTrue(user.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER")));
+
         assertTrue(user.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("PERMISSION_EMPLOYEE_PROVISION")));
+
         assertTrue(user.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("PERMISSION_APPROVAL_APPROVE")));
+
         assertTrue(user.isAccountNonLocked());
+
         assertTrue(user.isEnabled());
+
     }
 
+
+
     @Test
+
     void onlyManagersCanApproveAndRequesterCannotSelfApprove() throws Exception {
+
         ApprovalRequest pending = approvals.saveAndFlush(
-                new ApprovalRequest("frontdesk", "PRICE_OVERRIDE", "price-1", "manager review"));
+
+                new ApprovalRequest("frontdesk", "PRICE_OVERRIDE", "price-1", "{}",
+                        com.hospitality.mis.service.governance.ApprovalService.fingerprintFor("{}"), null, "manager review", null, null));
+
+
 
         mockMvc.perform(post("/api/governance/approvals/{id}/approve", pending.getId())
                         .header(AUTHORIZATION, bearer(login("frontdesk", "frontdesk-password")
-                                .get("accessToken").asText())))
-                .andExpect(status().isForbidden());
+
+                                .get("access_token").asText())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("ACCESS_DENIED"));
+
 
         mockMvc.perform(post("/api/governance/approvals/{id}/approve", pending.getId())
+
                         .header(AUTHORIZATION, bearer(login("manager", "manager-password")
-                                .get("accessToken").asText())))
+
+                                .get("access_token").asText())))
                 .andExpect(status().isOk());
 
+
+
         ApprovalRequest self = approvals.saveAndFlush(
-                new ApprovalRequest("manager", "PRICE_OVERRIDE", "price-2", "cannot self approve"));
+
+                new ApprovalRequest("manager", "PRICE_OVERRIDE", "price-2", "{}",
+                        com.hospitality.mis.service.governance.ApprovalService.fingerprintFor("{}"), null, "cannot self approve", null, null));
+
         mockMvc.perform(post("/api/governance/approvals/{id}/approve", self.getId())
+
                         .header(AUTHORIZATION, bearer(login("manager", "manager-password")
-                                .get("accessToken").asText())))
+
+                                .get("access_token").asText())))
                 .andExpect(status().isForbidden());
+
     }
 
+
+
     @Test
+
     void auditActorComesFromSecurityContextNotHeader() throws Exception {
+
         mockMvc.perform(post("/api/governance/approvals")
+
                         .header(AUTHORIZATION, bearer(login("frontdesk", "frontdesk-password")
-                                .get("accessToken").asText()))
+
+                                .get("access_token").asText()))
                         .header("X-Actor-Id", "manager")
+
                         .contentType(APPLICATION_JSON)
-                        .content("{\"action\":\"PRICE_OVERRIDE\",\"targetId\":\"price-2\",\"reason\":\"review\"}"))
+
+                        .content("{\"action\":\"PRICE_OVERRIDE\",\"target_id\":\"price-2\",\"payload\":\"{}\",\"reason\":\"review\"}"))
+
                 .andExpect(status().isCreated());
 
+
+
         String actor = jdbc.queryForObject(
+
                 "select actor from audit_logs where action = 'APPROVAL_REQUESTED' order by id desc limit 1",
                 String.class);
+
         assertEquals("frontdesk", actor);
+
         assertTrue(passwordEncoder.matches("manager-password",
+
                 employees.findById("manager").orElseThrow().getPassword()));
+
     }
 
+
+
     @Test
+
     void mutatingEndpointRoleChecksReturn403() throws Exception {
-        String staffToken = bearer(login("staff", "staff-password").get("accessToken").asText());
+
+        String staffToken = bearer(login("staff", "staff-password").get("access_token").asText());
         mockMvc.perform(post("/api/auth/employees")
+
                         .header(AUTHORIZATION, staffToken)
+
                         .contentType(APPLICATION_JSON)
-                        .content("{\"employeeId\":\"new\",\"fullName\":\"New\",\"password\":\"new-password\",\"role\":\"FRONT_DESK\",\"phone\":\"0900000007\"}"))
+
+                        .content("{\"employee_id\":\"new\",\"full_name\":\"New\",\"password\":\"new-password\",\"role\":\"FRONT_DESK\",\"phone\":\"0900000007\"}"))
                 .andExpect(status().isForbidden());
+
         mockMvc.perform(post("/api/services")
+
                         .header(AUTHORIZATION, staffToken)
+
                         .contentType(APPLICATION_JSON)
-                        .content("{\"id\":\"S1\",\"name\":\"Water\",\"price\":1,\"openingStock\":0,\"safetyThreshold\":0}"))
+
+                        .content("{\"id\":\"S1\",\"name\":\"Water\",\"price\":1,\"opening_stock\":0,\"safety_threshold\":0}"))
+
                 .andExpect(status().isForbidden());
+
     }
 
+
+
     @Test
+
     void managerProvisioningAndPasswordResetAlwaysUseBcryptAndRevokeSessions() throws Exception {
-        String managerToken = bearer(login("manager", "manager-password").get("accessToken").asText());
+
+        String managerToken = bearer(login("manager", "manager-password").get("access_token").asText());
         mockMvc.perform(post("/api/auth/employees")
+
                         .header(AUTHORIZATION, managerToken)
+
                         .contentType(APPLICATION_JSON)
-                        .content("{\"employeeId\":\"prov01\",\"fullName\":\"Provisioned\",\"password\":\"initial-password\",\"role\":\"FRONT_DESK\",\"phone\":\"0900000008\"}"))
+
+                        .content("{\"employee_id\":\"prov01\",\"full_name\":\"Provisioned\",\"password\":\"initial-password\",\"role\":\"FRONT_DESK\",\"phone\":\"0900000008\"}"))
                 .andExpect(status().isCreated())
+
                 .andExpect(result -> assertThat(result.getResponse().getContentAsString()).doesNotContain("password"));
 
+
+
         String stored = employees.findById("prov01").orElseThrow().getPassword();
+
         assertTrue(EmployeeUserDetailsService.isBcryptHash(stored));
+
         assertTrue(passwordEncoder.matches("initial-password", stored));
+
         JsonNode provisionedTokens = login("prov01", "initial-password");
+
+
 
         mockMvc.perform(post(
                                 "/api/auth/employees/{employeeId}/password", "prov01")
                         .header(AUTHORIZATION, managerToken)
+
                         .contentType(APPLICATION_JSON)
+
                         .content("{\"password\":\"reset-password\"}"))
+
                 .andExpect(status().isNoContent());
+
         String resetStored = employees.findById("prov01").orElseThrow().getPassword();
+
         assertTrue(EmployeeUserDetailsService.isBcryptHash(resetStored));
+
         assertTrue(passwordEncoder.matches("reset-password", resetStored));
+
         mockMvc.perform(post("/api/auth/refresh")
+
                         .contentType(APPLICATION_JSON)
-                        .content(json(new AuthDtos.RefreshRequest(provisionedTokens.get("refreshToken").asText()))))
+
+                        .content(json(new AuthDtos.RefreshRequest(provisionedTokens.get("refresh_token").asText()))))
                 .andExpect(status().isUnauthorized());
+
         login("prov01", "reset-password");
+
     }
 
     @Test
-    void corsAllowsConfiguredOriginAndRejectsUnconfiguredOrigin() throws Exception {
-        mockMvc.perform(options("/api/services")
-                        .header(ORIGIN, "http://localhost:3000")
-                        .header("Access-Control-Request-Method", "GET"))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+    void employeeAdministrationEnforcesRoleCeilingsForProvisionAndReset() throws Exception {
+        String managerToken = bearer(login("manager", "manager-password").get("access_token").asText());
+        provision(managerToken, "m-admin", EmployeeRole.ADMIN, "0900000012")
+                .andExpect(status().isForbidden());
+        provision(managerToken, "m-direct", EmployeeRole.DIRECTOR, "0900000013")
+                .andExpect(status().isForbidden());
+        provision(managerToken, "m-hr", EmployeeRole.HR, "0900000014")
+                .andExpect(status().isCreated());
 
-        mockMvc.perform(options("/api/services")
-                        .header(ORIGIN, "https://evil.example")
-                        .header("Access-Control-Request-Method", "GET"))
+        reset(managerToken, "director")
+                .andExpect(status().isForbidden());
+        reset(managerToken, "admin")
+                .andExpect(status().isForbidden());
+        reset(managerToken, "hr")
+                .andExpect(status().isNoContent());
+
+        String adminToken = bearer(login("admin", "admin-password").get("access_token").asText());
+        provision(adminToken, "a-direct", EmployeeRole.DIRECTOR, "0900000015")
+                .andExpect(status().isForbidden());
+        provision(adminToken, "a-staff", EmployeeRole.STAFF, "0900000016")
+                .andExpect(status().isCreated());
+        reset(adminToken, "director")
+                .andExpect(status().isForbidden());
+        reset(adminToken, "manager")
+                .andExpect(status().isNoContent());
+
+        String directorToken = bearer(login("director", "director-password").get("access_token").asText());
+        provision(directorToken, "d-admin", EmployeeRole.ADMIN, "0900000017")
+                .andExpect(status().isCreated());
+        provision(directorToken, "d-direct", EmployeeRole.DIRECTOR, "0900000018")
+                .andExpect(status().isCreated());
+        reset(directorToken, "admin")
+                .andExpect(status().isNoContent());
+        reset(directorToken, "director")
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void hrCannotProvisionOrResetAndHasNoFinancialPermissions() throws Exception {
+        UserDetails hr = userDetailsService.loadUserByUsername("hr");
+        assertThat(hr.getAuthorities()).extracting(a -> a.getAuthority())
+                .containsExactlyInAnyOrder("ROLE_HR", "PERMISSION_EMPLOYEE_READ");
+
+        String hrToken = bearer(login("hr", "hr-password").get("access_token").asText());
+        provision(hrToken, "hr-created", EmployeeRole.STAFF, "0900000019")
+                .andExpect(status().isForbidden());
+        reset(hrToken, "staff")
                 .andExpect(status().isForbidden());
     }
 
-    private JsonNode login(String employeeId, String password) throws Exception {
-        return objectMapper.readTree(mockMvc.perform(post("/api/auth/login")
-                        .contentType(APPLICATION_JSON)
-                        .content(json(new AuthDtos.LoginRequest(employeeId, password))))
+
+
+    @Test
+
+    void corsAllowsConfiguredOriginAndRejectsUnconfiguredOrigin() throws Exception {
+
+        mockMvc.perform(options("/api/services")
+
+                        .header(ORIGIN, "http://localhost:3000")
+
+                        .header("Access-Control-Request-Method", "GET"))
+
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString());
+
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+
+
+
+        mockMvc.perform(options("/api/services")
+
+                        .header(ORIGIN, "https://evil.example")
+
+                        .header("Access-Control-Request-Method", "GET"))
+
+                .andExpect(status().isForbidden());
+
     }
+
+
+
+    private JsonNode login(String employeeId, String password) throws Exception {
+
+        return objectMapper.readTree(mockMvc.perform(post("/api/auth/login")
+
+                        .contentType(APPLICATION_JSON)
+
+                        .content(json(new AuthDtos.LoginRequest(employeeId, password))))
+
+                .andExpect(status().isOk())
+
+                .andReturn().getResponse().getContentAsString());
+
+    }
+
+    private org.springframework.test.web.servlet.ResultActions provision(String token, String employeeId,
+                                                                          EmployeeRole role, String phone)
+            throws Exception {
+        return mockMvc.perform(post("/api/auth/employees")
+                .header(AUTHORIZATION, token)
+                .contentType(APPLICATION_JSON)
+                .content("{\"employee_id\":\"" + employeeId + "\",\"full_name\":\"Test\","
+                        + "\"password\":\"valid-password\",\"role\":\"" + role.name()
+                        + "\",\"phone\":\"" + phone + "\"}"));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions reset(String token, String employeeId)
+            throws Exception {
+        return mockMvc.perform(post("/api/auth/employees/{employeeId}/password", employeeId)
+                .header(AUTHORIZATION, token)
+                .contentType(APPLICATION_JSON)
+                .content("{\"password\":\"reset-password\"}"));
+    }
+
+
 
     private JsonNode refresh(String refreshToken) throws Exception {
+
         return objectMapper.readTree(mockMvc.perform(post("/api/auth/refresh")
+
                         .contentType(APPLICATION_JSON)
+
                         .content(json(new AuthDtos.RefreshRequest(refreshToken))))
+
                 .andExpect(status().isOk())
+
                 .andReturn().getResponse().getContentAsString());
+
     }
 
+
+
     private String json(Object value) throws Exception {
+
         return objectMapper.writeValueAsString(value);
+
     }
+
+
 
     private Employee employee(String id, String password, EmployeeRole role, String phone) {
         Employee employee = new Employee();
@@ -365,12 +792,22 @@ class SecurityIntegrationTest {
         return employee;
     }
 
+
+
     private String bearer(String token) {
+
         return "Bearer " + token;
+
     }
 
+
+
     private String basic(String username, String password) {
+
         String credentials = username + ":" + password;
+
         return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+
     }
+
 }

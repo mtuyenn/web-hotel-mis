@@ -1,5 +1,7 @@
 package com.hospitality.mis;
 
+
+
 import org.junit.jupiter.api.Test;
 import com.hospitality.mis.common.actor.ActorId;
 import com.hospitality.mis.common.audit.AuditEntry;
@@ -8,8 +10,11 @@ import com.hospitality.mis.common.idempotency.IdempotencyKey;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+
 class ArchitectureTest {
+
     @Test
+
     void applicationAndSharedPrimitivesHaveOneRuntimeBoundary() {
         assertThat(HospitalityMisApplication.class.getPackage()).isEqualTo(ArchitectureTest.class.getPackage());
         assertThat(ActorId.class.getPackage()).isNotEqualTo(HospitalityMisApplication.class.getPackage());

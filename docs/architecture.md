@@ -44,15 +44,14 @@ The backend is a single Spring Boot modular monolith rooted at
 
 ```text
 com.hospitality.mis
-├── <module>
-│   ├── api           HTTP controllers and request/response DTOs
-│   ├── application   use cases, transactions and ports
-│   ├── domain        entities, value objects, enums and policies
-│   └── adapter       JPA repositories and infrastructure implementations
-├── auth              token and authentication use cases
+├── middleware        JWT, actor identity and authorization
+├── controller        REST controllers grouped by module
+├── service           business services and transaction boundaries
+├── dao               Spring Data repositories and persistence
+├── dto               request/response objects grouped by module
+├── entity            JPA entities and business types grouped by module
 ├── common            shared API errors and exception handling
-├── config            Spring and web configuration
-└── security          JWT conversion, actor identity and authorization helpers
+└── config            Spring and web configuration
 ```
 
 - `identity`: authentication, roles and permissions.
@@ -64,12 +63,10 @@ com.hospitality.mis
 - `finance`: cash handover, receipts, expenses and partner debts.
 - `governance`: audit log, approval workflow and reporting.
 
-Controllers depend on application services. Application services coordinate
-domain objects and repository/port interfaces; adapters implement persistence
-concerns. Domain objects may reference domain concepts in another module when
-the business aggregate requires it, but HTTP and JPA concerns stay outside the
-domain layer. Cross-module workflows are coordinated in application services,
-not by controllers or direct database access.
+Controllers depend on services. Services coordinate entities and DAO classes;
+controllers do not access the database directly. DTOs are used at the HTTP
+boundary and entities are used for persistence. Cross-module workflows are
+coordinated in services, not by controllers or direct database access.
 
 Start as a modular monolith. Split services only after a measured operational
 need exists.

@@ -1,7 +1,7 @@
 package com.hospitality.mis.room;
 
-import com.hospitality.mis.room.domain.Room;
-import com.hospitality.mis.room.domain.RoomType;
+import com.hospitality.mis.entity.room.Room;
+import com.hospitality.mis.entity.room.RoomType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

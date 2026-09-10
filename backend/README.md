@@ -1,8 +1,9 @@
 # Hotel MIS backend
 
 Spring Boot 3.4 modular monolith (Java 21) for the Hotel MIS web system. The
-canonical Java package is `com.hospitality.mis`; modules expose API,
-application, domain and adapter boundaries.
+canonical Java package is `com.hospitality.mis`; backend code is organized into
+`middleware`, `controller`, `service`, `dao`, `dto` and `entity` layers, grouped
+by business module.
 
 ## Chạy local
 
@@ -20,13 +21,14 @@ mapping bằng `ddl-auto=validate`, không tự tạo hoặc sửa bảng.
 
 - `GET /api/rooms`, `GET /api/rooms/availability?from=&to=&type=`
 - `POST /api/guests`, `GET /api/guests?q=`, `GET /api/guests/{id}`
-- `POST /api/reservations`, `GET /api/reservations/{id}`
+- `POST /api/reservations`, `GET /api/reservations?status=&guest_id=&page=0&size=20`, `GET /api/reservations/{id}`
 - `POST /api/reservations/{id}/check-in`
 - `POST /api/reservations/{id}/check-out`
 - `POST /api/reservations/{id}/extend`, `/cancel`, `/services`
 - `GET /api/invoices/reservation/{reservationId}`
 - `GET /api/services`, `POST /api/services`, `POST /api/services/{id}/stock`
 - `POST /api/governance/approvals`, `POST /api/governance/approvals/{id}/approve`
+- `GET/POST /api/invoices/{invoiceId}/payments`, `GET/POST /api/invoices/{invoiceId}/receipts`
 
 Các use case ghi dữ liệu đều có transaction. Tạo đặt phòng khóa từng phòng
 bằng pessimistic lock, kiểm tra khoảng giao nhau
@@ -35,9 +37,11 @@ qua `idempotencyKey`, giới hạn 3 phòng và thuê giờ tối thiểu 3 gi�
 
 ## Policy mặc định
 
-`HOTEL_HOURLY_MINIMUM=3`, miễn checkout trễ tối đa 20 phút, VIP giảm 10%, phí
-trễ theo các mốc 15/20/50/100%. Có thể override bằng biến môi trường; các
-ngưỡng chưa chốt được giữ ngoài code nghiệp vụ.
+`HOTEL_HOURLY_MINIMUM=3`, miễn checkout trễ đến 12:20, phí trễ theo các mốc
+15/20/50/100% và giảm VIP theo hạng Silver/Gold/Platinum. Checkout lập hóa đơn
+theo số dư còn phải thu; payment transaction mới ghi nhận tiền thực thu. Có
+thể override các policy kỹ thuật bằng biến môi trường; các ngưỡng chưa chốt
+được giữ ngoài code nghiệp vụ.
 
 ## Authentication, JWT và RBAC
 

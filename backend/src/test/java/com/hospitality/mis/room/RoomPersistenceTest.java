@@ -1,10 +1,10 @@
 package com.hospitality.mis.room;
 
-import com.hospitality.mis.room.adapter.RoomRepository;
-import com.hospitality.mis.room.adapter.RoomTypeRepository;
-import com.hospitality.mis.room.domain.Room;
-import com.hospitality.mis.room.domain.RoomStatus;
-import com.hospitality.mis.room.domain.RoomType;
+import com.hospitality.mis.dao.room.RoomRepository;
+import com.hospitality.mis.dao.room.RoomTypeRepository;
+import com.hospitality.mis.entity.room.Room;
+import com.hospitality.mis.entity.room.RoomStatus;
+import com.hospitality.mis.entity.room.RoomType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;

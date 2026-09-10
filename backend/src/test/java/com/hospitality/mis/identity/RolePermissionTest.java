@@ -1,7 +1,7 @@
 package com.hospitality.mis.identity;
 
-import com.hospitality.mis.identity.domain.EmployeeRole;
-import com.hospitality.mis.identity.domain.Permission;
+import com.hospitality.mis.entity.identity.EmployeeRole;
+import com.hospitality.mis.entity.identity.Permission;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,5 +16,22 @@ class RolePermissionTest {
                 .contains(Permission.RESERVATION_WRITE)
                 .doesNotContain(Permission.EMPLOYEE_PROVISION, Permission.APPROVAL_APPROVE);
         assertThat(EmployeeRole.STAFF.permissions()).contains(Permission.RESERVATION_READ);
+        assertThat(EmployeeRole.HR.permissions())
+                .containsExactly(Permission.EMPLOYEE_READ)
+                .doesNotContain(Permission.EMPLOYEE_PROVISION, Permission.EMPLOYEE_PASSWORD_RESET,
+                        Permission.BILLING_READ, Permission.BILLING_WRITE, Permission.PAYMENT_WRITE,
+                        Permission.FINANCE_READ, Permission.FINANCE_WRITE);
+    }
+
+    @Test
+    void employeeAdministrationCeilingFollowsTheOwnerPolicy() {
+        assertThat(EmployeeRole.DIRECTOR.canManage(EmployeeRole.ADMIN)).isTrue();
+        assertThat(EmployeeRole.ADMIN.canManage(EmployeeRole.ADMIN)).isTrue();
+        assertThat(EmployeeRole.ADMIN.canManage(EmployeeRole.DIRECTOR)).isFalse();
+        assertThat(EmployeeRole.MANAGER.canManage(EmployeeRole.HR)).isTrue();
+        assertThat(EmployeeRole.MANAGER.canManage(EmployeeRole.ACCOUNTING)).isTrue();
+        assertThat(EmployeeRole.MANAGER.canManage(EmployeeRole.ADMIN)).isFalse();
+        assertThat(EmployeeRole.MANAGER.canManage(EmployeeRole.DIRECTOR)).isFalse();
+        assertThat(EmployeeRole.HR.canManage(EmployeeRole.STAFF)).isFalse();
     }
 }
