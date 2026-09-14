@@ -54,6 +54,7 @@ client phải xử lý cả 401 và 403.
 | GET/PUT | `/room-types/{room_type_id}` | GET: có `ROOM_READ`; PUT: `ROOM_CATALOG_WRITE`, chỉ sửa `DRAFT`/`REJECTED`, bắt buộc `Idempotency-Key` |
 | POST | `/room-types/{room_type_id}/submit` | `ROOM_CATALOG_WRITE`; tạo approval nội bộ, bắt buộc `Idempotency-Key` |
 | POST | `/room-types/{room_type_id}/activate` | `ROOM_CATALOG_WRITE`, chỉ requester sau khi approval exact payload, bắt buộc `Idempotency-Key` |
+| GET | `/room-types/{room_type_id}/price-history` | Có `ROOM_READ`; trả snapshot giá theo thời gian, approval và actor thay đổi |
 | PUT | `/room-types/{room_type_id}/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; thay toàn bộ liên kết tiện nghi |
 | POST | `/reservations` | MANAGER, FRONT_DESK |
 | GET | `/reservations?status=&guest_id=&page=&size=` | Có `RESERVATION_READ`; front_desk/manager/director/admin xem toàn khách sạn, role khác xem phạm vi actor; mặc định 20, tối đa 100 bản ghi/trang; trả `items`, `page`, `size`, `total_elements`, `total_pages` |

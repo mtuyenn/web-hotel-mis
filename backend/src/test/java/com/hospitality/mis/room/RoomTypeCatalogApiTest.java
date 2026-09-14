@@ -3,6 +3,7 @@ package com.hospitality.mis.room;
 import com.hospitality.mis.dao.governance.ApprovalRepository;
 import com.hospitality.mis.dao.room.RoomRepository;
 import com.hospitality.mis.dao.room.RoomTypeRepository;
+import com.hospitality.mis.dao.room.RoomTypePriceHistoryRepository;
 import com.hospitality.mis.entity.room.Room;
 import com.hospitality.mis.entity.room.RoomType;
 import com.hospitality.mis.entity.room.RoomTypeCatalogStatus;
@@ -37,11 +38,13 @@ class RoomTypeCatalogApiTest {
     @Autowired RoomTypeRepository roomTypes;
     @Autowired RoomRepository rooms;
     @Autowired ApprovalRepository approvals;
+    @Autowired RoomTypePriceHistoryRepository priceHistory;
     @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     void clean() {
         rooms.deleteAllInBatch();
+        priceHistory.deleteAllInBatch();
         roomTypes.deleteAllInBatch();
         approvals.deleteAllInBatch();
         jdbc.update("delete from idempotency_records");
@@ -77,6 +80,35 @@ class RoomTypeCatalogApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.catalog_status").value("ACTIVE"))
                 .andExpect(jsonPath("$.approved_by").value("manager"));
+
+        mvc.perform(get("/api/room-types/DLX/price-history").with(jwtAs("tech", "TECHNICAL")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].room_type_id").value("DLX"))
+                .andExpect(jsonPath("$[0].daily_price").value(180000))
+                .andExpect(jsonPath("$[0].changed_by").value("manager"))
+                .andExpect(jsonPath("$[0].approval_id").value(approvalId));
+    }
+
+    @Test
+    void rejectedActivationMovesCatalogBackToRejected() throws Exception {
+        mvc.perform(post("/api/room-types").with(jwtAs("tech", "TECHNICAL"))
+                        .header("Idempotency-Key", "create-rejected")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"id\":\"REJ\",\"name\":\"Rejected\",\"daily_price\":120000}"))
+                .andExpect(status().isCreated());
+
+        String approval = mvc.perform(post("/api/room-types/REJ/submit").with(jwtAs("tech", "TECHNICAL"))
+                        .header("Idempotency-Key", "submit-rejected"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long approvalId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(approval).get("id").asLong();
+
+        mvc.perform(post("/api/governance/approvals/" + approvalId + "/reject")
+                        .with(jwtAs("manager", "MANAGER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"));
+        mvc.perform(get("/api/room-types/REJ").with(jwtAs("tech", "TECHNICAL")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.catalog_status").value("REJECTED"));
     }
 
     @Test

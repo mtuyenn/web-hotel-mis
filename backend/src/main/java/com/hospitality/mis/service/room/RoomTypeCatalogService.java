@@ -2,10 +2,12 @@ package com.hospitality.mis.service.room;
 
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.room.RoomTypeRepository;
+import com.hospitality.mis.dao.room.RoomTypePriceHistoryRepository;
 import com.hospitality.mis.dto.governance.ApprovalDtos;
 import com.hospitality.mis.dto.room.RoomTypeAdminDtos;
 import com.hospitality.mis.entity.room.RoomType;
 import com.hospitality.mis.entity.room.RoomTypeCatalogStatus;
+import com.hospitality.mis.entity.room.RoomTypePriceHistory;
 import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.governance.ApprovalService;
 import com.hospitality.mis.service.governance.AuditService;
@@ -17,21 +19,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** Quản trị loại phòng theo draft, exact approval payload và lifecycle ACTIVE. */
 @Service
 public class RoomTypeCatalogService {
     private static final String APPROVAL_ACTION = "ROOM_TYPE_ACTIVATE";
     private final RoomTypeRepository types;
+    private final RoomTypePriceHistoryRepository priceHistory;
     private final ApprovalService approvals;
     private final AuditService audit;
     private final DurableIdempotencyService durableIdempotency;
     private Clock clock;
 
     @Autowired
-    public RoomTypeCatalogService(RoomTypeRepository types, ApprovalService approvals, AuditService audit,
+    public RoomTypeCatalogService(RoomTypeRepository types, RoomTypePriceHistoryRepository priceHistory,
+                                  ApprovalService approvals, AuditService audit,
                                   DurableIdempotencyService durableIdempotency, Clock clock) {
         this.types = types;
+        this.priceHistory = priceHistory;
         this.approvals = approvals;
         this.audit = audit;
         this.durableIdempotency = durableIdempotency;
@@ -97,6 +103,8 @@ public class RoomTypeCatalogService {
                     type.setCatalogStatus(RoomTypeCatalogStatus.ACTIVE);
                     type.setCatalogApprovedBy(approval.getApprover());
                     type.setCatalogApprovedAt(LocalDateTime.now(clock));
+                    priceHistory.save(new RoomTypePriceHistory(type, type.getDailyPrice(), approval.getApprover(),
+                            approval.getId(), LocalDateTime.now(clock)));
                     audit.record(principal, "ROOM_TYPE_ACTIVATED", "ROOM_TYPE", type.getId(),
                             RoomTypeCatalogStatus.DRAFT.name(), RoomTypeCatalogStatus.ACTIVE.name(), null);
                     return RoomTypeAdminDtos.Response.from(type);
@@ -117,6 +125,15 @@ public class RoomTypeCatalogService {
     public RoomTypeAdminDtos.Response get(String id) {
         return RoomTypeAdminDtos.Response.from(types.findById(id.trim())
                 .orElseThrow(() -> error("ROOM_TYPE_NOT_FOUND", "Không tìm thấy loại phòng")));
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoomTypeAdminDtos.PriceHistoryResponse> priceHistory(String id) {
+        if (!types.existsById(id.trim())) throw error("ROOM_TYPE_NOT_FOUND", "Không tìm thấy loại phòng");
+        return priceHistory.findByRoomTypeIdOrderByEffectiveAtDescIdDesc(id.trim()).stream()
+                .map(item -> new RoomTypeAdminDtos.PriceHistoryResponse(item.getId(), item.getRoomType().getId(),
+                        item.getDailyPrice(), item.getChangedBy(), item.getApprovalId(), item.getEffectiveAt()))
+                .toList();
     }
 
     private RoomType locked(String id) {

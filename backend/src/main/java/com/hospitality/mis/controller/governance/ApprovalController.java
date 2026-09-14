@@ -3,6 +3,7 @@ package com.hospitality.mis.controller.governance;
 import com.hospitality.mis.dto.governance.ApprovalDtos;
 import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.governance.ApprovalService;
+import com.hospitality.mis.service.room.RoomTypeCatalogService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,9 +28,11 @@ import java.util.stream.Collectors;
 class ApprovalController {
     /** Dịch vụ tạo, truy vấn và chuyển trạng thái yêu cầu phê duyệt. */
     private final ApprovalService service;
+    private final RoomTypeCatalogService roomTypes;
 
-    ApprovalController(ApprovalService service) {
+    ApprovalController(ApprovalService service, RoomTypeCatalogService roomTypes) {
         this.service = service;
+        this.roomTypes = roomTypes;
     }
 
 
@@ -74,8 +77,12 @@ class ApprovalController {
     public ApprovalDtos.Response reject(@PathVariable Long id,
             @RequestHeader(value = "Idempotency-Key", required = false) String key) {
         String actor = SecurityActor.currentActor();
-        return ApprovalDtos.Response.from(key == null || key.isBlank()
+        ApprovalDtos.Response response = ApprovalDtos.Response.from(key == null || key.isBlank()
                 ? service.reject(id, actor) : service.reject(id, actor, key));
+        if (response != null && "ROOM_TYPE_ACTIVATE".equals(response.action())) {
+            roomTypes.markRejected(response.targetId(), actor);
+        }
+        return response;
     }
 
 

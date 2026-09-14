@@ -173,15 +173,16 @@ phát hiện và sửa kiểu `request_hash` trong V6 từ `CHAR(64)` thành `VA
 - Chỉ bản `ACTIVE` mới xuất hiện trên public portal hoặc dùng để tạo booking.
 - Thay đổi giá lưu snapshot/lịch sử và chỉ có hiệu lực sau approval.
 
-#### Trạng thái slice đầu tiên — 14/09/2026
+#### Trạng thái triển khai — 14/09/2026
 
 Đã triển khai vòng đời catalog cho `room_types`: migration V7, trạng thái
 `DRAFT`/`ACTIVE`/`REJECTED`, API tạo/sửa/xem/submit/activate, durable
 idempotency và audit. Technical tạo và submit; Manager/Director/Admin duyệt;
 requester không thể tự duyệt. Public portal và customer booking chỉ nhận loại
-phòng `ACTIVE`. Các phần còn lại của P1.1 (room CRUD quản trị, price history,
-reject endpoint nối trực tiếp vào catalog và revision workflow) sẽ làm ở slice
-tiếp theo.
+phòng `ACTIVE`. V8 bổ sung bảng price history append-only và API đọc lịch sử;
+khi activate sẽ lưu snapshot giá gắn với approval/approver. Reject approval
+`ROOM_TYPE_ACTIVATE` cập nhật catalog về `REJECTED`. Phạm vi còn lại của P1.1
+là room CRUD quản trị và revision workflow cho loại phòng đã `ACTIVE`.
 
 ### P1.2 — Front Desk daily operations
 

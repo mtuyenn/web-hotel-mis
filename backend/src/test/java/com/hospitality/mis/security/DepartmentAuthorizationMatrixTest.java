@@ -117,6 +117,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("POST", "/api/room-types", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"STD\",\"name\":\"Standard\",\"daily_price\":100000}"),
             new Endpoint("PUT", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"STD\",\"name\":\"Standard\",\"daily_price\":100000}"),
             new Endpoint("GET", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
+            new Endpoint("GET", "/api/room-types/STD/price-history", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("POST", "/api/room-types/STD/submit", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/room-types/STD/activate", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),

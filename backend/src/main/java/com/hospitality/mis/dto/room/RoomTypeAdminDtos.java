@@ -33,4 +33,8 @@ public final class RoomTypeAdminDtos {
                     type.getCatalogUpdatedAt(), type.getCatalogApprovedAt());
         }
     }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PriceHistoryResponse(Long id, String roomTypeId, BigDecimal dailyPrice,
+                                       String changedBy, Long approvalId, LocalDateTime effectiveAt) {}
 }

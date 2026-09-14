@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 /** API quản trị loại phòng theo draft và approval exact payload. */
 @RestController
@@ -36,6 +37,12 @@ public class RoomTypeCatalogController {
     @GetMapping("/{id}")
     @PreAuthorize("@departmentAccess.allows(authentication, 'ROOM_READ')")
     public RoomTypeAdminDtos.Response get(@PathVariable String id) { return service.get(id); }
+
+    @GetMapping("/{id}/price-history")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'ROOM_READ')")
+    public List<RoomTypeAdminDtos.PriceHistoryResponse> priceHistory(@PathVariable String id) {
+        return service.priceHistory(id);
+    }
 
     @PostMapping("/{id}/submit")
     @PreAuthorize("@departmentAccess.allows(authentication, 'ROOM_CATALOG_WRITE')")
