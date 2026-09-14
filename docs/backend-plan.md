@@ -245,6 +245,14 @@ chưa hoàn tất hoặc còn incident blocking.
 Technical chỉ báo hoàn thành; Manager nghiệm thu; sau khi có nghiệm thu hợp lệ,
 Technical mới được thực hiện command mở khóa phòng.
 
+#### Trạng thái P1.4 — 14/09/2026
+
+Đã có migration V10 và technical work-order API với lifecycle
+`NEW` → `ACKNOWLEDGED` → `IN_PROGRESS` → `WAITING_ACCEPTANCE` → `COMPLETED`
+→ `ROOM_RELEASED`. Work order lưu assignee, priority, SLA, vật tư, kết quả,
+nghiệm thu và audit; release kiểm tra phòng không OCCUPIED trước khi đưa về
+`READY`.
+
 ### P1.5 — Kitchen/Minibar và kho
 
 Tách rõ danh mục bán, giá bán và sổ kho:
