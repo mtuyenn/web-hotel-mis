@@ -25,6 +25,11 @@ public class InventoryMovementController {
     @GetMapping 
     @PreAuthorize("@departmentAccess.allows(authentication, 'INVENTORY_READ')")
     public List<InventoryMovementDtos.Response> list(@PathVariable String serviceId) { return service.list(serviceId); }
+    @GetMapping("/inventory-report")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'INVENTORY_READ')")
+    public InventoryMovementDtos.ReportResponse report(@PathVariable String serviceId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) { return service.report(serviceId, from, to); }
     /**
      * Ghi nhận biến động tồn kho qua POST /api/services/{serviceId}/inventory-movements.
      * serviceId là path parameter, body được {@code @Valid} kiểm tra và phải có service_id trùng path; sai khác bị từ chối

@@ -40,4 +40,7 @@ public final class InventoryMovementDtos {
                            LocalDateTime occurredAt,
                            /** Lý do. */
                            String reason) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ReportResponse(String serviceId, LocalDateTime from, LocalDateTime to, int received,
+                                 int issued, int wasted, int returned, int adjusted, int netChange) {}
 }

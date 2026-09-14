@@ -280,7 +280,8 @@ Mọi thay đổi giá do Kitchen tạo phải qua Manager approval trước khi
 Inventory movement đã hỗ trợ `RECEIVE/ISSUE/ADJUSTMENT/WASTE/RETURN`, khóa
 dòng dịch vụ và từ chối tồn âm. Có endpoint low-stock và migration V11 cho
 price history append-only; thay đổi giá dịch vụ đi qua approval exact payload
-trước khi activate.
+trước khi activate. Báo cáo tiêu thụ theo ngày/tháng có tổng hợp biến động
+nhập/xuất/hủy/hoàn/điều chỉnh.
 
 ### P1.6 — Accounting và finance
 

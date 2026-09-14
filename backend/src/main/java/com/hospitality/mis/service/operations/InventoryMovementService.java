@@ -64,6 +64,24 @@ public class InventoryMovementService {
     @Transactional(readOnly = true)
     /** Liệt kê chuyển động tồn kho của dịch vụ mới nhất trước. */
     public java.util.List<InventoryMovementDtos.Response> list(String serviceId) { return movements.findByServiceIdOrderByOccurredAtDesc(serviceId).stream().map(this::toResponse).toList(); }
+    @Transactional(readOnly = true)
+    public InventoryMovementDtos.ReportResponse report(String serviceId, java.time.LocalDate from, java.time.LocalDate to) {
+        if (!services.existsById(serviceId)) throw new DomainException("SERVICE_NOT_FOUND", "Không tìm thấy dịch vụ");
+        java.time.LocalDate start = from == null ? java.time.LocalDate.now(clock).minusDays(30) : from;
+        java.time.LocalDate end = to == null ? java.time.LocalDate.now(clock) : to;
+        int received = 0, issued = 0, wasted = 0, returned = 0, adjusted = 0;
+        for (var movement : movements.findByServiceIdOrderByOccurredAtDesc(serviceId)) {
+            if (movement.getOccurredAt() == null || movement.getOccurredAt().toLocalDate().isBefore(start) || movement.getOccurredAt().toLocalDate().isAfter(end)) continue;
+            switch (movement.getType()) {
+                case RECEIPT -> received += movement.getQuantity();
+                case ISSUE -> issued += movement.getQuantity();
+                case WASTE -> wasted += movement.getQuantity();
+                case RETURN -> returned += movement.getQuantity();
+                case ADJUSTMENT -> adjusted += movement.getQuantity();
+            }
+        }
+        return new InventoryMovementDtos.ReportResponse(serviceId, start.atStartOfDay(), end.plusDays(1).atStartOfDay(), received, issued, wasted, returned, adjusted, received + returned + adjusted - issued - wasted);
+    }
     /** Chuyển chuyển động tồn kho thành DTO audit-friendly. */
     private InventoryMovementDtos.Response toResponse(InventoryMovement m) { return new InventoryMovementDtos.Response(m.getId(), m.getService().getId(), m.getType(), m.getQuantity(), m.getActorId(), m.getOccurredAt(), m.getReason()); }
 }

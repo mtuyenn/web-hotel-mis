@@ -105,6 +105,7 @@ client phải xử lý cả 401 và 403.
 | GET/POST | `/invoices/{invoice_id}/payments?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/invoices/{invoice_id}/receipts?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/services/{service_id}/inventory-movements` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN |
+| GET | `/services/{service_id}/inventory-movements/inventory-report?from=&to=` | `INVENTORY_READ`; tổng hợp RECEIVE/ISSUE/WASTE/RETURN/ADJUSTMENT theo ngày |
 | POST | `/services/{service_id}/price/submit` | KITCHEN tạo approval exact payload; Manager/Admin/Director phê duyệt |
 | POST | `/services/{service_id}/price/activate` | Manager/Admin/Director consume approval và ghi price history append-only |
 | GET | `/services/{service_id}/price-history` | Có `SERVICE_READ`; lịch sử giá và actor/approval |
