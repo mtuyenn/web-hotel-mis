@@ -53,6 +53,9 @@ client phải xử lý cả 401 và 403.
 | GET | `/front-desk/dashboard?date=&q=&status=&page=&size=` | Có `FRONT_DESK_DASHBOARD`; arrivals/departures/current stays, cọc chưa thu, công nợ hóa đơn, phòng và incident; phân trang danh sách booking |
 | GET | `/operations/housekeeping/tasks?room_id=&assignee=&status=` | `HOUSEKEEPING_TASK_READ`; danh sách task dọn phòng |
 | POST/PATCH | `/operations/housekeeping/tasks`, `/operations/housekeeping/tasks/{id}` | `HOUSEKEEPING_TASK_WRITE`; workflow NEEDS_CLEANING → IN_PROGRESS → CLEANED → READY hoặc WAITING_TECHNICAL; READY bắt buộc checklist hoàn tất và không có incident blocking |
+| GET/POST | `/operations/housekeeping/checklist-templates` | `HOUSEKEEPING_TASK_READ/WRITE`; template checklist đang hoạt động |
+| GET/POST | `/operations/housekeeping/tasks/{id}/checklist-results` | `HOUSEKEEPING_TASK_READ/WRITE`; kết quả checklist theo task, có audit |
+| GET/POST | `/hr/shifts?date=&employee_id=` | `SHIFT_READ/SHIFT_WRITE`; phân ca theo ngày/nhân viên, kiểm tra khoảng thời gian |
 | GET/POST/PATCH | `/operations/technical/work-orders`, `/operations/technical/work-orders/{id}` | `TECHNICAL_WORK_ORDER_READ/WRITE`; quản lý work order theo assignee, priority, SLA, vật tư và kết quả |
 | POST | `/operations/technical/work-orders/{id}/release` | `TECHNICAL_WORK_ORDER_RELEASE`; chỉ release sau COMPLETED, kiểm tra phòng không OCCUPIED và chuyển ROOM_RELEASED/READY |
 | POST | `/rooms/{room_id}/images` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; multipart `file`, tối đa 10 ảnh/phòng, 5 MB/ảnh, JPEG/PNG/WebP |

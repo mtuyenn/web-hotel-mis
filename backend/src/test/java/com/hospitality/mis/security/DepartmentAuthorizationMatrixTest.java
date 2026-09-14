@@ -18,6 +18,8 @@ import com.hospitality.mis.service.operations.TechnicalWorkOrderService;
 import com.hospitality.mis.service.identity.EmployeeService;
 import com.hospitality.mis.service.governance.NotificationOutboxService;
 import com.hospitality.mis.service.room.RoomAdminService;
+import com.hospitality.mis.service.operations.HousekeepingChecklistService;
+import com.hospitality.mis.service.identity.EmployeeShiftService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
@@ -92,9 +94,11 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean EmployeeService mock24;
     @MockBean NotificationOutboxService mock25;
     @MockBean RoomAdminService mock26;
+    @MockBean HousekeepingChecklistService mock27;
+    @MockBean EmployeeShiftService mock28;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26, mock27, mock28); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -113,6 +117,9 @@ class DepartmentAuthorizationMatrixTest {
         when(mock24.list(anyBoolean())).thenReturn(List.of());
         when(mock25.poll(any())).thenReturn(List.of());
         when(mock26.list()).thenReturn(List.of());
+        when(mock27.templates()).thenReturn(List.of());
+        when(mock27.results(anyLong())).thenReturn(List.of());
+        when(mock28.list(any(), any())).thenReturn(List.of());
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -151,10 +158,16 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/operations/housekeeping/tasks", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{}"),
             new Endpoint("POST", "/api/operations/housekeeping/tasks", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"room_id\":\"101\"}"),
             new Endpoint("PATCH", "/api/operations/housekeeping/tasks/1", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"status\":\"CLEANED\"}"),
+            new Endpoint("GET", "/api/operations/housekeeping/checklist-templates", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{}"),
+            new Endpoint("POST", "/api/operations/housekeeping/checklist-templates", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"name\":\"Bathroom\"}"),
+            new Endpoint("GET", "/api/operations/housekeeping/tasks/1/checklist-results", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{}"),
+            new Endpoint("POST", "/api/operations/housekeeping/tasks/1/checklist-results", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"item\":\"Towels\",\"passed\":true}"),
             new Endpoint("GET", "/api/operations/technical/work-orders", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/operations/technical/work-orders", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"room_id\":\"101\",\"priority\":\"HIGH\"}"),
             new Endpoint("PATCH", "/api/operations/technical/work-orders/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"status\":\"ACKNOWLEDGED\"}"),
             new Endpoint("POST", "/api/operations/technical/work-orders/1/release", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
+            new Endpoint("GET", "/api/hr/shifts", "ADMIN,DIRECTOR,MANAGER,HR,FRONT_DESK", "{}"),
+            new Endpoint("POST", "/api/hr/shifts", "ADMIN,DIRECTOR,MANAGER,HR", "{\"employee_id\":\"emp\",\"shift_date\":\"2026-10-01\",\"shift_code\":\"AM\",\"starts_at\":\"2026-10-01T08:00:00\",\"ends_at\":\"2026-10-01T16:00:00\"}"),
             new Endpoint("POST", "/api/room-types/STD/submit", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/room-types/STD/activate", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),

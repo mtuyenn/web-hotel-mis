@@ -16,7 +16,7 @@ public enum EmployeeRole {
     FRONT_DESK(ROOM_READ, ROOM_WRITE, EQUIPMENT_READ, GUEST_READ, GUEST_WRITE,
             RESERVATION_READ, RESERVATION_CREATE, RESERVATION_WRITE, RESERVATION_CHECKOUT,
             RESERVATION_SERVICE_WRITE, INCIDENT_WRITE, FRONT_DESK_DASHBOARD, BILLING_READ, PAYMENT_WRITE,
-            SERVICE_READ, INVENTORY_READ, INVENTORY_WRITE, MAINTENANCE_READ, APPROVAL_REQUEST, NOTIFICATION_READ),
+            SERVICE_READ, INVENTORY_READ, INVENTORY_WRITE, MAINTENANCE_READ, APPROVAL_REQUEST, NOTIFICATION_READ, SHIFT_READ),
     /** Kế toán, phụ trách thanh toán, dịch vụ, tồn kho và tài chính. */
     ACCOUNTING(EMPLOYEE_READ, RESERVATION_READ,
             BILLING_READ, BILLING_WRITE, PAYMENT_WRITE, SERVICE_READ, SERVICE_WRITE,
@@ -33,7 +33,7 @@ public enum EmployeeRole {
     /** Nhân viên thông thường chỉ xem phòng và đặt phòng. */
     STAFF(ROOM_READ, RESERVATION_READ),
     /** Nhân sự chỉ đọc dữ liệu nhân viên. */
-    HR(EMPLOYEE_READ);
+    HR(EMPLOYEE_READ, SHIFT_READ, SHIFT_WRITE);
 
     /** Tập quyền bất biến được suy ra khi enum khởi tạo. */
     private final Set<Permission> permissions;

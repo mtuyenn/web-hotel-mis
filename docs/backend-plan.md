@@ -236,7 +236,9 @@ Manager là người phân công task; Housekeeping chỉ nhận task và cập 
 `NEEDS_CLEANING`, `IN_PROGRESS`, `CLEANED`, `READY`, `WAITING_TECHNICAL`.
 Task lưu assignee, người giao, checklist, incident blocking và ghi audit; phòng
 đồng bộ `CLEANING`/`MAINTENANCE`/`READY`. Chuyển READY bị chặn nếu checklist
-chưa hoàn tất hoặc còn incident blocking.
+chưa hoàn tất hoặc còn incident blocking. V13 bổ sung shift assignment dùng chung
+(lọc theo ngày/nhân viên, chống ca kết thúc trước khi bắt đầu) và checklist
+template/result có audit, phân quyền theo department cho Housekeeping.
 
 ### P1.4 — Technical và equipment
 
@@ -310,6 +312,8 @@ Admin:
 HR/Admin đã có API list/detail nhân viên (lọc inactive), trả trạng thái khóa,
 login history và không lộ password; status enable/disable tuân thủ role ceiling
 và ghi audit. Provision/reset password vẫn dùng các policy hiện có.
+V13 bổ sung API phân ca ngày/tuần (`/api/hr/shifts`) với quyền HR/Admin/Manager
+và kiểm tra khoảng thời gian ca.
 
 ### P1.8 — Approval, audit và thông báo
 

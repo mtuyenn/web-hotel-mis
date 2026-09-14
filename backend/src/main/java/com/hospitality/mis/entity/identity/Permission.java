@@ -3,7 +3,7 @@ package com.hospitality.mis.entity.identity;
 /** Các quyền năng được suy ra từ chức vụ nhân viên, không bao giờ từ các quyền do máy khách cung cấp. */
 public enum Permission {
     /** Đọc và quản trị nhân viên. */
-    EMPLOYEE_READ, EMPLOYEE_PROVISION, EMPLOYEE_PASSWORD_RESET,
+    EMPLOYEE_READ, EMPLOYEE_PROVISION, EMPLOYEE_PASSWORD_RESET, SHIFT_READ, SHIFT_WRITE,
     /** Đọc/cập nhật phòng và thiết bị. */
     ROOM_READ, ROOM_WRITE, ROOM_CATALOG_WRITE, ROOM_ADMIN_READ, ROOM_ADMIN_WRITE, EQUIPMENT_READ, EQUIPMENT_WRITE,
     /** Đọc/cập nhật hồ sơ khách. */
