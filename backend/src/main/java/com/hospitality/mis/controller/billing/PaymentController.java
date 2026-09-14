@@ -25,7 +25,7 @@ public class PaymentController {
      */
     @GetMapping 
     @PreAuthorize("@departmentAccess.allows(authentication, 'BILLING_READ')")
-    public List<PaymentTransactionDtos.Response> list(@PathVariable Long invoiceId) { return service.listByInvoice(invoiceId); }
+    public Object list(@PathVariable Long invoiceId, @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) { return page == null && size == null ? service.listByInvoice(invoiceId) : service.pageByInvoice(invoiceId, page == null ? 0 : page, size == null ? 20 : size); }
     /**
      * Ghi nhận thanh toán qua POST /api/invoices/{invoiceId}/payments.
      * invoiceId là path parameter, body tạo giao dịch được {@code @Valid} kiểm tra; actor hiện tại được truyền cho dịch vụ,

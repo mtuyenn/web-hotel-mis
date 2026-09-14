@@ -9,6 +9,8 @@ import com.hospitality.mis.common.validation.PhoneNumberNormalizer;
 
 import com.hospitality.mis.dao.identity.EmployeeRepository;
 import com.hospitality.mis.dao.auth.CustomerAccountRepository;
+import com.hospitality.mis.dao.auth.RefreshTokenRepository;
+import com.hospitality.mis.entity.auth.RefreshToken;
 
 import com.hospitality.mis.entity.identity.Employee;
 
@@ -48,13 +50,20 @@ public class EmployeeService {
     private final PasswordEncoder passwordEncoder;
     /** Ghi audit đăng nhập nếu được cấu hình. */
     private final AuditService audit;
+    private final RefreshTokenRepository refreshTokens;
 
     public EmployeeService(EmployeeRepository employees, CustomerAccountRepository customerAccounts,
                            PasswordEncoder passwordEncoder, AuditService audit) {
+        this(employees, customerAccounts, passwordEncoder, audit, null);
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    public EmployeeService(EmployeeRepository employees, CustomerAccountRepository customerAccounts,
+                           PasswordEncoder passwordEncoder, AuditService audit, RefreshTokenRepository refreshTokens) {
         this.employees = employees;
         this.customerAccounts = customerAccounts;
         this.passwordEncoder = passwordEncoder;
         this.audit = audit;
+        this.refreshTokens = refreshTokens;
     }
 
 
@@ -127,6 +136,30 @@ public class EmployeeService {
         audit.record(SecurityActor.currentActor(), enabled ? "EMPLOYEE_ENABLED" : "EMPLOYEE_DISABLED",
                 "EMPLOYEE", employeeId, String.valueOf(!enabled), String.valueOf(enabled), null);
         return toAdminResponse(employees.save(employee));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeAdminDtos.SessionResponse> sessions(String employeeId) {
+        findRequired(employeeId);
+        if (refreshTokens == null) return List.of();
+        return refreshTokens.findByEmployeeIdOrderByIssuedAtDesc(employeeId).stream().map(this::toSession).toList();
+    }
+
+    @Transactional
+    public void revokeSession(String employeeId, Long sessionId) {
+        Employee target = findRequired(employeeId);
+        requireCurrentActorCanManage(target.getRole());
+        if (refreshTokens == null) return;
+        RefreshToken token = refreshTokens.findById(sessionId)
+                .orElseThrow(() -> new DomainException("SESSION_NOT_FOUND", "Không tìm thấy phiên đăng nhập"));
+        if (!employeeId.equals(token.getEmployeeId())) throw new DomainException("SESSION_NOT_FOUND", "Không tìm thấy phiên đăng nhập");
+        if (token.getRevokedAt() == null) token.revoke(Instant.now(), null);
+        refreshTokens.save(token);
+        audit.record(SecurityActor.currentActor(), "EMPLOYEE_SESSION_REVOKED", "EMPLOYEE_SESSION", String.valueOf(sessionId), null, employeeId, null);
+    }
+
+    private EmployeeAdminDtos.SessionResponse toSession(RefreshToken token) {
+        return new EmployeeAdminDtos.SessionResponse(token.getId(), token.getEmployeeId(), token.getIssuedAt(), token.getExpiresAt(), token.getRevokedAt(), token.getFamilyId());
     }
 
     private EmployeeAdminDtos.Response toAdminResponse(Employee e) {

@@ -181,8 +181,8 @@ idempotency và audit. Technical tạo và submit; Manager/Director/Admin duyệ
 requester không thể tự duyệt. Public portal và customer booking chỉ nhận loại
 phòng `ACTIVE`. V8 bổ sung bảng price history append-only và API đọc lịch sử;
 khi activate sẽ lưu snapshot giá gắn với approval/approver. Reject approval
-`ROOM_TYPE_ACTIVATE` cập nhật catalog về `REJECTED`. Phạm vi còn lại của P1.1
-Room CRUD quản trị và revision workflow cho loại phòng đã `ACTIVE` cũng đã có:
+`ROOM_TYPE_ACTIVATE` cập nhật catalog về `REJECTED`. Room CRUD quản trị và
+revision workflow cho loại phòng đã `ACTIVE` cũng đã có:
 revision tạo mã draft mới từ snapshot ACTIVE, không làm thay đổi bản đang bán.
 
 ### P1.2 — Front Desk daily operations
@@ -296,7 +296,9 @@ trước khi activate.
 Finance đã có tất toán công nợ đối tác dưới row lock và báo cáo đối soát theo
 khoảng ngày, tách CASH/CARD/BANK_TRANSFER cùng tổng payment/refund/net; audit
 ghi nhận thao tác tất toán. Danh sách cash handover, expense và partner debt có
-pagination `page/size` với giới hạn tối đa 100.
+pagination `page/size` với giới hạn tối đa 100. Invoice, payment và receipt cũng
+đã có endpoint phân trang theo invoice, giữ response list tương thích khi không
+truyền tham số phân trang.
 
 ### P1.7 — HR và Admin
 
@@ -318,7 +320,8 @@ HR/Admin đã có API list/detail nhân viên (lọc inactive), trả trạng th
 login history và không lộ password; status enable/disable tuân thủ role ceiling
 và ghi audit. Provision/reset password vẫn dùng các policy hiện có.
 V13 bổ sung API phân ca ngày/tuần (`/api/hr/shifts`) với quyền HR/Admin/Manager
-và kiểm tra khoảng thời gian ca.
+và kiểm tra khoảng thời gian ca. Admin có thể xem/thu hồi từng refresh session
+theo role ceiling; thao tác thu hồi được ghi security audit.
 
 ### P1.8 — Approval, audit và thông báo
 

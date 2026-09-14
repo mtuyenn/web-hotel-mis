@@ -55,4 +55,6 @@ public final class InvoiceDtos {
                            PaymentMethod paymentMethod,
                            /** Trạng thái vòng đời hóa đơn. */
                            PaymentStatus status) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PageResponse(java.util.List<Response> items, int page, int size, long totalElements, int totalPages) {}
 }

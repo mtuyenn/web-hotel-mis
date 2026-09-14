@@ -28,6 +28,7 @@ import java.util.Optional;
 
 /** Kho token làm mới, bao gồm đọc token và các thao tác thu hồi theo phạm vi. */
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
+    List<RefreshToken> findByEmployeeIdOrderByIssuedAtDesc(String employeeId);
     /** Lấy các token còn hiệu lực trong cùng một gia đình tại thời điểm kiểm tra. */
     List<RefreshToken> findByFamilyIdAndRevokedAtIsNullAndExpiresAtAfter(String familyId, Instant now);
 

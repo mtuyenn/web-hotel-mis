@@ -31,6 +31,10 @@ public class InvoiceController {
 
     public InvoiceController(BillingService service) { this.service = service; }
 
+    @GetMapping
+    @PreAuthorize("@departmentAccess.allows(authentication, 'BILLING_READ')")
+    public InvoiceDtos.PageResponse list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) { return service.list(page, size); }
+
 
 
     /**

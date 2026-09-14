@@ -41,4 +41,6 @@ public final class ReceiptDtos {
                            LocalDateTime issuedAt,
                            /** Tác nhân phát hành. */
                            String issuedBy) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PageResponse(java.util.List<Response> items, int page, int size, long totalElements, int totalPages) {}
 }

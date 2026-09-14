@@ -42,6 +42,8 @@ client phải xử lý cả 401 và 403.
 | POST | `/auth/employees` | MANAGER |
 | POST | `/auth/employees/{employee_id}/password` | MANAGER |
 | GET | `/auth/employees?include_inactive=` / `/auth/employees/{employee_id}` | `EMPLOYEE_READ`; không trả password, có trạng thái account/login history |
+| GET | `/auth/employees/{employee_id}/sessions` | `EMPLOYEE_READ`; danh sách refresh session, family và thời hạn, không trả token gốc |
+| DELETE | `/auth/employees/{employee_id}/sessions/{session_id}` | `EMPLOYEE_PROVISION` + role ceiling; thu hồi một session và ghi security audit |
 | PATCH | `/auth/employees/{employee_id}/status` | `EMPLOYEE_PROVISION` + role ceiling; bật/tắt tài khoản và audit |
 | GET | `/guests`, `/guests/{id}` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK |
 | POST | `/guests` | MANAGER, FRONT_DESK |
@@ -99,8 +101,9 @@ client phải xử lý cả 401 và 403.
 | GET | `/governance/approvals?status=PENDING` | Có `APPROVAL_APPROVE` |
 | GET | `/governance/approvals?status=&action=&target_id=&page=&size=` | Approval queue filter/pagination; không có query vẫn trả list tương thích |
 | POST | `/governance/approvals/{id}/reject` | Có `APPROVAL_APPROVE`, khác requester; action refund bắt buộc role DIRECTOR |
-| GET/POST | `/invoices/{invoice_id}/payments` | MANAGER, ACCOUNTING, FRONT_DESK |
-| GET/POST | `/invoices/{invoice_id}/receipts` | MANAGER, ACCOUNTING, FRONT_DESK |
+| GET | `/invoices?page=&size=` | `BILLING_READ`; danh sách invoice phân trang tối đa 100 bản ghi/trang |
+| GET/POST | `/invoices/{invoice_id}/payments?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
+| GET/POST | `/invoices/{invoice_id}/receipts?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/services/{service_id}/inventory-movements` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN |
 | POST | `/services/{service_id}/price/submit` | KITCHEN tạo approval exact payload; Manager/Admin/Director phê duyệt |
 | POST | `/services/{service_id}/price/activate` | Manager/Admin/Director consume approval và ghi price history append-only |

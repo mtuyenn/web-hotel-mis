@@ -24,7 +24,7 @@ public class ReceiptController {
      */
     @GetMapping 
     @PreAuthorize("@departmentAccess.allows(authentication, 'BILLING_READ')")
-    public List<ReceiptDtos.Response> list(@PathVariable Long invoiceId) { return service.listByInvoice(invoiceId); }
+    public Object list(@PathVariable Long invoiceId, @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) { return page == null && size == null ? service.listByInvoice(invoiceId) : service.pageByInvoice(invoiceId, page == null ? 0 : page, size == null ? 20 : size); }
     /**
      * Phát hành biên lai qua POST /api/invoices/{invoiceId}/receipts.
      * invoiceId là path parameter, body tạo biên lai được {@code @Valid} kiểm tra, actor được lấy từ security context,

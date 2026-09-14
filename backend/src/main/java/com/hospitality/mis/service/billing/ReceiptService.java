@@ -101,6 +101,12 @@ public class ReceiptService {
         requireScope(invoice, SecurityActor.currentActor());
         return receipts.findByInvoiceIdOrderByIssuedAtAsc(invoiceId).stream().map(this::toResponse).toList();
     }
+    @Transactional(readOnly = true)
+    public ReceiptDtos.PageResponse pageByInvoice(Long invoiceId, int page, int size) {
+        var all = listByInvoice(invoiceId); int safePage = Math.max(0, page); int safeSize = Math.max(1, Math.min(100, size));
+        int from = Math.min(safePage * safeSize, all.size()); int to = Math.min(from + safeSize, all.size());
+        return new ReceiptDtos.PageResponse(all.subList(from, to), safePage, safeSize, all.size(), (all.size() + safeSize - 1) / safeSize);
+    }
 
     /** Kiểm tra actor có phạm vi trên booking của hóa đơn hoặc role toàn cục. */
     private void requireScope(com.hospitality.mis.entity.billing.Invoice invoice, String actor) {

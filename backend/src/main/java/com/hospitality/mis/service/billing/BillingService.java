@@ -378,6 +378,12 @@ public class BillingService {
             throw new AccessDeniedException("Không được phép thao tác ngoài phạm vi đặt phòng");
     }
 
+    @Transactional(readOnly = true)
+    public InvoiceDtos.PageResponse list(int page, int size) {
+        var result = invoices.findAll(org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)), org.springframework.data.domain.Sort.by("issuedAt").descending()));
+        return new InvoiceDtos.PageResponse(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
     /** Tạo mã tham chiếu mô tả refund bắt nguồn từ payment nào. */
     private String sourceReference(PaymentTransaction source) { return "REFUND_OF:" + source.getId(); }
     /** Tạo DomainException thống nhất cho các lỗi billing. */

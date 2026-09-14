@@ -57,4 +57,6 @@ public final class PaymentTransactionDtos {
                            LocalDateTime occurredAt,
                            /** Tác nhân thực hiện thao tác. */
                            String actorId) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PageResponse(java.util.List<Response> items, int page, int size, long totalElements, int totalPages) {}
 }

@@ -113,6 +113,12 @@ public class PaymentTransactionService {
         requireScope(invoice, SecurityActor.currentActor());
         return transactions.findByInvoiceIdOrderByOccurredAtAsc(invoiceId).stream().map(this::toResponse).toList();
     }
+    @Transactional(readOnly = true)
+    public PaymentTransactionDtos.PageResponse pageByInvoice(Long invoiceId, int page, int size) {
+        var all = listByInvoice(invoiceId); int safePage = Math.max(0, page); int safeSize = Math.max(1, Math.min(100, size));
+        int from = Math.min(safePage * safeSize, all.size()); int to = Math.min(from + safeSize, all.size());
+        return new PaymentTransactionDtos.PageResponse(all.subList(from, to), safePage, safeSize, all.size(), (all.size() + safeSize - 1) / safeSize);
+    }
 
     /** Chọn khoản thanh toán gốc còn đủ số dư để làm nguồn refund. */
     private PaymentTransaction sourceForRefund(Invoice invoice, BigDecimal amount) {

@@ -81,6 +81,7 @@ public class RefreshToken {
     }
 
     public String getEmployeeId() { return employeeId; }
+    public Long getId() { return id; }
     public Long getCustomerAccountId() { return customerAccountId; }
     public String getTokenHash() { return tokenHash; }
     public String getFamilyId() { return familyId; }
