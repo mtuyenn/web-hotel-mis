@@ -300,6 +300,17 @@ public class ReservationService {
         });
     }
 
+    @Transactional
+    public ReservationDtos.Response confirm(Long id, String actor, String key) {
+        String principal = authenticatedActor(actor);
+        Reservation r = locked(id);
+        requireState(r, ReservationStatus.DRAFT);
+        r.transitionTo(ReservationStatus.CONFIRMED);
+        r.getRooms().forEach(line -> { line.setStatus(RoomStatus.RESERVED); line.getRoom().setStatus(RoomStatus.RESERVED); });
+        audit.record(principal, "RESERVATION_CONFIRMED", "RESERVATION", id.toString(), ReservationStatus.DRAFT.name(), ReservationStatus.CONFIRMED.name(), null);
+        return toResponse(r);
+    }
+
     /**
      * Đóng một đặt phòng chưa đến sau khi thời gian lưu trú theo lịch đã kết thúc.
      * Tiền đặt cọc vẫn được giữ lại; ở đây cố ý không có luồng hoàn tiền.

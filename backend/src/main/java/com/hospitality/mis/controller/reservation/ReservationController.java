@@ -187,6 +187,13 @@ public class ReservationController {
 
     }
 
+    @PostMapping("/{id}/confirm")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_WRITE')")
+    public ReservationDtos.Response confirm(@PathVariable Long id,
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        return service.confirm(id, SecurityActor.currentActor(), idempotencyKey);
+    }
+
     /**
      * Đánh dấu khách không đến qua POST /api/reservations/{id}/no-show; id là path parameter và header
      * {@code Idempotency-Key} bắt buộc, không có body. Trả đặt phòng sau cập nhật; chỉ RESERVATION_WRITE được phép,

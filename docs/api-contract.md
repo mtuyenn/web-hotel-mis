@@ -47,6 +47,7 @@ client phải xử lý cả 401 và 403.
 | POST | `/guests` | MANAGER, FRONT_DESK |
 | GET | `/rooms`, `/rooms/availability` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL, STAFF |
 | PATCH | `/rooms/{id}/status` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL |
+| GET/POST/PUT | `/rooms/admin`, `/rooms/admin/{id}` | `ROOM_ADMIN_READ/WRITE`; CRUD phòng chỉ gán loại phòng ACTIVE |
 | GET/POST | `/rooms/{room_id}/equipment` | GET: MANAGER, HOUSEKEEPING, TECHNICAL, FRONT_DESK; POST: MANAGER, TECHNICAL |
 | GET | `/rooms/{room_id}/media` | Có `ROOM_READ`; chỉ metadata ảnh active và tên tiện nghi |
 | GET | `/front-desk/dashboard?date=&q=&status=&page=&size=` | Có `FRONT_DESK_DASHBOARD`; arrivals/departures/current stays, cọc chưa thu, công nợ hóa đơn, phòng và incident; phân trang danh sách booking |
@@ -67,6 +68,7 @@ client phải xử lý cả 401 và 403.
 | GET | `/reservations?status=&guest_id=&page=&size=` | Có `RESERVATION_READ`; front_desk/manager/director/admin xem toàn khách sạn, role khác xem phạm vi actor; mặc định 20, tối đa 100 bản ghi/trang; trả `items`, `page`, `size`, `total_elements`, `total_pages` |
 | GET | `/reservations/{id}` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, TECHNICAL, STAFF |
 | POST | `/reservations/{id}/check-in` | MANAGER, FRONT_DESK |
+| POST | `/reservations/{id}/confirm` | MANAGER, FRONT_DESK; chuyển DRAFT → CONFIRMED và giữ phòng |
 | POST | `/reservations/{id}/check-out` | MANAGER, FRONT_DESK |
 | POST | `/reservations/{id}/cancel` | MANAGER, FRONT_DESK |
 | POST | `/reservations/{id}/no-show` | MANAGER, FRONT_DESK; chỉ sau khi hết giờ trả dự kiến, giữ tiền cọc |

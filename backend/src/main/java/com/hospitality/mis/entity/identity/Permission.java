@@ -5,7 +5,7 @@ public enum Permission {
     /** Đọc và quản trị nhân viên. */
     EMPLOYEE_READ, EMPLOYEE_PROVISION, EMPLOYEE_PASSWORD_RESET,
     /** Đọc/cập nhật phòng và thiết bị. */
-    ROOM_READ, ROOM_WRITE, ROOM_CATALOG_WRITE, EQUIPMENT_READ, EQUIPMENT_WRITE,
+    ROOM_READ, ROOM_WRITE, ROOM_CATALOG_WRITE, ROOM_ADMIN_READ, ROOM_ADMIN_WRITE, EQUIPMENT_READ, EQUIPMENT_WRITE,
     /** Đọc/cập nhật hồ sơ khách. */
     GUEST_READ, GUEST_WRITE,
     /** Đọc, tạo, sửa và hoàn tất đặt phòng. */

@@ -17,6 +17,7 @@ import com.hospitality.mis.service.operations.HousekeepingService;
 import com.hospitality.mis.service.operations.TechnicalWorkOrderService;
 import com.hospitality.mis.service.identity.EmployeeService;
 import com.hospitality.mis.service.governance.NotificationOutboxService;
+import com.hospitality.mis.service.room.RoomAdminService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
@@ -90,9 +91,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean TechnicalWorkOrderService mock23;
     @MockBean EmployeeService mock24;
     @MockBean NotificationOutboxService mock25;
+    @MockBean RoomAdminService mock26;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -110,6 +112,7 @@ class DepartmentAuthorizationMatrixTest {
         when(mock24.canManageRole(any(), any())).thenReturn(true);
         when(mock24.list(anyBoolean())).thenReturn(List.of());
         when(mock25.poll(any())).thenReturn(List.of());
+        when(mock26.list()).thenReturn(List.of());
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -129,6 +132,9 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/guests/1/membership-history", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/guests", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{\"full_name\":\"Guest\",\"identity_number\":\"123456789012\",\"phone\":\"0900000000\"}"),
             new Endpoint("GET", "/api/rooms", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
+            new Endpoint("GET", "/api/rooms/admin", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
+            new Endpoint("POST", "/api/rooms/admin", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"101\",\"name\":\"101\",\"room_type_id\":\"STD\"}"),
+            new Endpoint("PUT", "/api/rooms/admin/101", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"101\",\"name\":\"101\",\"room_type_id\":\"STD\"}"),
             new Endpoint("GET", "/api/rooms/availability?from=2026-10-01T12:00:00&to=2026-10-02T12:00:00", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("PATCH", "/api/rooms/101/status?status=SAN_SANG", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
             new Endpoint("GET", "/api/rooms/101/equipment", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
@@ -156,6 +162,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/reservations/1", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("POST", "/api/reservations", "MANAGER,FRONT_DESK", "{\"guest_id\":1,\"employee_id\":\"actor\",\"deposit\":0,\"rental_type\":\"PACKAGE\",\"rooms\":[{\"room_id\":\"101\",\"expected_check_in\":\"2026-10-01T12:00:00\",\"expected_check_out\":\"2026-10-02T12:00:00\"}]}"),
             new Endpoint("POST", "/api/reservations/1/check-in", "MANAGER,FRONT_DESK", "{}"),
+            new Endpoint("POST", "/api/reservations/1/confirm", "MANAGER,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/reservations/1/check-out", "MANAGER,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/reservations/1/cancel", "MANAGER,FRONT_DESK", "{\"reason\":\"Cancelled\"}"),
             new Endpoint("POST", "/api/reservations/1/no-show", "MANAGER,FRONT_DESK", "{}"),

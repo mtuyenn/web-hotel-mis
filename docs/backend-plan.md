@@ -205,6 +205,9 @@ departures, current stays, cọc chưa thu, invoice còn số dư, trạng thái
 incident và room counts. Quyền riêng `FRONT_DESK_DASHBOARD` chỉ cấp cho
 Front Desk/Manager/Director/Admin.
 
+Reservation nội bộ đã có thao tác confirm `DRAFT → CONFIRMED`; room admin CRUD
+được kiểm soát bằng `ROOM_ADMIN_READ/WRITE` và chỉ nhận loại phòng `ACTIVE`.
+
 ### P1.3 — Housekeeping
 
 Thêm mô hình:
