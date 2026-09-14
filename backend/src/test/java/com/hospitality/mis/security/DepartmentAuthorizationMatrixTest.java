@@ -12,6 +12,7 @@ import com.hospitality.mis.service.governance.AuditService;
 import com.hospitality.mis.service.guest.GuestService;
 import com.hospitality.mis.service.guest.MembershipHistoryService;
 import com.hospitality.mis.service.operations.EquipmentIncidentService;
+import com.hospitality.mis.service.operations.FrontDeskDashboardService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
@@ -80,9 +81,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean CustomerReservationService mock18;
     @MockBean RoomMediaService mock19;
     @MockBean RoomTypeCatalogService mock20;
+    @MockBean FrontDeskDashboardService mock21;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -90,6 +92,10 @@ class DepartmentAuthorizationMatrixTest {
         when(mock15.get(1L)).thenReturn(new ReservationDtos.Response(1L, 1L, "actor",
             ReservationStatus.CONFIRMED, ReservationDtos.RentalType.PACKAGE,
             java.math.BigDecimal.ZERO, null, null, null, List.of()));
+        when(mock21.get(any(), any(), any(), anyInt(), anyInt())).thenReturn(
+            new com.hospitality.mis.dto.operations.FrontDeskDashboardDtos.Response(
+                java.time.LocalDate.now(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), Map.of(), List.of(), 0, 20, 0, 0));
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -118,6 +124,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("PUT", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"STD\",\"name\":\"Standard\",\"daily_price\":100000}"),
             new Endpoint("GET", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("GET", "/api/room-types/STD/price-history", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
+            new Endpoint("GET", "/api/front-desk/dashboard", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/room-types/STD/submit", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/room-types/STD/activate", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),

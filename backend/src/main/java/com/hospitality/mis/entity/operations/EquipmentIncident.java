@@ -48,6 +48,9 @@ public class EquipmentIncident {
 
     public Long getId() { return id; }
 
+    public Reservation getReservation() { return reservation; }
+    public Room getRoom() { return room; }
+
     public BigDecimal getCompensation() { return compensation; }
 
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

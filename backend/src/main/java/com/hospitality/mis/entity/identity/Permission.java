@@ -10,7 +10,7 @@ public enum Permission {
     GUEST_READ, GUEST_WRITE,
     /** Đọc, tạo, sửa và hoàn tất đặt phòng. */
     RESERVATION_READ, RESERVATION_CREATE, RESERVATION_WRITE, RESERVATION_CHECKOUT,
-    RESERVATION_SERVICE_WRITE, INCIDENT_WRITE,
+    RESERVATION_SERVICE_WRITE, INCIDENT_WRITE, FRONT_DESK_DASHBOARD,
     /** Đọc hóa đơn và ghi giao dịch thanh toán. */
     BILLING_READ, BILLING_WRITE, PAYMENT_WRITE,
     /** Đọc/cập nhật dịch vụ và tồn kho. */

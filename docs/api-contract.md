@@ -47,6 +47,7 @@ client phải xử lý cả 401 và 403.
 | PATCH | `/rooms/{id}/status` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL |
 | GET/POST | `/rooms/{room_id}/equipment` | GET: MANAGER, HOUSEKEEPING, TECHNICAL, FRONT_DESK; POST: MANAGER, TECHNICAL |
 | GET | `/rooms/{room_id}/media` | Có `ROOM_READ`; chỉ metadata ảnh active và tên tiện nghi |
+| GET | `/front-desk/dashboard?date=&q=&status=&page=&size=` | Có `FRONT_DESK_DASHBOARD`; arrivals/departures/current stays, cọc chưa thu, công nợ hóa đơn, phòng và incident; phân trang danh sách booking |
 | POST | `/rooms/{room_id}/images` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; multipart `file`, tối đa 10 ảnh/phòng, 5 MB/ảnh, JPEG/PNG/WebP |
 | DELETE | `/rooms/{room_id}/images/{image_id}` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; soft-delete metadata và xóa file local |
 | POST | `/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN |

@@ -197,6 +197,14 @@ Tạo query tối ưu cho dashboard trong ngày:
 
 Hoàn thiện reservation update/confirm, filter/sort/pagination, receipt idempotency và timeline tổng hợp booking–room transfer–service–invoice–audit.
 
+#### Trạng thái P1.2 — 14/09/2026
+
+Đã có `GET /api/front-desk/dashboard` với ngày nghiệp vụ, tìm kiếm guest/phone/
+reservation/room, lọc trạng thái và phân trang; response tổng hợp arrivals,
+departures, current stays, cọc chưa thu, invoice còn số dư, trạng thái phòng,
+incident và room counts. Quyền riêng `FRONT_DESK_DASHBOARD` chỉ cấp cho
+Front Desk/Manager/Director/Admin.
+
 ### P1.3 — Housekeeping
 
 Thêm mô hình:
