@@ -50,6 +50,10 @@ client phải xử lý cả 401 và 403.
 | POST | `/rooms/{room_id}/images` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; multipart `file`, tối đa 10 ảnh/phòng, 5 MB/ảnh, JPEG/PNG/WebP |
 | DELETE | `/rooms/{room_id}/images/{image_id}` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; soft-delete metadata và xóa file local |
 | POST | `/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN |
+| POST | `/room-types` | Có `ROOM_CATALOG_WRITE`; tạo `DRAFT`, bắt buộc `Idempotency-Key` |
+| GET/PUT | `/room-types/{room_type_id}` | GET: có `ROOM_READ`; PUT: `ROOM_CATALOG_WRITE`, chỉ sửa `DRAFT`/`REJECTED`, bắt buộc `Idempotency-Key` |
+| POST | `/room-types/{room_type_id}/submit` | `ROOM_CATALOG_WRITE`; tạo approval nội bộ, bắt buộc `Idempotency-Key` |
+| POST | `/room-types/{room_type_id}/activate` | `ROOM_CATALOG_WRITE`, chỉ requester sau khi approval exact payload, bắt buộc `Idempotency-Key` |
 | PUT | `/room-types/{room_type_id}/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; thay toàn bộ liên kết tiện nghi |
 | POST | `/reservations` | MANAGER, FRONT_DESK |
 | GET | `/reservations?status=&guest_id=&page=&size=` | Có `RESERVATION_READ`; front_desk/manager/director/admin xem toàn khách sạn, role khác xem phạm vi actor; mặc định 20, tối đa 100 bản ghi/trang; trả `items`, `page`, `size`, `total_elements`, `total_pages` |

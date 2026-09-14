@@ -15,6 +15,7 @@ import com.hospitality.mis.entity.reservation.ReservationRoom;
 import com.hospitality.mis.entity.reservation.ReservationStatus;
 import com.hospitality.mis.entity.room.Room;
 import com.hospitality.mis.entity.room.RoomStatus;
+import com.hospitality.mis.entity.room.RoomTypeCatalogStatus;
 import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.governance.AuditService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -89,6 +90,8 @@ public class CustomerReservationService {
         Map<String, Room> locked = lockRooms(ids);
         for (var line : request.rooms()) {
             Room room = locked.get(line.roomId().trim());
+            if (room.getRoomType().getCatalogStatus() != RoomTypeCatalogStatus.ACTIVE)
+                throw error("ROOM_TYPE_NOT_ACTIVE", "Loại phòng chưa được phê duyệt: " + room.getRoomType().getId());
             if (room.getStatus().blocksAvailability()) throw error("ROOM_NOT_AVAILABLE", "Phòng không sẵn sàng: " + room.getId());
             if (reservations.hasOverlap(room.getId(), line.expectedCheckIn(), line.expectedCheckOut(), RoomStatus.CANCELLED, IGNORED))
                 throw error("OVERBOOKING", "Phòng đã có lịch trùng: " + room.getId());

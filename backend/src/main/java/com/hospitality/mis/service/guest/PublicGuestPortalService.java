@@ -11,6 +11,7 @@ import com.hospitality.mis.entity.room.Room;
 import com.hospitality.mis.entity.room.RoomAvailabilityPolicy;
 import com.hospitality.mis.entity.room.RoomStatus;
 import com.hospitality.mis.entity.room.RoomType;
+import com.hospitality.mis.entity.room.RoomTypeCatalogStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +40,7 @@ public class PublicGuestPortalService {
     /** Danh sách phòng công khai, lọc theo mã loại phòng nếu có. */
     @Transactional(readOnly = true)
     public List<PublicGuestDtos.RoomSummary> rooms(String type) {
-        return rooms.search(type, null).stream().map(this::toSummary).toList();
+        return rooms.search(type, null).stream().filter(this::isPublicCatalog).map(this::toSummary).toList();
     }
 
     /** Chi tiết phòng công khai hoặc lỗi ổn định nếu mã phòng không tồn tại. */
@@ -48,6 +49,7 @@ public class PublicGuestPortalService {
         Room room = rooms.findById(id)
                 .orElseThrow(() -> new DomainException("ROOM_NOT_FOUND", "Không tìm thấy phòng"));
         RoomType type = room.getRoomType();
+        if (!isPublicCatalog(room)) throw new DomainException("ROOM_NOT_FOUND", "Không tìm thấy phòng");
         return new PublicGuestDtos.RoomDetail(
                 room.getId(), room.getName(), type.getId(), type.getName(), type.getDescription(),
                 type.getDailyPrice(), room.getFloor(), room.getDescription(), publicStatus(room.getStatus()),
@@ -64,7 +66,7 @@ public class PublicGuestPortalService {
         } catch (IllegalArgumentException exception) {
             throw new DomainException("INVALID_INTERVAL", "Thời gian nhận phải trước thời gian trả");
         }
-        return rooms.search(type, null).stream().map(room -> {
+        return rooms.search(type, null).stream().filter(this::isPublicCatalog).map(room -> {
             RoomType roomType = room.getRoomType();
             boolean overlap = overlaps.hasOverlap(room.getId(), from, to);
             boolean available = availabilityPolicy.isAvailable(room, overlap);
@@ -87,6 +89,10 @@ public class PublicGuestPortalService {
         RoomType type = room.getRoomType();
         return new PublicGuestDtos.RoomSummary(room.getId(), room.getName(), type.getId(), type.getName(),
                 type.getDailyPrice(), room.getFloor(), publicStatus(room.getStatus()));
+    }
+
+    private boolean isPublicCatalog(Room room) {
+        return room.getRoomType() != null && room.getRoomType().getCatalogStatus() == RoomTypeCatalogStatus.ACTIVE;
     }
 
     /** Trạng thái nội bộ không thuộc public contract được ánh xạ fail-closed. */

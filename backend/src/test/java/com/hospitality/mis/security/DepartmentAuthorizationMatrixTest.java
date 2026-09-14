@@ -20,6 +20,7 @@ import com.hospitality.mis.service.reservation.CustomerReservationService;
 import com.hospitality.mis.service.room.RoomService;
 import com.hospitality.mis.service.room.RoomEquipmentService;
 import com.hospitality.mis.service.room.RoomMediaService;
+import com.hospitality.mis.service.room.RoomTypeCatalogService;
 import com.hospitality.mis.middleware.security.ApprovalAuthorization;
 import com.hospitality.mis.dto.reservation.ReservationDtos;
 import com.hospitality.mis.entity.reservation.ReservationStatus;
@@ -78,9 +79,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean RoomEquipmentService mock17;
     @MockBean CustomerReservationService mock18;
     @MockBean RoomMediaService mock19;
+    @MockBean RoomTypeCatalogService mock20;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -112,6 +114,11 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("POST", "/api/rooms/101/images", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", ""),
             new Endpoint("DELETE", "/api/rooms/101/images/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"name\":\"Wi-Fi\"}"),
+            new Endpoint("POST", "/api/room-types", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"STD\",\"name\":\"Standard\",\"daily_price\":100000}"),
+            new Endpoint("PUT", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"STD\",\"name\":\"Standard\",\"daily_price\":100000}"),
+            new Endpoint("GET", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
+            new Endpoint("POST", "/api/room-types/STD/submit", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
+            new Endpoint("POST", "/api/room-types/STD/activate", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),
             new Endpoint("GET", "/api/reservations", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("GET", "/api/reservations/1", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),

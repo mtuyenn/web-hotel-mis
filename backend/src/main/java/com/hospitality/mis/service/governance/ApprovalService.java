@@ -23,7 +23,8 @@ import com.hospitality.mis.service.reservation.IdempotencySupport;
 public class ApprovalService {
     /** Tập action được phép đi qua quy trình phê duyệt hiện tại. */
     private static final Set<String> SUPPORTED_ACTIONS = Set.of(
-            "INVOICE_DELETE", "DEPOSIT_REFUND", "PRICE_OVERRIDE", "PAYMENT_REFUND", "BILLING_ADJUSTMENT");
+            "INVOICE_DELETE", "DEPOSIT_REFUND", "PRICE_OVERRIDE", "PAYMENT_REFUND", "BILLING_ADJUSTMENT",
+            "ROOM_TYPE_ACTIVATE");
 
     /** Kho phê duyệt; các quyết định và consume dùng bản ghi có khóa. */
     private final ApprovalRepository approvals;

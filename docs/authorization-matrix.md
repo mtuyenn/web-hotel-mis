@@ -22,8 +22,10 @@ customer riêng và không nhận capability của nhân viên.
 | STAFF | Room, guest và reservation read |
 
 `ROOM_CATALOG_WRITE` chỉ cấp cho TECHNICAL, MANAGER, DIRECTOR và ADMIN để quản lý
-ảnh phòng, danh mục tiện nghi và liên kết tiện nghi với loại phòng. HOUSEKEEPING,
-FRONT_DESK và STAFF chỉ có quyền đọc media qua `ROOM_READ`.
+ảnh phòng, danh mục tiện nghi và liên kết tiện nghi với loại phòng. Endpoint
+submit room type tạo approval nội bộ gắn với actor; approval vẫn phải do actor
+khác duyệt. Technical không được gọi generic approval request cho các action
+khác. HOUSEKEEPING, FRONT_DESK và STAFF chỉ có quyền đọc media qua `ROOM_READ`.
 
 ## Quy tắc bảo vệ bắt buộc
 
