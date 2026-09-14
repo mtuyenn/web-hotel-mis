@@ -282,6 +282,12 @@ trước khi activate.
 - Báo cáo doanh thu phải phân biệt doanh thu ghi nhận, tiền thực thu, hoàn tiền, công nợ và chênh lệch giao ca.
 - Financial ledger đã finalized chỉ thay đổi bằng bút toán append-only.
 
+#### Trạng thái P1.6 — 14/09/2026
+
+Finance đã có tất toán công nợ đối tác dưới row lock và báo cáo đối soát theo
+khoảng ngày, tách CASH/CARD/BANK_TRANSFER cùng tổng payment/refund/net; audit
+ghi nhận thao tác tất toán.
+
 ### P1.7 — HR và Admin
 
 HR:

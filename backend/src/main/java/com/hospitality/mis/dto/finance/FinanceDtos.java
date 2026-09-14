@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.Map;
 
 /** DTO cho bàn giao tiền mặt, chi phí và công nợ đối tác của vận hành. */
 public final class FinanceDtos {
@@ -100,4 +102,11 @@ public final class FinanceDtos {
                                       PartnerDebt.DebtStatus status,
                                       /** Thời điểm ghi nhận. */
                                       LocalDateTime recordedAt) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record DebtSettlementRequest(@NotNull @Positive BigDecimal amount, String note) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record ReconciliationResponse(LocalDate fromDate, LocalDate toDate, Map<String, BigDecimal> totalsByMethod,
+                                         BigDecimal totalPayments, BigDecimal totalRefunds, BigDecimal netTotal) {}
 }

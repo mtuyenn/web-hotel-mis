@@ -46,4 +46,15 @@ public class FinanceController {
      * Chỉ FINANCE_READ được phép; lỗi truy vấn do dịch vụ xử lý, không có idempotency concern.
      */
     @GetMapping("/partner-debts") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public java.util.List<FinanceDtos.PartnerDebtResponse> debts() { return service.listDebts(); }
+
+    @PostMapping("/partner-debts/{id}/settle")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_WRITE')")
+    public FinanceDtos.PartnerDebtResponse settle(@PathVariable Long id, @Valid @RequestBody FinanceDtos.DebtSettlementRequest request,
+                                                  org.springframework.security.core.Authentication auth) { return service.settleDebt(id, request, auth.getName()); }
+
+    @GetMapping("/reconciliation")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')")
+    public FinanceDtos.ReconciliationResponse reconciliation(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) { return service.reconcile(from, to); }
 }

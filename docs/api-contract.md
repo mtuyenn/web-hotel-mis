@@ -93,6 +93,8 @@ client phải xử lý cả 401 và 403.
 | POST | `/services/{service_id}/price/submit` | KITCHEN tạo approval exact payload; Manager/Admin/Director phê duyệt |
 | POST | `/services/{service_id}/price/activate` | Manager/Admin/Director consume approval và ghi price history append-only |
 | GET | `/services/{service_id}/price-history` | Có `SERVICE_READ`; lịch sử giá và actor/approval |
+| POST | `/finance/partner-debts/{id}/settle` | `FINANCE_WRITE`; tất toán một phần/toàn bộ, khóa dòng và không vượt dư nợ |
+| GET | `/finance/reconciliation?from=&to=` | `FINANCE_READ`; đối soát CASH/CARD/BANK_TRANSFER, payment/refund/net |
 | GET | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR |
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |
 | GET | `/governance/audit` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING; scoped by actor for accounting |

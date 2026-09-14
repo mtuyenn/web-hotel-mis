@@ -16,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.Clock;
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import com.hospitality.mis.entity.billing.PaymentTransaction;
 
 /** Ghi nhận bàn giao ca, chi phí và công nợ đối tác, kèm audit tài chính. */
 @Service
@@ -88,6 +92,33 @@ public class FinanceService {
     @Transactional(readOnly = true)
     /** Liệt kê công nợ đối tác theo thời điểm ghi nhận giảm dần. */
     public java.util.List<FinanceDtos.PartnerDebtResponse> listDebts() { return debts.findAllByOrderByRecordedAtDesc().stream().map(this::toResponse).toList(); }
+
+    @Transactional
+    public FinanceDtos.PartnerDebtResponse settleDebt(Long id, FinanceDtos.DebtSettlementRequest request, String actor) {
+        var debt = debts.findForUpdate(id).orElseThrow(() -> new DomainException("PARTNER_DEBT_NOT_FOUND", "Không tìm thấy công nợ đối tác"));
+        if (request.amount().signum() <= 0 || debt.getSettledAmount().add(request.amount()).compareTo(debt.getAmount()) > 0)
+            throw new DomainException("INVALID_DEBT_SETTLEMENT", "Số tiền tất toán vượt số dư công nợ");
+        debt.setSettledAmount(debt.getSettledAmount().add(request.amount()));
+        debt.setStatus(debt.getSettledAmount().compareTo(debt.getAmount()) == 0
+                ? PartnerDebt.DebtStatus.SETTLED : PartnerDebt.DebtStatus.PARTIALLY_SETTLED);
+        audit.record(actor, "PARTNER_DEBT_SETTLED", "PARTNER_DEBT", String.valueOf(id), null, request.amount().toPlainString(), request.note());
+        return toResponse(debt);
+    }
+
+    @Transactional(readOnly = true)
+    public FinanceDtos.ReconciliationResponse reconcile(LocalDate from, LocalDate to) {
+        LocalDate start = from == null ? LocalDate.now(clock).minusDays(1) : from;
+        LocalDate end = to == null ? LocalDate.now(clock) : to;
+        Map<String, BigDecimal> totals = new LinkedHashMap<>(); BigDecimal payments = BigDecimal.ZERO; BigDecimal refunds = BigDecimal.ZERO;
+        for (PaymentTransaction tx : transactions.findAll()) {
+            if (tx.getOccurredAt() == null || tx.getOccurredAt().toLocalDate().isBefore(start) || tx.getOccurredAt().toLocalDate().isAfter(end)
+                    || tx.getStatus() != PaymentTransaction.TransactionStatus.COMPLETED) continue;
+            String method = tx.getMethod().name(); BigDecimal signed = tx.getType() == PaymentTransaction.TransactionType.REFUND ? tx.getAmount().negate() : tx.getAmount();
+            totals.merge(method, signed, BigDecimal::add);
+            if (tx.getType() == PaymentTransaction.TransactionType.REFUND) refunds = refunds.add(tx.getAmount()); else payments = payments.add(tx.getAmount());
+        }
+        return new FinanceDtos.ReconciliationResponse(start, end, totals, payments, refunds, payments.subtract(refunds));
+    }
 
     /** Chuyển bản ghi bàn giao ca thành DTO. */
     private FinanceDtos.CashHandoverResponse toResponse(CashShiftHandover h) { return new FinanceDtos.CashHandoverResponse(h.getId(), h.getShiftCode(), h.getFromActor(), h.getToActor(), h.getExpectedAmount(), h.getActualAmount(), h.getVariance(), h.getHandedOverAt(), h.getNote()); }
