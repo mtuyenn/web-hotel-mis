@@ -105,6 +105,14 @@ public final class FinanceDtos {
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record DebtSettlementRequest(@NotNull @Positive BigDecimal amount, String note) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record DebtSettlementResponse(Long id, Long partnerDebtId, BigDecimal amount, String settledBy,
+                                         LocalDateTime settledAt, String note) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record LedgerEntryResponse(Long id, String entryType, String sourceType, String sourceId,
+                                      String direction, BigDecimal amount, String actorId,
+                                      LocalDateTime occurredAt, String note, boolean finalized) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record ReconciliationResponse(LocalDate fromDate, LocalDate toDate, Map<String, BigDecimal> totalsByMethod,

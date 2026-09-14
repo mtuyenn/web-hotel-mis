@@ -3,6 +3,7 @@ package com.hospitality.mis.operations;
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.operations.EquipmentIncidentRepository;
 import com.hospitality.mis.dao.reservation.ReservationRepository;
+import com.hospitality.mis.dao.room.RoomEquipmentRepository;
 import com.hospitality.mis.dto.operations.EquipmentIncidentDtos;
 import com.hospitality.mis.entity.operations.EquipmentIncident;
 import com.hospitality.mis.entity.reservation.Reservation;
@@ -10,9 +11,12 @@ import com.hospitality.mis.entity.reservation.ReservationRoom;
 import com.hospitality.mis.entity.reservation.ReservationStatus;
 import com.hospitality.mis.entity.room.Room;
 import com.hospitality.mis.entity.room.RoomStatus;
+import com.hospitality.mis.entity.room.RoomEquipment;
 import com.hospitality.mis.service.billing.PricingPolicy;
 import com.hospitality.mis.service.governance.AuditService;
 import com.hospitality.mis.service.operations.EquipmentIncidentService;
+import com.hospitality.mis.service.governance.NotificationOutboxService;
+import com.hospitality.mis.entity.operations.IncidentSeverity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +37,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -45,6 +51,8 @@ class EquipmentIncidentCorrectnessTest {
     @Mock EquipmentIncidentRepository incidents;
     @Mock ReservationRepository reservations;
     @Mock AuditService audit;
+    @Mock RoomEquipmentRepository equipmentRegistry;
+    @Mock NotificationOutboxService notifications;
 
     @BeforeEach
     /** Đặt actor housekeeping hợp lệ cho các case mutation. */
@@ -66,21 +74,27 @@ class EquipmentIncidentCorrectnessTest {
     void allowedHousekeepingActorCanRecordIncidentForOccupiedRoomInReservation() {
         Reservation reservation = checkedInReservation("101");
         when(reservations.findForUpdate(9L)).thenReturn(Optional.of(reservation));
+        RoomEquipment equipment = equipment("101", "TV", new BigDecimal("1000"), LocalDate.now().minusYears(1), 2);
+        when(equipmentRegistry.findByRoomIdAndActiveTrueOrderByNameAsc("101")).thenReturn(List.of(equipment));
         when(incidents.save(any(EquipmentIncident.class))).thenAnswer(invocation -> {
             EquipmentIncident incident = invocation.getArgument(0);
             ReflectionTestUtils.setField(incident, "id", 44L);
             return incident;
         });
 
-        var response = new EquipmentIncidentService(incidents, reservations,
-                new PricingPolicy(3, 20, new BigDecimal("10")), audit).record(9L,
-                new EquipmentIncidentDtos.CreateRequest("101", "TV", new BigDecimal("100"),
-                        LocalDate.now().minusYears(1), 1), "housekeeping", "incident-9");
+        var service = new EquipmentIncidentService(incidents, reservations, equipmentRegistry,
+                new PricingPolicy(3, 20, new BigDecimal("10")), audit);
+        ReflectionTestUtils.setField(service, "notifications", notifications);
+        var response = service.record(9L,
+                new EquipmentIncidentDtos.CreateRequest("101", "TV", new BigDecimal("1"),
+                        LocalDate.now(), 1, IncidentSeverity.HIGH), "housekeeping", "incident-9");
 
         assertThat(response.id()).isEqualTo(44L);
-        assertThat(response.compensation()).isEqualByComparingTo("150.00");
+        assertThat(response.compensation()).isEqualByComparingTo("1500.00");
         verify(audit).record("housekeeping", "EQUIPMENT_INCIDENT_RECORDED", "RESERVATION", "9",
-                null, "150.00", null);
+                null, "1500.00", null);
+        verify(notifications).enqueue(eq("EQUIPMENT_INCIDENT"), eq("MANAGER"), anyString(),
+                eq("equipment-incident-manager-44"));
     }
 
     @Test
@@ -90,7 +104,7 @@ class EquipmentIncidentCorrectnessTest {
         when(reservations.findForUpdate(9L)).thenReturn(Optional.of(reservation));
 
         DomainException exception = assertThrows(DomainException.class,
-                () -> new EquipmentIncidentService(incidents, reservations,
+                () -> new EquipmentIncidentService(incidents, reservations, equipmentRegistry,
                         new PricingPolicy(3, 20, new BigDecimal("10")), audit).record(9L,
                         new EquipmentIncidentDtos.CreateRequest("999", "TV", new BigDecimal("100"),
                                 LocalDate.of(2030, 1, 1), 1), "housekeeping", "incident-foreign-room"));
@@ -103,7 +117,7 @@ class EquipmentIncidentCorrectnessTest {
     @Test
     /** Given actor request khác authenticated, When record, Then fail trước cả reservation load. */
     void incidentRejectsClientActorThatDiffersFromAuthenticatedActorBeforeReservationLoad() {
-        var service = new EquipmentIncidentService(incidents, reservations,
+        var service = new EquipmentIncidentService(incidents, reservations, equipmentRegistry,
                 new PricingPolicy(3, 20, new BigDecimal("10")), audit);
 
         DomainException exception = assertThrows(DomainException.class,
@@ -112,7 +126,7 @@ class EquipmentIncidentCorrectnessTest {
                                 LocalDate.of(2030, 1, 1), 1), "other", "incident-actor-mismatch"));
 
         assertThat(exception.getCode()).isEqualTo("ACTOR_MISMATCH");
-        verifyNoInteractions(reservations, incidents, audit);
+        verifyNoInteractions(reservations, incidents, equipmentRegistry, audit);
     }
 
     /** Dựng reservation CHECKED_IN với một line OCCUPIED để kiểm tra membership của room. */
@@ -130,5 +144,12 @@ class EquipmentIncidentCorrectnessTest {
         line.setCheckOut(LocalDateTime.of(2031, 1, 2, 12, 0));
         reservation.addRoom(line);
         return reservation;
+    }
+
+    private RoomEquipment equipment(String roomId, String name, BigDecimal value, LocalDate purchasedOn, int quantity) {
+        Room room = new Room(); room.setId(roomId);
+        RoomEquipment equipment = new RoomEquipment(); equipment.setRoom(room); equipment.setName(name);
+        equipment.setOriginalValue(value); equipment.setPurchasedOn(purchasedOn); equipment.setQuantity(quantity);
+        return equipment;
     }
 }

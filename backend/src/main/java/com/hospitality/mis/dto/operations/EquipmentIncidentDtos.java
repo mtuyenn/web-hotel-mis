@@ -27,16 +27,21 @@ public final class EquipmentIncidentDtos {
                                 @NotBlank String roomId,
                                 /** Tên thiết bị bị ảnh hưởng. */
                                 @NotBlank String equipmentName,
-                                /** Giá trị gốc dùng tính bồi thường. */
-                                @NotNull @Positive BigDecimal originalValue,
-
-                                /** Ngày mua dùng tính thời gian sử dụng. */
-                                @NotNull LocalDate purchasedAt,
+                                /** ID registry được ưu tiên; giá/ngày mua luôn được đọc từ registry. */
+                                Long equipmentId,
+                                /** Trường tương thích ngược, không được tin dùng để tính tiền. */
+                                BigDecimal originalValue,
+                                /** Trường tương thích ngược, không được tin dùng để tính tiền. */
+                                LocalDate purchasedAt,
                                 /** Số lượng thiết bị bị ảnh hưởng. */
                                 @Positive int quantity,
                                 IncidentSeverity severity) {
         public CreateRequest(String roomId, String equipmentName, BigDecimal originalValue, LocalDate purchasedAt, int quantity) {
-            this(roomId, equipmentName, originalValue, purchasedAt, quantity, null);
+            this(roomId, equipmentName, null, originalValue, purchasedAt, quantity, null);
+        }
+        public CreateRequest(String roomId, String equipmentName, BigDecimal originalValue, LocalDate purchasedAt,
+                             int quantity, IncidentSeverity severity) {
+            this(roomId, equipmentName, null, originalValue, purchasedAt, quantity, severity);
         }
     }
 

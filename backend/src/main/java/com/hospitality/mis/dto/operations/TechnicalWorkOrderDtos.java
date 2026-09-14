@@ -15,7 +15,10 @@ public final class TechnicalWorkOrderDtos {
     public record UpdateRequest(@NotNull String status, String resultNote, String acceptanceNote,
                                 String assignee, String materials) {}
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record AcceptanceRequest(@NotBlank String acceptanceNote) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record Response(Long id, String roomId, Long equipmentId, String assignee, String priority,
                            LocalDateTime slaDueAt, String materials, String resultNote, String acceptanceNote,
-                           String status, String createdBy, LocalDateTime createdAt, LocalDateTime updatedAt) {}
+                           String acceptedBy, LocalDateTime acceptedAt, String status, String createdBy,
+                           LocalDateTime createdAt, LocalDateTime updatedAt) {}
 }

@@ -62,6 +62,12 @@ public class ApprovalRequest {
     /** Trạng thái vòng đời; chỉ các phương thức chuyển trạng thái được phép thay đổi. */
     private String status = PENDING;
 
+    @Column(nullable = false, length = 20)
+    private String risk = "LOW";
+
+    @Column(name = "requested_at", nullable = false)
+    private Instant requestedAt;
+
     @Column(length = 50)
     private String approver;
 
@@ -95,6 +101,7 @@ public class ApprovalRequest {
         this.amount = amount;
         this.reason = required(reason, "reason");
         this.expiresAt = expiresAt == null ? Instant.now().plus(Duration.ofHours(24)) : expiresAt;
+        this.requestedAt = Instant.now();
         this.correlationKey = blankToNull(correlationKey);
     }
 
@@ -103,6 +110,7 @@ public class ApprovalRequest {
                            Instant expiresAt, String correlationKey, Instant now) {
         this(requester, action, targetId, mutationPayload, payloadFingerprint, amount, reason,
                 expiresAt == null ? now.plus(Duration.ofHours(24)) : expiresAt, correlationKey);
+        this.requestedAt = now;
     }
 
     public Long getId() { return id; }
@@ -114,11 +122,14 @@ public class ApprovalRequest {
     public BigDecimal getAmount() { return amount; }
     public String getReason() { return reason; }
     public String getStatus() { return status; }
+    public String getRisk() { return risk; }
+    public Instant getRequestedAt() { return requestedAt; }
     public String getApprover() { return approver; }
     public Instant getDecidedAt() { return decidedAt; }
     public Instant getExpiresAt() { return expiresAt; }
     public Instant getConsumedAt() { return consumedAt; }
     public String getCorrelationKey() { return correlationKey; }
+    public void setRisk(String risk) { this.risk = required(risk, "risk"); }
 
     public boolean isExpired(Instant now) {
         // Hết hạn tại đúng thời điểm expiresAt, không chỉ sau thời điểm đó.

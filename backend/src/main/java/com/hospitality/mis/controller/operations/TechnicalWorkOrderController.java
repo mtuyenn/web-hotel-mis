@@ -21,6 +21,8 @@ public class TechnicalWorkOrderController {
     public TechnicalWorkOrderDtos.Response create(@Valid @RequestBody TechnicalWorkOrderDtos.CreateRequest request) { return service.create(request, SecurityActor.currentActor()); }
     @PatchMapping("/{id}") @PreAuthorize("@departmentAccess.allows(authentication, 'TECHNICAL_WORK_ORDER_WRITE')")
     public TechnicalWorkOrderDtos.Response update(@PathVariable Long id, @Valid @RequestBody TechnicalWorkOrderDtos.UpdateRequest request) { return service.update(id, request, SecurityActor.currentActor()); }
+    @PostMapping("/{id}/accept") @PreAuthorize("@departmentAccess.allows(authentication, 'TECHNICAL_WORK_ORDER_ACCEPT')")
+    public TechnicalWorkOrderDtos.Response accept(@PathVariable Long id, @Valid @RequestBody TechnicalWorkOrderDtos.AcceptanceRequest request) { return service.accept(id, request, SecurityActor.currentActor()); }
     @PostMapping("/{id}/release") @PreAuthorize("@departmentAccess.allows(authentication, 'TECHNICAL_WORK_ORDER_RELEASE')")
     public TechnicalWorkOrderDtos.Response release(@PathVariable Long id) { return service.release(id, SecurityActor.currentActor()); }
 }

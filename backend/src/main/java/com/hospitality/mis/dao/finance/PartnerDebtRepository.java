@@ -6,6 +6,11 @@ import java.util.Optional;
 import java.util.List;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /** Kho công nợ đối tác và mã tham chiếu nghiệp vụ. */
 public interface PartnerDebtRepository extends JpaRepository<PartnerDebt, Long> {
@@ -17,4 +22,7 @@ public interface PartnerDebtRepository extends JpaRepository<PartnerDebt, Long> 
 
     /** Lấy sổ công nợ theo thời điểm ghi nhận mới nhất trước. */
     List<PartnerDebt> findAllByOrderByRecordedAtDesc();
+    @Query("select d from PartnerDebt d where (:partner is null or lower(d.partnerName) like lower(concat('%', :partner, '%'))) and (:status is null or d.status = :status) and (:fromAt is null or d.recordedAt >= :fromAt) and (:toAt is null or d.recordedAt < :toAt)")
+    Page<PartnerDebt> search(@Param("partner") String partner, @Param("status") PartnerDebt.DebtStatus status,
+                             @Param("fromAt") LocalDateTime fromAt, @Param("toAt") LocalDateTime toAt, Pageable pageable);
 }

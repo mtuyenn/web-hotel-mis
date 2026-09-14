@@ -339,6 +339,23 @@ notification outbox với dedupe key, polling và trạng thái delivered. Incid
 thiết bị phát event cho Front Desk và Technical; quyền notification giới hạn
 theo department.
 
+#### P1 integrity closeout — 14/09/2026
+
+V15 đóng các lỗ hổng được phát hiện khi audit lại P1: bồi thường thiết bị chỉ
+dùng giá/ngày mua từ equipment registry; severity cao gửi thêm Manager;
+housekeeping READY được suy ra từ checklist result thực và bị chặn bởi incident
+hoặc maintenance lock. Quyền giao task tách khỏi quyền cập nhật của Housekeeping.
+
+Technical báo hoàn thành bằng trạng thái `WAITING_ACCEPTANCE`, Manager dùng
+command nghiệm thu riêng có `accepted_by/accepted_at`, và command release kiểm
+tra booking overlap cùng housekeeping readiness. Room admin chuyển trạng thái
+qua state-machine command thay vì ghi trực tiếp.
+
+Approval queue lưu/lọc `risk` và `requested_at`; HR chặn ca trùng dưới employee
+row lock, hỗ trợ lịch tối đa bảy ngày và báo thiếu người theo ca. Finance bổ sung
+bộ lọc, lịch sử tất toán công nợ và finalized ledger append-only. Reservation
+timeline tổng hợp thêm audit của invoice, payment và receipt.
+
 ## 5. Báo cáo điều hành P2
 
 Tạo read model/query service cho:

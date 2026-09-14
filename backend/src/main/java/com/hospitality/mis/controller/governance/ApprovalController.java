@@ -102,7 +102,7 @@ class ApprovalController {
                        @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
         if (action == null && targetId == null && requester == null && from == null && to == null && risk == null && page == null && size == null)
             return service.list(status).stream().map(ApprovalDtos.Response::from).collect(Collectors.toList());
-        var result = service.page(status, action, targetId, requester, from, to, page == null ? 0 : page, size == null ? 20 : size);
+        var result = service.page(status, action, targetId, requester, risk, from, to, page == null ? 0 : page, size == null ? 20 : size);
         return new PageResponse(result.getContent().stream().map(ApprovalDtos.Response::from).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 

@@ -17,6 +17,8 @@ public class TechnicalWorkOrder {
     @Column(length = 1000) private String materials;
     @Column(name = "result_note", length = 1000) private String resultNote;
     @Column(name = "acceptance_note", length = 1000) private String acceptanceNote;
+    @Column(name = "accepted_by", length = 50) private String acceptedBy;
+    @Column(name = "accepted_at") private LocalDateTime acceptedAt;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) private TechnicalWorkOrderStatus status = TechnicalWorkOrderStatus.NEW;
     @Column(name = "created_by", nullable = false, length = 10) private String createdBy;
     @Column(name = "created_at", nullable = false) private LocalDateTime createdAt = LocalDateTime.now();
@@ -25,12 +27,15 @@ public class TechnicalWorkOrder {
     public Long getId() { return id; } public Room getRoom() { return room; } public RoomEquipment getEquipment() { return equipment; }
     public String getAssignee() { return assignee; } public String getPriority() { return priority; } public LocalDateTime getSlaDueAt() { return slaDueAt; }
     public String getMaterials() { return materials; } public String getResultNote() { return resultNote; } public String getAcceptanceNote() { return acceptanceNote; }
+    public String getAcceptedBy() { return acceptedBy; } public LocalDateTime getAcceptedAt() { return acceptedAt; }
     public TechnicalWorkOrderStatus getStatus() { return status; } public String getCreatedBy() { return createdBy; }
     public LocalDateTime getCreatedAt() { return createdAt; } public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setRoom(Room value) { room = value; } public void setEquipment(RoomEquipment value) { equipment = value; }
     public void setAssignee(String value) { assignee = value; } public void setPriority(String value) { priority = value; }
     public void setSlaDueAt(LocalDateTime value) { slaDueAt = value; } public void setMaterials(String value) { materials = value; }
     public void setResultNote(String value) { resultNote = value; } public void setAcceptanceNote(String value) { acceptanceNote = value; }
+    public void setAcceptedBy(String value) { acceptedBy = value; } public void setAcceptedAt(LocalDateTime value) { acceptedAt = value; }
     public void setStatus(TechnicalWorkOrderStatus value) { status = value; } public void setCreatedBy(String value) { createdBy = value; }
+    public void setCreatedAt(LocalDateTime value) { createdAt = value; }
     public void setUpdatedAt(LocalDateTime value) { updatedAt = value; }
 }

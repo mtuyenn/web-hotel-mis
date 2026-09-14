@@ -71,8 +71,10 @@ public class ApprovalService {
 
     private ApprovalRequest requestOnce(String actor, String action, String targetId, String payload,
                                         BigDecimal amount, String reason, String key) {
-        ApprovalRequest saved = approvals.save(new ApprovalRequest(actor, action, targetId, payload,
-                fingerprintFor(payload), amount, reason, null, key, Instant.now(clock)));
+        ApprovalRequest request = new ApprovalRequest(actor, action, targetId, payload,
+                fingerprintFor(payload), amount, reason, null, key, Instant.now(clock));
+        request.setRisk(riskFor(action, amount));
+        ApprovalRequest saved = approvals.save(request);
         audit.record(actor, "APPROVAL_REQUESTED", "APPROVAL", String.valueOf(saved.getId()),
                 null, ApprovalRequest.PENDING, reason, key);
         return saved;
@@ -152,20 +154,38 @@ public class ApprovalService {
         return approvals.findByStatusOrderByIdDesc(selected);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public org.springframework.data.domain.Page<ApprovalRequest> page(String status, String action, String targetId, int page, int size) {
         expirePending(Instant.now(clock));
         String selected = status == null || status.isBlank() ? ApprovalRequest.PENDING : status.toUpperCase();
         return approvals.search(selected, action, targetId, org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size))));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public org.springframework.data.domain.Page<ApprovalRequest> page(String status, String action, String targetId, String requester,
-                                                                       Instant from, Instant to, int page, int size) {
+                                                                       String risk, Instant from, Instant to, int page, int size) {
         expirePending(Instant.now(clock));
         String selected = status == null || status.isBlank() ? ApprovalRequest.PENDING : status.toUpperCase();
-        return approvals.searchAdvanced(selected, action, targetId, requester, from, to,
+        String selectedRisk = risk == null || risk.isBlank() ? null : risk.trim().toUpperCase();
+        if (selectedRisk != null && !Set.of("LOW", "MEDIUM", "HIGH").contains(selectedRisk))
+            throw new DomainException("INVALID_APPROVAL_RISK", "Risk phải là LOW, MEDIUM hoặc HIGH");
+        return approvals.searchAdvanced(selected, action, targetId, requester, selectedRisk, from, to,
                 org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size))));
+    }
+
+    @Transactional
+    public org.springframework.data.domain.Page<ApprovalRequest> page(String status, String action, String targetId,
+                                                                       String requester, Instant from, Instant to,
+                                                                       int page, int size) {
+        return page(status, action, targetId, requester, null, from, to, page, size);
+    }
+
+    private static String riskFor(String action, BigDecimal amount) {
+        if (Set.of("PAYMENT_REFUND", "DEPOSIT_REFUND", "INVOICE_DELETE").contains(action)
+                || amount != null && amount.compareTo(new BigDecimal("10000000")) >= 0) return "HIGH";
+        if (Set.of("PRICE_OVERRIDE", "BILLING_ADJUSTMENT", "SERVICE_PRICE_CHANGE").contains(action)
+                || amount != null && amount.compareTo(new BigDecimal("1000000")) >= 0) return "MEDIUM";
+        return "LOW";
     }
 
     /** Kiểm tra ràng buộc chính xác mà không tiêu thụ phê duyệt. */

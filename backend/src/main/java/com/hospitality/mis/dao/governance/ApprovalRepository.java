@@ -17,10 +17,11 @@ public interface ApprovalRepository extends JpaRepository<ApprovalRequest, Long>
     @Query("select a from ApprovalRequest a where (:status is null or a.status = :status) and (:action is null or a.action = :action) and (:targetId is null or a.targetId = :targetId) order by a.id desc")
     org.springframework.data.domain.Page<ApprovalRequest> search(@Param("status") String status, @Param("action") String action,
             @Param("targetId") String targetId, org.springframework.data.domain.Pageable pageable);
-    @Query("select a from ApprovalRequest a where (:status is null or a.status = :status) and (:action is null or a.action = :action) and (:targetId is null or a.targetId = :targetId) and (:requester is null or a.requester = :requester) and (:fromTime is null or a.decidedAt >= :fromTime) and (:toTime is null or a.decidedAt < :toTime) order by a.id desc")
+    @Query("select a from ApprovalRequest a where (:status is null or a.status = :status) and (:action is null or a.action = :action) and (:targetId is null or a.targetId = :targetId) and (:requester is null or a.requester = :requester) and (:risk is null or a.risk = :risk) and (:fromTime is null or a.requestedAt >= :fromTime) and (:toTime is null or a.requestedAt < :toTime) order by a.id desc")
     org.springframework.data.domain.Page<ApprovalRequest> searchAdvanced(@Param("status") String status, @Param("action") String action,
             @Param("targetId") String targetId, @Param("requester") String requester,
-            @Param("fromTime") Instant fromTime, @Param("toTime") Instant toTime, org.springframework.data.domain.Pageable pageable);
+            @Param("risk") String risk, @Param("fromTime") Instant fromTime, @Param("toTime") Instant toTime,
+            org.springframework.data.domain.Pageable pageable);
     /** Liệt kê yêu cầu phê duyệt theo trạng thái, bản ghi mới hơn đứng trước. */
     List<ApprovalRequest> findByStatusOrderByIdDesc(String status);
 

@@ -47,7 +47,7 @@ public class HousekeepingController {
     }
 
     @PostMapping("/tasks")
-    @PreAuthorize("@departmentAccess.allows(authentication, 'HOUSEKEEPING_TASK_WRITE')")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'HOUSEKEEPING_TASK_ASSIGN')")
     public HousekeepingDtos.Response create(@Valid @RequestBody HousekeepingDtos.CreateRequest request) {
         return service.create(request, SecurityActor.currentActor());
     }

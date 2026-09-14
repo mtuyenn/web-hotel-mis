@@ -3,6 +3,7 @@ package com.hospitality.mis.service.operations;
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.operations.EquipmentIncidentRepository;
 import com.hospitality.mis.dao.reservation.ReservationRepository;
+import com.hospitality.mis.dao.room.RoomEquipmentRepository;
 import com.hospitality.mis.dto.operations.EquipmentIncidentDtos;
 import com.hospitality.mis.entity.operations.EquipmentIncident;
 import com.hospitality.mis.entity.operations.IncidentHandoffStatus;
@@ -29,6 +30,7 @@ public class EquipmentIncidentService {
     private final EquipmentIncidentRepository incidents;
     /** Khóa đặt phòng để xác nhận khách đang ở và phòng thuộc đặt phòng. */
     private final ReservationRepository reservations;
+    private final RoomEquipmentRepository equipmentRegistry;
     /** Policy tính bồi thường theo tuổi và giá trị thiết bị. */
     private final PricingPolicy pricing;
     /** Ghi audit sự cố và số tiền bồi thường. */
@@ -40,9 +42,10 @@ public class EquipmentIncidentService {
     private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 
     public EquipmentIncidentService(EquipmentIncidentRepository incidents, ReservationRepository reservations,
-                                    PricingPolicy pricing, AuditService audit) {
+                                    RoomEquipmentRepository equipmentRegistry, PricingPolicy pricing, AuditService audit) {
         this.incidents = incidents;
         this.reservations = reservations;
+        this.equipmentRegistry = equipmentRegistry;
         this.pricing = pricing;
         this.audit = audit;
     }
@@ -63,7 +66,7 @@ public class EquipmentIncidentService {
         String actor = authenticatedActor(suppliedActor);
         if (request == null) throw new DomainException("INVALID_REQUEST", "Thiếu nội dung báo sự cố");
         String fingerprint = IdempotencySupport.fingerprint("EQUIPMENT_INCIDENT|" + reservationId + "|" + request.roomId()
-                + "|" + request.equipmentName() + "|" + request.originalValue() + "|" + request.purchasedAt()
+                + "|" + request.equipmentName() + "|" + request.equipmentId()
                 + "|" + request.quantity());
         return executeIdempotent("equipment-incident", key, actor, fingerprint, EquipmentIncidentDtos.Response.class, () -> {
             var reservation = reservations.findForUpdate(reservationId)
@@ -77,10 +80,13 @@ public class EquipmentIncidentService {
                     .findFirst()
                     .orElseThrow(() -> new DomainException("ROOM_NOT_IN_RESERVATION",
                             "Phòng không thuộc đặt phòng này"));
-            var amount = pricing.equipmentCompensation(request.originalValue(), request.purchasedAt(),
+            var equipment = resolveEquipment(request);
+            if (request.quantity() > equipment.getQuantity())
+                throw new DomainException("INVALID_EQUIPMENT_QUANTITY", "Số lượng hư hỏng vượt số lượng thiết bị trong registry");
+            var amount = pricing.equipmentCompensation(equipment.getOriginalValue(), equipment.getPurchasedOn(),
                     request.quantity(), LocalDate.now(clock));
-            var incidentEntity = new EquipmentIncident(reservation, room, request.equipmentName(),
-                    request.originalValue(), request.purchasedAt(), request.quantity(), amount);
+            var incidentEntity = new EquipmentIncident(reservation, room, equipment.getName(),
+                    equipment.getOriginalValue(), equipment.getPurchasedOn(), request.quantity(), amount);
             incidentEntity.setSeverity(request.severity());
             incidentEntity.setCreatedAt(java.time.LocalDateTime.now(clock));
             var incident = incidents.save(incidentEntity);
@@ -91,10 +97,26 @@ public class EquipmentIncidentService {
                         + "\",\"compensation\":" + amount.toPlainString() + "}";
                 notifications.enqueue("EQUIPMENT_INCIDENT", "FRONT_DESK", payload, "equipment-incident-" + incident.getId());
                 notifications.enqueue("EQUIPMENT_INCIDENT", "TECHNICAL", payload, "equipment-incident-tech-" + incident.getId());
+                if (incident.getSeverity() == com.hospitality.mis.entity.operations.IncidentSeverity.HIGH
+                        || incident.getSeverity() == com.hospitality.mis.entity.operations.IncidentSeverity.CRITICAL) {
+                    notifications.enqueue("EQUIPMENT_INCIDENT", "MANAGER", payload, "equipment-incident-manager-" + incident.getId());
+                }
             }
-            return new EquipmentIncidentDtos.Response(incident.getId(), request.roomId(), request.equipmentName(), amount,
+            return new EquipmentIncidentDtos.Response(incident.getId(), request.roomId(), equipment.getName(), amount,
                     incident.getSeverity(), incident.getHandoffStatus(), incident.getHandoffNote());
         });
+    }
+
+    private com.hospitality.mis.entity.room.RoomEquipment resolveEquipment(EquipmentIncidentDtos.CreateRequest request) {
+        if (request.equipmentId() != null) {
+            return equipmentRegistry.findByIdAndRoomIdAndActiveTrue(request.equipmentId(), request.roomId())
+                    .orElseThrow(() -> new DomainException("EQUIPMENT_NOT_FOUND", "Thiết bị active không thuộc phòng"));
+        }
+        var matches = equipmentRegistry.findByRoomIdAndActiveTrueOrderByNameAsc(request.roomId()).stream()
+                .filter(item -> item.getName().equalsIgnoreCase(request.equipmentName().trim())).toList();
+        if (matches.size() != 1)
+            throw new DomainException("EQUIPMENT_NOT_FOUND", "Không xác định được duy nhất thiết bị active trong phòng");
+        return matches.get(0);
     }
 
     @Transactional

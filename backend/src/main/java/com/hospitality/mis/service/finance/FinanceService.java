@@ -4,11 +4,15 @@ import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.finance.CashShiftHandoverRepository;
 import com.hospitality.mis.dao.finance.ExpenseRepository;
 import com.hospitality.mis.dao.finance.PartnerDebtRepository;
+import com.hospitality.mis.dao.finance.PartnerDebtSettlementRepository;
+import com.hospitality.mis.dao.finance.FinancialLedgerEntryRepository;
 import com.hospitality.mis.dao.billing.PaymentTransactionRepository;
 import com.hospitality.mis.dto.finance.FinanceDtos;
 import com.hospitality.mis.entity.finance.CashShiftHandover;
 import com.hospitality.mis.entity.finance.Expense;
 import com.hospitality.mis.entity.finance.PartnerDebt;
+import com.hospitality.mis.entity.finance.PartnerDebtSettlement;
+import com.hospitality.mis.entity.finance.FinancialLedgerEntry;
 import org.springframework.stereotype.Service;
 import com.hospitality.mis.service.governance.AuditService;
 import com.hospitality.mis.middleware.security.SecurityActor;
@@ -30,6 +34,8 @@ public class FinanceService {
     private final AuditService audit;
     /** Tính tiền mặt ròng của actor giữa hai thời điểm bàn giao. */
     private final PaymentTransactionRepository transactions;
+    private PartnerDebtSettlementRepository debtSettlements;
+    private FinancialLedgerEntryRepository ledger;
     private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
     @org.springframework.beans.factory.annotation.Autowired
     public FinanceService(CashShiftHandoverRepository handovers, ExpenseRepository expenses, PartnerDebtRepository debts,
@@ -41,6 +47,11 @@ public class FinanceService {
     }
     @org.springframework.beans.factory.annotation.Autowired
     void setBusinessClock(Clock clock) { this.clock = clock; }
+    @org.springframework.beans.factory.annotation.Autowired
+    void setP1FinanceRepositories(PartnerDebtSettlementRepository debtSettlements,
+                                  FinancialLedgerEntryRepository ledger) {
+        this.debtSettlements = debtSettlements; this.ledger = ledger;
+    }
 
     /** Tính tiền mặt kỳ ca trước, kiểm tra actor và lưu chênh lệch bàn giao. */
     @Transactional
@@ -66,9 +77,11 @@ public class FinanceService {
     /** Ghi một khoản chi với actor đã thực hiện và thời điểm phát sinh. */
     @Transactional
     public FinanceDtos.ExpenseResponse recordExpense(FinanceDtos.ExpenseRequest request, String actor) {
-        if (actor == null || actor.isBlank()) throw new DomainException("ACTOR_REQUIRED", "Thiếu actor thực hiện");
+        actor = SecurityActor.requireBoundActor(actor);
         Expense e = new Expense(); e.setCategory(request.category()); e.setDescription(request.description()); e.setAmount(request.amount()); e.setPaidBy(actor); e.setPaidAt(LocalDateTime.now(clock));
         e = expenses.save(e);
+        appendLedger("EXPENSE", "EXPENSE", String.valueOf(e.getId()), FinancialLedgerEntry.Direction.DEBIT,
+                e.getAmount(), actor, e.getPaidAt(), e.getDescription());
         audit.record(actor, "EXPENSE_RECORDED", "EXPENSE", String.valueOf(e.getId()), null, e.getAmount().toPlainString(), null);
         return toResponse(e);
     }
@@ -76,10 +89,13 @@ public class FinanceService {
     /** Ghi công nợ đối tác với mã tham chiếu duy nhất và số đã thanh toán bằng không. */
     @Transactional
     public FinanceDtos.PartnerDebtResponse recordDebt(FinanceDtos.PartnerDebtRequest request) {
+        String actor = SecurityActor.currentActor();
         if (debts.findByReferenceCode(request.referenceCode()).isPresent()) throw new DomainException("PARTNER_DEBT_EXISTS", "Mã công nợ đã tồn tại");
         PartnerDebt d = new PartnerDebt(); d.setPartnerName(request.partnerName()); d.setReferenceCode(request.referenceCode()); d.setAmount(request.amount()); d.setSettledAmount(BigDecimal.ZERO); d.setRecordedAt(LocalDateTime.now(clock));
         d = debts.save(d);
-        audit.record(SecurityActor.currentActor(), "PARTNER_DEBT_RECORDED", "PARTNER_DEBT", String.valueOf(d.getId()), null, d.getAmount().toPlainString(), null);
+        appendLedger("PARTNER_DEBT_RECORDED", "PARTNER_DEBT", String.valueOf(d.getId()),
+                FinancialLedgerEntry.Direction.CREDIT, d.getAmount(), actor, d.getRecordedAt(), request.referenceCode());
+        audit.record(actor, "PARTNER_DEBT_RECORDED", "PARTNER_DEBT", String.valueOf(d.getId()), null, d.getAmount().toPlainString(), null);
         return toResponse(d);
     }
 
@@ -99,8 +115,23 @@ public class FinanceService {
         return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
     @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.CashHandoverResponse> pageHandovers(String shiftCode, String actor,
+                                                                                    LocalDate from, LocalDate to,
+                                                                                    int page, int size) {
+        var result = handovers.search(blankToNull(shiftCode), blankToNull(actor), startOfDay(from), afterEndOfDay(to),
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("handedOverAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+    @Transactional(readOnly = true)
     public FinanceDtos.PageResponse<FinanceDtos.ExpenseResponse> pageExpenses(int page, int size) {
         var result = expenses.findAll(org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("paidAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+    @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.ExpenseResponse> pageExpenses(String category, Expense.ExpenseStatus status,
+                                                                               LocalDate from, LocalDate to, int page, int size) {
+        var result = expenses.search(blankToNull(category), status, startOfDay(from), afterEndOfDay(to),
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("paidAt").descending()));
         return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
     @Transactional(readOnly = true)
@@ -108,18 +139,47 @@ public class FinanceService {
         var result = debts.findAll(org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("recordedAt").descending()));
         return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
+    @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.PartnerDebtResponse> pageDebts(String partner, PartnerDebt.DebtStatus status,
+                                                                               LocalDate from, LocalDate to, int page, int size) {
+        var result = debts.search(blankToNull(partner), status, startOfDay(from), afterEndOfDay(to),
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("recordedAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
     private int safeSize(int size) { return Math.max(1, Math.min(100, size)); }
 
     @Transactional
     public FinanceDtos.PartnerDebtResponse settleDebt(Long id, FinanceDtos.DebtSettlementRequest request, String actor) {
+        actor = SecurityActor.requireBoundActor(actor);
         var debt = debts.findForUpdate(id).orElseThrow(() -> new DomainException("PARTNER_DEBT_NOT_FOUND", "Không tìm thấy công nợ đối tác"));
         if (request.amount().signum() <= 0 || debt.getSettledAmount().add(request.amount()).compareTo(debt.getAmount()) > 0)
             throw new DomainException("INVALID_DEBT_SETTLEMENT", "Số tiền tất toán vượt số dư công nợ");
         debt.setSettledAmount(debt.getSettledAmount().add(request.amount()));
         debt.setStatus(debt.getSettledAmount().compareTo(debt.getAmount()) == 0
                 ? PartnerDebt.DebtStatus.SETTLED : PartnerDebt.DebtStatus.PARTIALLY_SETTLED);
+        LocalDateTime settledAt = LocalDateTime.now(clock);
+        PartnerDebtSettlement settlement = new PartnerDebtSettlement(); settlement.setPartnerDebt(debt);
+        settlement.setAmount(request.amount()); settlement.setSettledBy(actor); settlement.setSettledAt(settledAt);
+        settlement.setNote(request.note()); debtSettlements.save(settlement);
+        appendLedger("PARTNER_DEBT_SETTLEMENT", "PARTNER_DEBT", String.valueOf(id),
+                FinancialLedgerEntry.Direction.DEBIT, request.amount(), actor, settledAt, request.note());
         audit.record(actor, "PARTNER_DEBT_SETTLED", "PARTNER_DEBT", String.valueOf(id), null, request.amount().toPlainString(), request.note());
         return toResponse(debt);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<FinanceDtos.DebtSettlementResponse> debtSettlementHistory(Long debtId) {
+        if (!debts.existsById(debtId)) throw new DomainException("PARTNER_DEBT_NOT_FOUND", "Không tìm thấy công nợ đối tác");
+        return debtSettlements.findByPartnerDebtIdOrderBySettledAtAscIdAsc(debtId).stream().map(x ->
+                new FinanceDtos.DebtSettlementResponse(x.getId(), debtId, x.getAmount(), x.getSettledBy(), x.getSettledAt(), x.getNote())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.LedgerEntryResponse> ledger(String entryType, LocalDate from, LocalDate to,
+                                                                            int page, int size) {
+        var result = ledger.search(blankToNull(entryType), startOfDay(from), afterEndOfDay(to),
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("occurredAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional(readOnly = true)
@@ -143,4 +203,15 @@ public class FinanceService {
     private FinanceDtos.ExpenseResponse toResponse(Expense e) { return new FinanceDtos.ExpenseResponse(e.getId(), e.getCategory(), e.getDescription(), e.getAmount(), e.getPaidBy(), e.getPaidAt(), e.getStatus()); }
     /** Chuyển bản ghi công nợ thành DTO. */
     private FinanceDtos.PartnerDebtResponse toResponse(PartnerDebt d) { return new FinanceDtos.PartnerDebtResponse(d.getId(), d.getPartnerName(), d.getReferenceCode(), d.getAmount(), d.getSettledAmount(), d.getStatus(), d.getRecordedAt()); }
+    private FinanceDtos.LedgerEntryResponse toResponse(FinancialLedgerEntry e) { return new FinanceDtos.LedgerEntryResponse(e.getId(), e.getEntryType(), e.getSourceType(), e.getSourceId(), e.getDirection().name(), e.getAmount(), e.getActorId(), e.getOccurredAt(), e.getNote(), e.isFinalized()); }
+    private void appendLedger(String entryType, String sourceType, String sourceId, FinancialLedgerEntry.Direction direction,
+                              BigDecimal amount, String actor, LocalDateTime occurredAt, String note) {
+        if (ledger == null) return;
+        FinancialLedgerEntry e = new FinancialLedgerEntry(); e.setEntryType(entryType); e.setSourceType(sourceType);
+        e.setSourceId(sourceId); e.setDirection(direction); e.setAmount(amount); e.setActorId(actor);
+        e.setOccurredAt(occurredAt); e.setNote(note); ledger.save(e);
+    }
+    private static String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private static LocalDateTime startOfDay(LocalDate date) { return date == null ? null : date.atStartOfDay(); }
+    private static LocalDateTime afterEndOfDay(LocalDate date) { return date == null ? null : date.plusDays(1).atStartOfDay(); }
 }

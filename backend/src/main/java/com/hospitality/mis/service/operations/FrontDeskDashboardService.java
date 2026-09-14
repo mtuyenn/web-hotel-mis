@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,18 +26,20 @@ public class FrontDeskDashboardService {
     private final ReservationRepository reservations;
     private final RoomRepository rooms;
     private final EquipmentIncidentRepository incidents;
+    private final Clock clock;
 
     public FrontDeskDashboardService(ReservationRepository reservations, RoomRepository rooms,
-                                     EquipmentIncidentRepository incidents) {
+                                     EquipmentIncidentRepository incidents, Clock clock) {
         this.reservations = reservations;
         this.rooms = rooms;
         this.incidents = incidents;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public FrontDeskDashboardDtos.Response get(LocalDate date, String query, ReservationStatus status,
                                                int page, int size) {
-        LocalDate businessDate = date == null ? LocalDate.now() : date;
+        LocalDate businessDate = date == null ? LocalDate.now(clock) : date;
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(100, size));
         String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);

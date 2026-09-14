@@ -165,8 +165,8 @@ class GovernanceApiContractTest {
                 "actor", "ACTION", "GUEST", "1", null, "after", "reason", "correlation")));
 
         assertThat(approval.fieldNames()).toIterable().containsExactlyInAnyOrder(
-                "id", "requester", "action", "target_id", "payload", "amount", "reason", "status",
-                "approver", "decided_at", "expires_at", "consumed_at", "idempotency_key");
+                "id", "requester", "action", "target_id", "payload", "amount", "reason", "risk", "status",
+                "approver", "decided_at", "expires_at", "consumed_at", "requested_at", "idempotency_key");
         assertThat(audit.fieldNames()).toIterable().containsExactlyInAnyOrder(
                 "id", "actor", "action", "entity_type", "entity_id", "before_data", "after_data", "reason",
                 "correlation_key", "created_at");

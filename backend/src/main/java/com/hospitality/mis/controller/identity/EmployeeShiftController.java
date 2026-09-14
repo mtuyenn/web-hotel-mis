@@ -14,7 +14,14 @@ public class EmployeeShiftController {
     public EmployeeShiftController(EmployeeShiftService service) { this.service = service; }
     @GetMapping @PreAuthorize("@departmentAccess.allows(authentication, 'SHIFT_READ')")
     public List<EmployeeShiftDtos.Response> list(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                                                 @RequestParam(required = false) String employeeId) { return service.list(date, employeeId); }
+                                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                                 @RequestParam(required = false) String employeeId) { return service.list(date, to, employeeId); }
+    @GetMapping("/coverage") @PreAuthorize("@departmentAccess.allows(authentication, 'SHIFT_READ')")
+    public EmployeeShiftDtos.CoverageResponse coverage(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                                        @RequestParam String shiftCode,
+                                                        @RequestParam(name = "minimum_staff", defaultValue = "1") int minimumStaff) {
+        return service.coverage(date, shiftCode, minimumStaff);
+    }
     @PostMapping @PreAuthorize("@departmentAccess.allows(authentication, 'SHIFT_WRITE')")
     public EmployeeShiftDtos.Response assign(@Valid @RequestBody EmployeeShiftDtos.Request request) { return service.assign(request, SecurityActor.currentActor()); }
 }

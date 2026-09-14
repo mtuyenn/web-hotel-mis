@@ -15,7 +15,8 @@ import java.util.List;
 @Service
 public class RoomAdminService {
     private final RoomRepository rooms; private final RoomTypeRepository types; private final AuditService audit;
-    public RoomAdminService(RoomRepository rooms, RoomTypeRepository types, AuditService audit) { this.rooms = rooms; this.types = types; this.audit = audit; }
+    private final RoomService roomService;
+    public RoomAdminService(RoomRepository rooms, RoomTypeRepository types, AuditService audit, RoomService roomService) { this.rooms = rooms; this.types = types; this.audit = audit; this.roomService = roomService; }
     @Transactional(readOnly = true)
     public List<RoomAdminDtos.Response> list() { return rooms.findAll().stream().map(this::toResponse).toList(); }
     @Transactional
@@ -24,7 +25,9 @@ public class RoomAdminService {
         var type = types.findById(request.roomTypeId()).filter(x -> x.getCatalogStatus() == RoomTypeCatalogStatus.ACTIVE)
                 .orElseThrow(() -> new DomainException("ROOM_TYPE_NOT_ACTIVE", "Chỉ loại phòng ACTIVE mới được gán phòng"));
         Room room = new Room(); room.setId(request.id()); room.setName(request.name()); room.setFloor(request.floor()); room.setDescription(request.description()); room.setRoomType(type);
-        room.setStatus(request.status() == null ? RoomStatus.READY : request.status()); rooms.save(room);
+        if (request.status() != null && request.status() != RoomStatus.READY)
+            throw new DomainException("INVALID_INITIAL_ROOM_STATUS", "Phòng mới chỉ được tạo ở trạng thái READY");
+        room.setStatus(RoomStatus.READY); rooms.save(room);
         audit.record(actor, "ROOM_CREATED", "ROOM", request.id(), null, request.roomTypeId(), null); return toResponse(room);
     }
     @Transactional
@@ -33,7 +36,8 @@ public class RoomAdminService {
         var type = types.findById(request.roomTypeId()).filter(x -> x.getCatalogStatus() == RoomTypeCatalogStatus.ACTIVE)
                 .orElseThrow(() -> new DomainException("ROOM_TYPE_NOT_ACTIVE", "Chỉ loại phòng ACTIVE mới được gán phòng"));
         room.setName(request.name()); room.setFloor(request.floor()); room.setDescription(request.description()); room.setRoomType(type);
-        if (request.status() != null) room.setStatus(request.status());
+        if (request.status() != null && request.status() != room.getStatus())
+            roomService.updateStatus(id, request.status(), actor);
         audit.record(actor, "ROOM_UPDATED", "ROOM", id, null, request.roomTypeId(), null); return toResponse(room);
     }
     private RoomAdminDtos.Response toResponse(Room room) { return new RoomAdminDtos.Response(room.getId(), room.getName(), room.getRoomType().getId(), room.getRoomType().getName(), room.getFloor(), room.getDescription(), room.getStatus()); }

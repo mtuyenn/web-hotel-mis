@@ -38,11 +38,13 @@ public final class ApprovalDtos {
             String payload,
             BigDecimal amount,
             String reason,
+            String risk,
             String status,
             String approver,
             Instant decidedAt,
             Instant expiresAt,
             Instant consumedAt,
+            Instant requestedAt,
             String idempotencyKey) {
 
         /** Chuyển entity nội bộ thành response; null được giữ là null cho mapper gọi an toàn. */
@@ -58,11 +60,13 @@ public final class ApprovalDtos {
                     approval.getMutationPayload(),
                     approval.getAmount(),
                     approval.getReason(),
+                    approval.getRisk(),
                     approval.getStatus(),
                     approval.getApprover(),
                     approval.getDecidedAt(),
                     approval.getExpiresAt(),
                     approval.getConsumedAt(),
+                    approval.getRequestedAt(),
                     approval.getCorrelationKey());
         }
     }

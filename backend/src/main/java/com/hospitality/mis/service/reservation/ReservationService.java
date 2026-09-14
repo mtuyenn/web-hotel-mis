@@ -11,6 +11,9 @@ import com.hospitality.mis.entity.reservation.ReservationStatus;
 import com.hospitality.mis.service.billing.BillingService;
 import com.hospitality.mis.dao.billing.ServiceLineRepository;
 import com.hospitality.mis.dao.billing.ServiceRepository;
+import com.hospitality.mis.dao.billing.InvoiceRepository;
+import com.hospitality.mis.dao.billing.PaymentTransactionRepository;
+import com.hospitality.mis.dao.billing.ReceiptRepository;
 import com.hospitality.mis.entity.billing.ServiceUsage;
 import com.hospitality.mis.entity.billing.ServiceUsageId;
 import com.hospitality.mis.entity.billing.Service;
@@ -61,6 +64,9 @@ public class ReservationService {
     /** Fallback only for direct unit construction; production uses the durable database ledger. */
     private final IdempotencySupport idempotency = new IdempotencySupport();
     private DurableIdempotencyService durableIdempotency;
+    private InvoiceRepository invoices;
+    private PaymentTransactionRepository paymentTransactions;
+    private ReceiptRepository receipts;
     /** Policy chặn khách bị block và ghi nhận hủy trễ. */
     private final BookingPolicy bookingPolicy = BookingPolicy.defaults();
     /** Đồng hồ múi giờ nghiệp vụ để tính thời điểm nhận/trả/no-show nhất quán. */
@@ -82,6 +88,12 @@ public class ReservationService {
 
     @org.springframework.beans.factory.annotation.Autowired
     void setBusinessClock(Clock clock) { this.clock = clock; }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTimelineRepositories(InvoiceRepository invoices, PaymentTransactionRepository paymentTransactions,
+                                 ReceiptRepository receipts) {
+        this.invoices = invoices; this.paymentTransactions = paymentTransactions; this.receipts = receipts;
+    }
 
     /** Điểm vào tạo booking lấy idempotency key từ request body. */
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
@@ -356,7 +368,17 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public List<AuditDtos.Response> timeline(Long id) {
         if (!reservations.existsById(id)) throw error("RESERVATION_NOT_FOUND", "Không tìm thấy đặt phòng");
-        return audit.timeline("RESERVATION", id.toString()).stream().map(AuditDtos.Response::from).toList();
+        var entries = new ArrayList<com.hospitality.mis.entity.governance.AuditLog>(audit.timeline("RESERVATION", id.toString()));
+        if (invoices != null) invoices.findByReservationId(id).ifPresent(invoice -> {
+            entries.addAll(audit.timeline("INVOICE", invoice.getId().toString()));
+            paymentTransactions.findByInvoiceIdOrderByOccurredAtAsc(invoice.getId())
+                    .forEach(payment -> entries.addAll(audit.timeline("PAYMENT_TRANSACTION", payment.getId().toString())));
+            receipts.findByInvoiceIdOrderByIssuedAtAsc(invoice.getId())
+                    .forEach(receipt -> entries.addAll(audit.timeline("RECEIPT", receipt.getId().toString())));
+        });
+        return entries.stream().distinct().sorted(Comparator.comparing(com.hospitality.mis.entity.governance.AuditLog::getCreatedAt)
+                        .thenComparing(log -> log.getId() == null ? Long.MAX_VALUE : log.getId()))
+                .map(AuditDtos.Response::from).toList();
     }
 
     /**

@@ -725,7 +725,8 @@ class SecurityIntegrationTest {
     void hrCannotProvisionOrResetAndHasNoFinancialPermissions() throws Exception {
         UserDetails hr = userDetailsService.loadUserByUsername("hr");
         assertThat(hr.getAuthorities()).extracting(a -> a.getAuthority())
-                .containsExactlyInAnyOrder("ROLE_HR", "PERMISSION_EMPLOYEE_READ");
+                .containsExactlyInAnyOrder("ROLE_HR", "PERMISSION_EMPLOYEE_READ",
+                        "PERMISSION_SHIFT_READ", "PERMISSION_SHIFT_WRITE");
 
         String hrToken = bearer(login("hr", "hr-password").get("access_token").asText());
         provision(hrToken, "hr-created", EmployeeRole.STAFF, "0900000019")
