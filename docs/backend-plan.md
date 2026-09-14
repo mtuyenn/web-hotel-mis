@@ -332,7 +332,8 @@ theo role ceiling; thao tác thu hồi được ghi security audit.
 
 #### Trạng thái P1.8 — 14/09/2026
 
-Approval queue và audit hỗ trợ filter/pagination; V12 bổ sung transactional
+Approval queue và audit hỗ trợ filter/pagination theo status/action/target/requester/
+date và entity/correlation/time; V12 bổ sung transactional
 notification outbox với dedupe key, polling và trạng thái delivered. Incident
 thiết bị phát event cho Front Desk và Technical; quyền notification giới hạn
 theo department.

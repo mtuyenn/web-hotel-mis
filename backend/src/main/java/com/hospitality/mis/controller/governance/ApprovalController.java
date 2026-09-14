@@ -95,10 +95,14 @@ class ApprovalController {
     @PreAuthorize("@departmentAccess.allows(authentication, 'APPROVAL_APPROVE')")
     public Object list(@RequestParam(required = false) String status, @RequestParam(required = false) String action,
                        @RequestParam(name = "target_id", required = false) String targetId,
+                       @RequestParam(required = false) String requester,
+                       @RequestParam(required = false) java.time.Instant from,
+                       @RequestParam(required = false) java.time.Instant to,
+                       @RequestParam(required = false) String risk,
                        @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
-        if (action == null && targetId == null && page == null && size == null)
+        if (action == null && targetId == null && requester == null && from == null && to == null && risk == null && page == null && size == null)
             return service.list(status).stream().map(ApprovalDtos.Response::from).collect(Collectors.toList());
-        var result = service.page(status, action, targetId, page == null ? 0 : page, size == null ? 20 : size);
+        var result = service.page(status, action, targetId, requester, from, to, page == null ? 0 : page, size == null ? 20 : size);
         return new PageResponse(result.getContent().stream().map(ApprovalDtos.Response::from).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 

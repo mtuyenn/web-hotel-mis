@@ -99,7 +99,7 @@ client phải xử lý cả 401 và 403.
 | POST | `/governance/approvals` | MANAGER, ACCOUNTING, FRONT_DESK |
 | POST | `/governance/approvals/{id}/approve` | Có `APPROVAL_APPROVE`, khác requester; action refund bắt buộc role DIRECTOR |
 | GET | `/governance/approvals?status=PENDING` | Có `APPROVAL_APPROVE` |
-| GET | `/governance/approvals?status=&action=&target_id=&page=&size=` | Approval queue filter/pagination; không có query vẫn trả list tương thích |
+| GET | `/governance/approvals?status=&action=&target_id=&requester=&from=&to=&risk=&page=&size=` | Approval queue filter/pagination theo trạng thái, action, target, requester và thời gian; không có query vẫn trả list tương thích |
 | POST | `/governance/approvals/{id}/reject` | Có `APPROVAL_APPROVE`, khác requester; action refund bắt buộc role DIRECTOR |
 | GET | `/invoices?page=&size=` | `BILLING_READ`; danh sách invoice phân trang tối đa 100 bản ghi/trang |
 | GET/POST | `/invoices/{invoice_id}/payments?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
@@ -113,7 +113,7 @@ client phải xử lý cả 401 và 403.
 | GET | `/finance/cash-handovers?page=&size=`, `/finance/expenses?page=&size=`, `/finance/partner-debts?page=&size=` | `FINANCE_READ`; truyền page/size trả `items` và metadata, không truyền giữ response list tương thích |
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |
 | GET | `/governance/audit` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING; scoped by actor for accounting |
-| GET | `/governance/audit?action=&entity_type=&page=&size=` | Filter/pagination audit; trả `items`, `page`, `size`, `total_elements`, `total_pages` khi có query |
+| GET | `/governance/audit?action=&entity_type=&entity_id=&correlation_key=&from=&to=&page=&size=` | Filter/pagination audit theo actor scope, action, entity, correlation và thời gian; trả metadata khi có query |
 | GET | `/governance/notifications/outbox?role=` | `NOTIFICATION_READ`; polling outbox pending theo recipient role |
 | POST | `/governance/notifications/outbox/{id}/delivered` | `NOTIFICATION_WRITE`; đánh dấu event đã giao |
 | POST | `/auth/customers/register` | Public |

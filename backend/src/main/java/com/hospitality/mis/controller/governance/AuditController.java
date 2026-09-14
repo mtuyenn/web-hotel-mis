@@ -35,14 +35,18 @@ public class AuditController {
     @PreAuthorize("@departmentAccess.allows(authentication, 'AUDIT_READ')")
     public Object list(@RequestParam(required = false) String action,
                        @RequestParam(name = "entity_type", required = false) String entityType,
+                       @RequestParam(name = "entity_id", required = false) String entityId,
+                       @RequestParam(name = "correlation_key", required = false) String correlationKey,
+                       @RequestParam(required = false) java.time.Instant from,
+                       @RequestParam(required = false) java.time.Instant to,
                        @RequestParam(required = false) Integer page,
                        @RequestParam(required = false) Integer size) {
         boolean global = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_DIRECTOR") || a.getAuthority().equals("ROLE_MANAGER"));
-        if (action == null && entityType == null && page == null && size == null) return audit.list(SecurityActor.currentActor(), global).stream()
+        if (action == null && entityType == null && entityId == null && correlationKey == null && from == null && to == null && page == null && size == null) return audit.list(SecurityActor.currentActor(), global).stream()
                 .map(AuditDtos.Response::from)
                 .collect(Collectors.toList());
-        var result = audit.page(SecurityActor.currentActor(), global, action, entityType, page == null ? 0 : page, size == null ? 20 : size);
+        var result = audit.page(SecurityActor.currentActor(), global, action, entityType, entityId, correlationKey, from, to, page == null ? 0 : page, size == null ? 20 : size);
         return new PageResponse(result.getContent().stream().map(AuditDtos.Response::from).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 

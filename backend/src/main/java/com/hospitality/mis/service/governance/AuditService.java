@@ -74,4 +74,12 @@ public class AuditService {
                 org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize));
     }
 
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<AuditLog> page(String actor, boolean global, String action, String entityType,
+                                                                String entityId, String correlationKey, Instant from, Instant to, int page, int size) {
+        int safeSize = Math.max(1, Math.min(100, size));
+        return repository.searchAdvanced(global ? null : actor, action, entityType, entityId, correlationKey, from, to,
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize));
+    }
+
 }
