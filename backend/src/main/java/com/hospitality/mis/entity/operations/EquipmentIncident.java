@@ -34,6 +34,9 @@ public class EquipmentIncident {
     /** Số tiền bồi thường được tính cho sự cố. */
     @Column(name = "compensation", nullable = false, precision = 14, scale = 2) private BigDecimal compensation;
     @Column(name = "created_at", nullable = false) private LocalDateTime createdAt = LocalDateTime.now();
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private IncidentSeverity severity = IncidentSeverity.MEDIUM;
+    @Enumerated(EnumType.STRING) @Column(name = "handoff_status", nullable = false, length = 20) private IncidentHandoffStatus handoffStatus = IncidentHandoffStatus.OPEN;
+    @Column(name = "handoff_note", length = 500) private String handoffNote;
     /** Constructor rỗng dành cho JPA. */
     protected EquipmentIncident() {}
 
@@ -52,6 +55,12 @@ public class EquipmentIncident {
     public Room getRoom() { return room; }
 
     public BigDecimal getCompensation() { return compensation; }
+    public IncidentSeverity getSeverity() { return severity; }
+    public IncidentHandoffStatus getHandoffStatus() { return handoffStatus; }
+    public String getHandoffNote() { return handoffNote; }
+    public void setSeverity(IncidentSeverity value) { severity = value == null ? IncidentSeverity.MEDIUM : value; }
+    public void setHandoffStatus(IncidentHandoffStatus value) { handoffStatus = value == null ? IncidentHandoffStatus.OPEN : value; }
+    public void setHandoffNote(String value) { handoffNote = value; }
 
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 

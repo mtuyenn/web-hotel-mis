@@ -5,6 +5,7 @@ import com.hospitality.mis.dao.operations.EquipmentIncidentRepository;
 import com.hospitality.mis.dao.reservation.ReservationRepository;
 import com.hospitality.mis.dto.operations.EquipmentIncidentDtos;
 import com.hospitality.mis.entity.operations.EquipmentIncident;
+import com.hospitality.mis.entity.operations.IncidentHandoffStatus;
 import com.hospitality.mis.entity.reservation.ReservationStatus;
 import com.hospitality.mis.entity.room.RoomStatus;
 import com.hospitality.mis.middleware.security.SecurityActor;
@@ -80,6 +81,7 @@ public class EquipmentIncidentService {
                     request.quantity(), LocalDate.now(clock));
             var incidentEntity = new EquipmentIncident(reservation, room, request.equipmentName(),
                     request.originalValue(), request.purchasedAt(), request.quantity(), amount);
+            incidentEntity.setSeverity(request.severity());
             incidentEntity.setCreatedAt(java.time.LocalDateTime.now(clock));
             var incident = incidents.save(incidentEntity);
             audit.record(actor, "EQUIPMENT_INCIDENT_RECORDED", "RESERVATION", reservationId.toString(), null,
@@ -90,8 +92,18 @@ public class EquipmentIncidentService {
                 notifications.enqueue("EQUIPMENT_INCIDENT", "FRONT_DESK", payload, "equipment-incident-" + incident.getId());
                 notifications.enqueue("EQUIPMENT_INCIDENT", "TECHNICAL", payload, "equipment-incident-tech-" + incident.getId());
             }
-            return new EquipmentIncidentDtos.Response(incident.getId(), request.roomId(), request.equipmentName(), amount);
+            return new EquipmentIncidentDtos.Response(incident.getId(), request.roomId(), request.equipmentName(), amount,
+                    incident.getSeverity(), incident.getHandoffStatus(), incident.getHandoffNote());
         });
+    }
+
+    @Transactional
+    public EquipmentIncidentDtos.Response handoff(Long id, EquipmentIncidentDtos.HandoffRequest request, String suppliedActor) {
+        String actor = authenticatedActor(suppliedActor);
+        var incident = incidents.findById(id).orElseThrow(() -> new DomainException("INCIDENT_NOT_FOUND", "Không tìm thấy sự cố"));
+        incident.setHandoffStatus(request.status()); incident.setHandoffNote(request.note());
+        audit.record(actor, "EQUIPMENT_INCIDENT_HANDOFF", "EQUIPMENT_INCIDENT", id.toString(), null, request.status().name(), request.note());
+        return new EquipmentIncidentDtos.Response(id, incident.getRoom().getId(), "", incident.getCompensation(), incident.getSeverity(), incident.getHandoffStatus(), incident.getHandoffNote());
     }
 
     private <T> T executeIdempotent(String scope, String key, String actor, String fingerprint,

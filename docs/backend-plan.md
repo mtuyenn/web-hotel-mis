@@ -241,6 +241,8 @@ Task lưu assignee, người giao, checklist, incident blocking và ghi audit; p
 chưa hoàn tất hoặc còn incident blocking. V13 bổ sung shift assignment dùng chung
 (lọc theo ngày/nhân viên, chống ca kết thúc trước khi bắt đầu) và checklist
 template/result có audit, phân quyền theo department cho Housekeeping.
+V14 bổ sung inspection minibar/tài sản theo task; equipment incident có severity
+và handoff `OPEN → ACKNOWLEDGED → RESOLVED`.
 
 ### P1.4 — Technical và equipment
 
@@ -293,7 +295,8 @@ trước khi activate.
 
 Finance đã có tất toán công nợ đối tác dưới row lock và báo cáo đối soát theo
 khoảng ngày, tách CASH/CARD/BANK_TRANSFER cùng tổng payment/refund/net; audit
-ghi nhận thao tác tất toán.
+ghi nhận thao tác tất toán. Danh sách cash handover, expense và partner debt có
+pagination `page/size` với giới hạn tối đa 100.
 
 ### P1.7 — HR và Admin
 

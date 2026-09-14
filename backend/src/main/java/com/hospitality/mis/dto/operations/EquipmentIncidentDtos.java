@@ -9,6 +9,8 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
 import java.time.LocalDate;
+import com.hospitality.mis.entity.operations.IncidentSeverity;
+import com.hospitality.mis.entity.operations.IncidentHandoffStatus;
 
 
 
@@ -31,7 +33,15 @@ public final class EquipmentIncidentDtos {
                                 /** Ngày mua dùng tính thời gian sử dụng. */
                                 @NotNull LocalDate purchasedAt,
                                 /** Số lượng thiết bị bị ảnh hưởng. */
-                                @Positive int quantity) {}
+                                @Positive int quantity,
+                                IncidentSeverity severity) {
+        public CreateRequest(String roomId, String equipmentName, BigDecimal originalValue, LocalDate purchasedAt, int quantity) {
+            this(roomId, equipmentName, originalValue, purchasedAt, quantity, null);
+        }
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record HandoffRequest(@NotNull IncidentHandoffStatus status, String note) {}
 
     /** Kết quả sự cố cùng số tiền bồi thường đã tính. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -43,6 +53,10 @@ public final class EquipmentIncidentDtos {
                            /** Tên thiết bị. */
                            String equipmentName,
                            /** Mức bồi thường đã tính. */
-                           BigDecimal compensation) {}
+                           BigDecimal compensation, IncidentSeverity severity, IncidentHandoffStatus handoffStatus, String handoffNote) {
+        public Response(Long id, String roomId, String equipmentName, BigDecimal compensation) {
+            this(id, roomId, equipmentName, compensation, IncidentSeverity.MEDIUM, IncidentHandoffStatus.OPEN, null);
+        }
+    }
 
 }

@@ -93,6 +93,23 @@ public class FinanceService {
     /** Liệt kê công nợ đối tác theo thời điểm ghi nhận giảm dần. */
     public java.util.List<FinanceDtos.PartnerDebtResponse> listDebts() { return debts.findAllByOrderByRecordedAtDesc().stream().map(this::toResponse).toList(); }
 
+    @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.CashHandoverResponse> pageHandovers(int page, int size) {
+        var result = handovers.findAll(org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("handedOverAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+    @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.ExpenseResponse> pageExpenses(int page, int size) {
+        var result = expenses.findAll(org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("paidAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+    @Transactional(readOnly = true)
+    public FinanceDtos.PageResponse<FinanceDtos.PartnerDebtResponse> pageDebts(int page, int size) {
+        var result = debts.findAll(org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize(size), org.springframework.data.domain.Sort.by("recordedAt").descending()));
+        return new FinanceDtos.PageResponse<>(result.getContent().stream().map(this::toResponse).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+    private int safeSize(int size) { return Math.max(1, Math.min(100, size)); }
+
     @Transactional
     public FinanceDtos.PartnerDebtResponse settleDebt(Long id, FinanceDtos.DebtSettlementRequest request, String actor) {
         var debt = debts.findForUpdate(id).orElseThrow(() -> new DomainException("PARTNER_DEBT_NOT_FOUND", "Không tìm thấy công nợ đối tác"));

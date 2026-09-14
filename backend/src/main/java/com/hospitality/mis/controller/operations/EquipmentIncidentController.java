@@ -31,4 +31,10 @@ public class EquipmentIncidentController {
                                                   @RequestHeader("Idempotency-Key") String idempotencyKey) {
         return service.record(reservationId, request, SecurityActor.currentActor(), idempotencyKey);
     }
+
+    @PatchMapping("/incidents/{id}/handoff")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'INCIDENT_HANDOFF')")
+    public EquipmentIncidentDtos.Response handoff(@PathVariable Long id, @Valid @RequestBody EquipmentIncidentDtos.HandoffRequest request) {
+        return service.handoff(id, request, SecurityActor.currentActor());
+    }
 }

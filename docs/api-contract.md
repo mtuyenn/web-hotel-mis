@@ -93,6 +93,7 @@ client phải xử lý cả 401 và 403.
 | PATCH | `/operations/maintenance/{id}/status` | MANAGER, HOUSEKEEPING |
 | POST | `/operations/reservations/{reservation_id}/room-transfers` | MANAGER, FRONT_DESK |
 | POST | `/operations/reservations/{reservation_id}/equipment-incidents` | MANAGER, FRONT_DESK, HOUSEKEEPING |
+| PATCH | `/operations/reservations/incidents/{id}/handoff` | `INCIDENT_HANDOFF`; cập nhật severity handoff OPEN/ACKNOWLEDGED/RESOLVED và ghi audit |
 | POST | `/governance/approvals` | MANAGER, ACCOUNTING, FRONT_DESK |
 | POST | `/governance/approvals/{id}/approve` | Có `APPROVAL_APPROVE`, khác requester; action refund bắt buộc role DIRECTOR |
 | GET | `/governance/approvals?status=PENDING` | Có `APPROVAL_APPROVE` |
@@ -106,7 +107,7 @@ client phải xử lý cả 401 và 403.
 | GET | `/services/{service_id}/price-history` | Có `SERVICE_READ`; lịch sử giá và actor/approval |
 | POST | `/finance/partner-debts/{id}/settle` | `FINANCE_WRITE`; tất toán một phần/toàn bộ, khóa dòng và không vượt dư nợ |
 | GET | `/finance/reconciliation?from=&to=` | `FINANCE_READ`; đối soát CASH/CARD/BANK_TRANSFER, payment/refund/net |
-| GET | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR |
+| GET | `/finance/cash-handovers?page=&size=`, `/finance/expenses?page=&size=`, `/finance/partner-debts?page=&size=` | `FINANCE_READ`; truyền page/size trả `items` và metadata, không truyền giữ response list tương thích |
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |
 | GET | `/governance/audit` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING; scoped by actor for accounting |
 | GET | `/governance/audit?action=&entity_type=&page=&size=` | Filter/pagination audit; trả `items`, `page`, `size`, `total_elements`, `total_pages` khi có query |

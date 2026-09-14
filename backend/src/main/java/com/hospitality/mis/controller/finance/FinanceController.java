@@ -35,17 +35,17 @@ public class FinanceController {
      * Liệt kê bàn giao tiền mặt qua GET /api/finance/cash-handovers; không có tham số, trả danh sách để đối soát.
      * Chỉ FINANCE_READ được phép; lỗi truy vấn do dịch vụ xử lý và thao tác đọc không cần idempotency.
      */
-    @GetMapping("/cash-handovers") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public java.util.List<FinanceDtos.CashHandoverResponse> handovers() { return service.listHandovers(); }
+    @GetMapping("/cash-handovers") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public Object handovers(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) { return page == null && size == null ? service.listHandovers() : service.pageHandovers(page == null ? 0 : page, size == null ? 20 : size); }
     /**
      * Liệt kê chi phí qua GET /api/finance/expenses; không có tham số và trả danh sách chi phí.
      * Chỉ FINANCE_READ được phép; lỗi truy vấn do dịch vụ xử lý, không có idempotency concern.
      */
-    @GetMapping("/expenses") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public java.util.List<FinanceDtos.ExpenseResponse> expenses() { return service.listExpenses(); }
+    @GetMapping("/expenses") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public Object expenses(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) { return page == null && size == null ? service.listExpenses() : service.pageExpenses(page == null ? 0 : page, size == null ? 20 : size); }
     /**
      * Liệt kê công nợ đối tác qua GET /api/finance/partner-debts; không có tham số và trả danh sách công nợ.
      * Chỉ FINANCE_READ được phép; lỗi truy vấn do dịch vụ xử lý, không có idempotency concern.
      */
-    @GetMapping("/partner-debts") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public java.util.List<FinanceDtos.PartnerDebtResponse> debts() { return service.listDebts(); }
+    @GetMapping("/partner-debts") @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_READ')") public Object debts(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) { return page == null && size == null ? service.listDebts() : service.pageDebts(page == null ? 0 : page, size == null ? 20 : size); }
 
     @PostMapping("/partner-debts/{id}/settle")
     @PreAuthorize("@departmentAccess.allows(authentication, 'FINANCE_WRITE')")

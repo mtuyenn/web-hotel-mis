@@ -19,6 +19,7 @@ import com.hospitality.mis.service.identity.EmployeeService;
 import com.hospitality.mis.service.governance.NotificationOutboxService;
 import com.hospitality.mis.service.room.RoomAdminService;
 import com.hospitality.mis.service.operations.HousekeepingChecklistService;
+import com.hospitality.mis.service.operations.HousekeepingInspectionService;
 import com.hospitality.mis.service.identity.EmployeeShiftService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
@@ -96,9 +97,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean RoomAdminService mock26;
     @MockBean HousekeepingChecklistService mock27;
     @MockBean EmployeeShiftService mock28;
+    @MockBean HousekeepingInspectionService mock29;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26, mock27, mock28); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26, mock27, mock28, mock29); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -120,6 +122,7 @@ class DepartmentAuthorizationMatrixTest {
         when(mock27.templates()).thenReturn(List.of());
         when(mock27.results(anyLong())).thenReturn(List.of());
         when(mock28.list(any(), any())).thenReturn(List.of());
+        when(mock29.list(anyLong())).thenReturn(List.of());
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -163,6 +166,8 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("POST", "/api/operations/housekeeping/checklist-templates", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"name\":\"Bathroom\"}"),
             new Endpoint("GET", "/api/operations/housekeeping/tasks/1/checklist-results", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{}"),
             new Endpoint("POST", "/api/operations/housekeeping/tasks/1/checklist-results", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"item\":\"Towels\",\"passed\":true}"),
+            new Endpoint("GET", "/api/operations/housekeeping/tasks/1/inspections", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{}"),
+            new Endpoint("POST", "/api/operations/housekeeping/tasks/1/inspections", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"inspection_type\":\"MINIBAR\",\"item\":\"Water\",\"quantity\":1,\"item_condition\":\"OK\"}"),
             new Endpoint("GET", "/api/operations/technical/work-orders", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/operations/technical/work-orders", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"room_id\":\"101\",\"priority\":\"HIGH\"}"),
             new Endpoint("PATCH", "/api/operations/technical/work-orders/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"status\":\"ACKNOWLEDGED\"}"),
@@ -186,6 +191,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("POST", "/api/reservations/1/services", "MANAGER,FRONT_DESK", "{\"service_id\":\"S1\",\"quantity\":1}"),
             new Endpoint("POST", "/api/reservations/1/equipment-incidents", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING", "{\"room_id\":\"101\",\"equipment_name\":\"TV\",\"original_value\":100,\"purchased_at\":\"2026-01-01\",\"quantity\":1}"),
             new Endpoint("POST", "/api/operations/reservations/1/equipment-incidents", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING", "{\"room_id\":\"101\",\"equipment_name\":\"TV\",\"original_value\":100,\"purchased_at\":\"2026-01-01\",\"quantity\":1}"),
+            new Endpoint("PATCH", "/api/operations/reservations/incidents/1/handoff", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING,TECHNICAL", "{\"status\":\"ACKNOWLEDGED\"}"),
             new Endpoint("POST", "/api/operations/reservations/1/room-transfers", "MANAGER,FRONT_DESK", "{\"from_room_id\":\"101\",\"to_room_id\":\"102\"}"),
             new Endpoint("GET", "/api/invoices/reservation/1", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/invoices/reservation/1/deposit/refund", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK", "{}"),
