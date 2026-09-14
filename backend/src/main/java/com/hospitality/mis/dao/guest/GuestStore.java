@@ -12,33 +12,37 @@ import java.util.Optional;
 
 
 
-/** Persistence port used by guest application services. */
+/** Cổng lưu trữ phục vụ các dịch vụ ứng dụng dành cho khách. */
 
 public interface GuestStore {
 
+    /** Tạo đối tượng khách mới chưa gắn với bản ghi bền vững. */
     Guest newGuest();
 
 
 
+    /** Lưu và đồng bộ hồ sơ khách với persistence context; trả về thực thể được quản lý. */
     Guest save(Guest guest);
 
 
 
     /**
-     * Finds a guest in the hotel-wide shared registry.
+     * Tìm khách trong sổ đăng ký dùng chung trên toàn khách sạn.
      *
-     * The scope is explicit in the port because guest records are not owned
-     * by their creator.
+     * Phạm vi được nêu rõ trong cổng vì bản ghi khách không thuộc quyền sở hữu
+     * của người tạo.
      */
     Optional<Guest> findSharedById(Long id);
 
+    /** Tìm hồ sơ dùng chung theo số điện thoại. */
     Optional<Guest> findByPhone(String phone);
 
+    /** Tìm hồ sơ dùng chung theo số giấy tờ định danh. */
     Optional<Guest> findByIdentityNumber(String identityNumber);
 
-    /** Returns every guest in the hotel-wide shared registry. */
+    /** Trả về mọi khách trong sổ đăng ký dùng chung trên toàn khách sạn. */
     List<Guest> findAllShared();
 
-    /** Searches the hotel-wide shared registry. */
+    /** Tìm kiếm trong sổ đăng ký dùng chung trên toàn khách sạn. */
     List<Guest> searchShared(String query);
 }

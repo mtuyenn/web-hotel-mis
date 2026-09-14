@@ -1,14 +1,22 @@
 package com.hospitality.mis.entity.identity;
 
-/** Capabilities derived from the employee position, never from client-supplied grants. */
+/** Các quyền năng được suy ra từ chức vụ nhân viên, không bao giờ từ các quyền do máy khách cung cấp. */
 public enum Permission {
+    /** Đọc và quản trị nhân viên. */
     EMPLOYEE_READ, EMPLOYEE_PROVISION, EMPLOYEE_PASSWORD_RESET,
-    ROOM_READ, ROOM_WRITE, EQUIPMENT_READ, EQUIPMENT_WRITE,
+    /** Đọc/cập nhật phòng và thiết bị. */
+    ROOM_READ, ROOM_WRITE, ROOM_CATALOG_WRITE, EQUIPMENT_READ, EQUIPMENT_WRITE,
+    /** Đọc/cập nhật hồ sơ khách. */
     GUEST_READ, GUEST_WRITE,
+    /** Đọc, tạo, sửa và hoàn tất đặt phòng. */
     RESERVATION_READ, RESERVATION_CREATE, RESERVATION_WRITE, RESERVATION_CHECKOUT,
     RESERVATION_SERVICE_WRITE, INCIDENT_WRITE,
+    /** Đọc hóa đơn và ghi giao dịch thanh toán. */
     BILLING_READ, BILLING_WRITE, PAYMENT_WRITE,
+    /** Đọc/cập nhật dịch vụ và tồn kho. */
     SERVICE_READ, SERVICE_WRITE, INVENTORY_READ, INVENTORY_WRITE,
+    /** Đọc/cập nhật bảo trì và tài chính. */
     MAINTENANCE_READ, MAINTENANCE_WRITE, FINANCE_READ, FINANCE_WRITE,
+    /** Yêu cầu/phê duyệt thay đổi và đọc nhật ký kiểm toán. */
     APPROVAL_REQUEST, APPROVAL_APPROVE, AUDIT_READ
 }

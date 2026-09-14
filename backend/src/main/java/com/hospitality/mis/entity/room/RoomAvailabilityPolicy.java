@@ -8,10 +8,11 @@ import java.util.Objects;
 
 
 
-/** Availability rule owned by the room bounded context. */
+/** Quy tắc khả dụng thuộc ngữ cảnh giới hạn phòng. */
 
 public final class RoomAvailabilityPolicy {
 
+    /** Kiểm tra khoảng thời gian nửa kín [from, to) có thứ tự hợp lệ. */
     public void validateInterval(LocalDateTime from, LocalDateTime to) {
 
         if (from == null || to == null || !from.isBefore(to)) {
@@ -26,12 +27,13 @@ public final class RoomAvailabilityPolicy {
 
     /**
 
-     * A room is available only when its operational state allows allocation
+     * Phòng chỉ khả dụng khi trạng thái vận hành cho phép phân bổ
 
-     * and the reservation adapter found no half-open interval overlap.
+     * và bộ chuyển đổi đặt phòng không phát hiện khoảng thời gian nửa kín bị chồng lấp.
 
      */
 
+    /** Kết hợp trạng thái phòng và kết quả kiểm tra chồng lấp để quyết định khả dụng. */
     public boolean isAvailable(Room room, boolean hasOverlappingReservation) {
 
         Objects.requireNonNull(room, "room");
@@ -42,6 +44,7 @@ public final class RoomAvailabilityPolicy {
 
 
 
+    /** Biến thể dùng trực tiếp trạng thái khi chưa cần tải entity phòng. */
     public boolean isAvailable(RoomStatus status, boolean hasOverlappingReservation) {
 
         Objects.requireNonNull(status, "status");

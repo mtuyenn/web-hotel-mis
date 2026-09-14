@@ -30,11 +30,11 @@ import java.util.Objects;
 
 /**
 
- * Canonical guest state and persistence mapping.
+ * Trạng thái chuẩn của khách và ánh xạ lưu trữ.
 
  *
 
- * The sole concrete JPA owner of the {@code guests} table.
+ * Chủ thể JPA cụ thể duy nhất của bảng {@code guests}.
  */
 @Entity
 @Table(name = "guests")
@@ -45,6 +45,7 @@ public class Guest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
 
     @Column(name = "id", nullable = false)
+    /** ID khách dùng làm khóa quan hệ với đặt phòng và tài khoản. */
     private Long id;
 
 
@@ -82,27 +83,33 @@ public class Guest {
     @Enumerated(EnumType.STRING)
 
     @Column(name = "membership_tier", nullable = false, length = 20)
+    /** Hạng thành viên hiện tại, được cập nhật bởi chính sách lưu trú. */
     private MembershipTier membershipTier = MembershipTier.STANDARD;
 
 
 
     @Column(name = "total_spend", nullable = false, precision = 14, scale = 2)
+    /** Tổng chi tiêu đã quyết toán suốt đời của khách. */
     private BigDecimal totalSpend = BigDecimal.ZERO;
 
 
 
     @Column(name = "late_cancellation_count", nullable = false)
+    /** Số lần hủy muộn dùng để giảm hạng và chặn đặt phòng. */
     private int lateCancellationCount;
 
     @Column(name = "completed_stays", nullable = false)
+    /** Số lần lưu trú hoàn tất dùng để xét hạng. */
     private int completedStays;
 
     @Column(name = "late_checkout_count", nullable = false)
+    /** Số lần trả phòng muộn dùng cho quy tắc giảm hạng. */
     private int lateCheckoutCount;
 
 
 
     @Column(name = "booking_blocked", nullable = false)
+    /** Cờ chặn đặt phòng; chỉ được mở lại bởi quy trình nghiệp vụ phù hợp. */
     private boolean bookingBlocked;
 
 
@@ -110,11 +117,13 @@ public class Guest {
     @Version
 
     @Column(name = "version", nullable = false)
+    /** Phiên bản lạc quan, ngăn cập nhật đồng thời làm mất số liệu khách. */
     private long version;
 
 
 
     public Guest() {
+        // Constructor rỗng bắt buộc để JPA khôi phục aggregate từ cơ sở dữ liệu.
     }
 
 
@@ -309,7 +318,7 @@ public class Guest {
 
 
 
-    /** Returns whether this guest may be used as the guest on a new booking. */
+    /** Trả về việc khách này có thể được sử dụng cho một đặt phòng mới hay không. */
 
     public boolean canPlaceBooking() {
 
@@ -321,13 +330,13 @@ public class Guest {
 
     /**
 
-     * Records a late cancellation and applies the booking-block threshold.
+     * Ghi nhận một lần hủy muộn và áp dụng ngưỡng chặn đặt phòng.
 
-     * The reservation context currently owns its cancellation use case; this
+     * Ngữ cảnh đặt phòng hiện sở hữu ca sử dụng hủy của mình; phương thức này
 
-     * method keeps the rule available in the canonical guest model without
+     * duy trì quy tắc trong mô hình khách chuẩn mà không thay đổi hành vi của
 
-     * changing that context's behavior during the migration.
+     * ngữ cảnh đó trong quá trình di trú.
 
      */
 
@@ -353,7 +362,7 @@ public class Guest {
 
 
 
-    /** Adds a settled amount to the guest's lifetime spend. */
+    /** Cộng một khoản đã quyết toán vào tổng chi tiêu suốt đời của khách. */
 
     public void addSpend(BigDecimal amount) {
 
@@ -369,7 +378,7 @@ public class Guest {
 
 
 
-    /** Applies the configured membership policy to the current guest state. */
+    /** Áp dụng chính sách hạng thành viên đã cấu hình cho trạng thái hiện tại của khách. */
 
     public void refreshMembership(MembershipPolicy policy, long completedStays) {
 
@@ -386,6 +395,7 @@ public class Guest {
         this.completedStays = completedStays;
     }
 
+    /** Tăng số lượt lưu trú hoàn tất rồi tính lại hạng theo policy. */
     public void recordCompletedStay(MembershipPolicy policy) {
         completedStays++;
         refreshMembership(policy, completedStays);
@@ -398,11 +408,13 @@ public class Guest {
         this.lateCheckoutCount = lateCheckoutCount;
     }
 
+    /** Ghi nhận trả phòng muộn và giảm tối đa một bậc khi vượt ngưỡng. */
     public void recordLateCheckout() {
         lateCheckoutCount++;
         if (lateCheckoutCount > 3) downgradeMembershipOneTier();
     }
 
+    /** Giảm hạng đúng một bậc; hạng STANDARD không thể giảm thêm. */
     private void downgradeMembershipOneTier() {
         membershipTier = switch (membershipTier) {
             case PLATINUM -> MembershipTier.GOLD;

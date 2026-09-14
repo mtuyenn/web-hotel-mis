@@ -22,6 +22,18 @@ spring:
     locations: classpath:db/migration
 
 hotel:
+  time-zone: ${HOTEL_TIME_ZONE:Asia/Ho_Chi_Minh}
+  payment:
+    webhook-secret: ${HOTEL_PAYMENT_WEBHOOK_SECRET:}
+  booking:
+    deposit-hold-minutes: ${HOTEL_DEPOSIT_HOLD_MINUTES:15}
+    hold-expiry-scan-ms: ${HOTEL_HOLD_EXPIRY_SCAN_MS:60000}
+  public-api:
+    requests-per-minute: ${HOTEL_PUBLIC_REQUESTS_PER_MINUTE:120}
+  media:
+    room-images-dir: ${HOTEL_ROOM_IMAGES_DIR:./data/room-images}
+    orphan-grace-minutes: ${HOTEL_MEDIA_ORPHAN_GRACE_MINUTES:60}
+    orphan-cleanup-ms: ${HOTEL_MEDIA_ORPHAN_CLEANUP_MS:3600000}
   policy:
     hourly-minimum: ${HOTEL_HOURLY_MINIMUM:3}
     late-checkout-grace-minutes: ${HOTEL_LATE_GRACE_MINUTES:20}
@@ -34,5 +46,5 @@ management:
       exposure:
         include: health,info
 
-# Database and security are active; use environment variables for environment-specific values.
-# Never commit credentials here; use environment variables or a secret manager.
+# Cơ sở dữ liệu và bảo mật đang được kích hoạt; sử dụng biến môi trường cho các giá trị tùy theo môi trường.
+# Không bao giờ commit thông tin xác thực tại đây; hãy sử dụng biến môi trường hoặc trình quản lý bí mật.

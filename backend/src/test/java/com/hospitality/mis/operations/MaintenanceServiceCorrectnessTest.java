@@ -20,11 +20,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ state machine maintenance và việc giải phóng phòng khi hoàn tất. */
 class MaintenanceServiceCorrectnessTest {
+    /** Ba port mock giữ test ở state transition, room release và audit outcome. */
     @Mock MaintenanceWorkOrderRepository orders;
     @Mock RoomRepository rooms;
     @Mock AuditService audit;
 
+    /** Given state chưa xử lý, When skip/reverse, Then transition bị từ chối không audit. */
     @Test void maintenanceCannotSkipOrReverseStates() {
         MaintenanceWorkOrder order = order(MaintenanceStatus.CHUA_XU_LY);
         when(orders.findById("M1")).thenReturn(Optional.of(order));
@@ -37,6 +40,7 @@ class MaintenanceServiceCorrectnessTest {
         verify(audit, never()).record(any(), any(), any(), any(), any(), any(), any());
     }
 
+    /** Given order đang bảo trì, When complete, Then order hoàn tất và room trở lại READY. */
     @Test void completionReleasesRoomAndOnlyValidPathIsAccepted() {
         MaintenanceWorkOrder order = order(MaintenanceStatus.DANG_BAO_TRI);
         when(orders.findById("M1")).thenReturn(Optional.of(order));
@@ -49,6 +53,7 @@ class MaintenanceServiceCorrectnessTest {
                 eq("DANG_BAO_TRI"), eq("DA_HOAN_THANH"), isNull());
     }
 
+    /** Dựng work order gắn room MAINTENANCE với ngày cố định cho expected audit. */
     private MaintenanceWorkOrder order(MaintenanceStatus status) {
         Room room = new Room(); room.setId("101"); room.setStatus(RoomStatus.MAINTENANCE);
         MaintenanceWorkOrder order = new MaintenanceWorkOrder(); order.setId("M1"); order.setRoom(room); order.setMaintenanceType("repair");

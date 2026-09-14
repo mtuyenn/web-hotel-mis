@@ -8,24 +8,41 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "invoices")
 @Access(AccessType.FIELD)
+/** Hóa đơn tổng hợp tiền phòng, dịch vụ, đặt cọc và các điều chỉnh của đặt phòng. */
 public class Invoice {
+    /** ID hóa đơn do cơ sở dữ liệu sinh. */
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false) private Long id;
+    /** Mỗi đặt phòng chỉ có một hóa đơn; liên kết là bắt buộc. */
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reservation_id", nullable = false, unique = true) private Reservation reservation;
+    /** Thời điểm phát hành hóa đơn. */
     @Column(name = "issued_at", nullable = false) private LocalDateTime issuedAt = LocalDateTime.now();
+    /** Khoản giảm giá áp dụng cho hóa đơn. */
     @Column(name = "discount", precision = 12, scale = 2, nullable = false) private BigDecimal discount = BigDecimal.ZERO;
+    /** Tiền đặt cọc đã thu, dùng khi xác định số còn phải thanh toán. */
     @Column(name = "deposit_paid", precision = 12, scale = 2, nullable = false) private BigDecimal depositPaid = BigDecimal.ZERO;
+    /** Kênh thanh toán được chọn cho hóa đơn, có thể chưa có khi chưa thu. */
     @Enumerated(EnumType.STRING) @Column(name = "payment_method") private PaymentMethod paymentMethod;
+    /** Trạng thái thanh toán hiện tại của hóa đơn. */
     @Enumerated(EnumType.STRING) @Column(name = "status", nullable = false) private PaymentStatus status = PaymentStatus.CHUA_THANH_TOAN;
+    /** Tổng tiền phòng; giá trị tiền tệ dùng BigDecimal để tránh sai số nhị phân. */
     @Column(name = "room_total", precision = 12, scale = 2, nullable = false) private BigDecimal roomTotal = BigDecimal.ZERO;
+    /** Tổng tiền dịch vụ đã ghi nhận cho đặt phòng. */
     @Column(name = "service_total", precision = 12, scale = 2, nullable = false) private BigDecimal serviceTotal = BigDecimal.ZERO;
+    /** Số tiền cuối cùng còn phải thu sau các khoản giảm trừ. */
     @Column(name = "amount_due", precision = 12, scale = 2, nullable = false) private BigDecimal amountDue = BigDecimal.ZERO;
+    /** Phụ thu phát sinh ngoài giá cơ bản. */
     @Column(name = "surcharge", precision = 12, scale = 2, nullable = false) private BigDecimal surcharge = BigDecimal.ZERO;
+    /** Khoản bồi thường được tính vào hóa đơn. */
     @Column(name = "compensation", precision = 12, scale = 2, nullable = false) private BigDecimal compensation = BigDecimal.ZERO;
+    /** Phí gia hạn thời gian lưu trú. */
     @Column(name = "extension_fee", precision = 12, scale = 2, nullable = false) private BigDecimal extensionFee = BigDecimal.ZERO;
+    /** Tổng ảnh hưởng của các bút toán điều chỉnh. */
     @Column(name = "adjustment_total", precision = 12, scale = 2, nullable = false) private BigDecimal adjustmentTotal = BigDecimal.ZERO;
+    /** Phiên bản lạc quan, ngăn hai giao dịch đồng thời ghi đè hóa đơn. */
     @Version @Column(name = "version", nullable = false) private long version;
+    /** Constructor rỗng để JPA khởi tạo entity. */
     public Invoice() {}
     public Long getId() { return id; }
     public Reservation getReservation() { return reservation; }

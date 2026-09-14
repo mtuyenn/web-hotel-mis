@@ -44,18 +44,23 @@ import java.util.UUID;
 
 
 
+/** Chính sách về thời hạn, nội dung và mã hóa access/refresh token JWT. */
 @Service
 
 public class JwtTokenService {
 
+    /** Thời hạn access token ngắn để giới hạn tác động khi token bị lộ. */
     public static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
 
+    /** Thời hạn refresh token cho phép duy trì phiên đăng nhập. */
     public static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
 
 
 
+    /** Bộ mã hóa JWT được cấu hình bởi lớp bảo mật ứng dụng. */
     private final JwtEncoder encoder;
 
+    /** Nguồn ngẫu nhiên mật mã cho refresh token và family id. */
     private final SecureRandom random = new SecureRandom();
 
 
@@ -68,6 +73,7 @@ public class JwtTokenService {
 
 
 
+    /** Tạo cặp token cho principal và giữ nguyên family khi refresh luân chuyển. */
     public IssuedTokens issue(PrincipalType principalType, String principalId,
 
                               Collection<? extends GrantedAuthority> authorities, String familyId) {
@@ -141,6 +147,7 @@ public class JwtTokenService {
 
 
 
+    /** Tạo mã ngẫu nhiên dùng để thu hồi cả một họ refresh token. */
     public String generateFamilyId() {
 
         return UUID.randomUUID().toString();
@@ -149,6 +156,7 @@ public class JwtTokenService {
 
 
 
+    /** Băm token trước khi lưu hoặc tra cứu, tránh lưu secret dạng rõ trong DB. */
     public static String hash(String token) {
 
         try {
@@ -179,6 +187,7 @@ public class JwtTokenService {
 
 
 
+    /** Sinh refresh token URL-safe từ nguồn ngẫu nhiên mật mã. */
     private String generateRefreshToken() {
 
         byte[] value = new byte[32];

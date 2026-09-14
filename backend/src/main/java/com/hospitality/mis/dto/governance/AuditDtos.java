@@ -6,7 +6,9 @@ import com.hospitality.mis.entity.governance.AuditLog;
 
 import java.time.Instant;
 
+/** DTO đọc nhật ký audit, dùng snake_case khi serialize ra API. */
 public final class AuditDtos {
+    /** Namespace cho response audit. */
     private AuditDtos() {
     }
 
@@ -23,6 +25,7 @@ public final class AuditDtos {
             String correlationKey,
             Instant createdAt) {
 
+        /** Ánh xạ thông tin truy vết từ entity audit sang response JSON. */
         public static Response from(AuditLog audit) {
             return new Response(
                     audit.getId(),

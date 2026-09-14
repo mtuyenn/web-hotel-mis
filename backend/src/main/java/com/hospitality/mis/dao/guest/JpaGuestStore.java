@@ -16,11 +16,12 @@ import java.util.Optional;
 
 
 
-/** JPA adapter for the canonical guest entity. */
+/** Bộ chuyển tiếp JPA cho thực thể khách chuẩn hóa. */
 @Repository
 
 public class JpaGuestStore implements GuestStore {
 
+    /** Repository JPA thực hiện các truy vấn trên sổ khách chuẩn hóa. */
     private final GuestRepository repository;
 
 
@@ -35,6 +36,7 @@ public class JpaGuestStore implements GuestStore {
 
     @Override
 
+    /** Tạo aggregate khách mới để tầng ứng dụng điền dữ liệu trước khi lưu. */
     public Guest newGuest() {
 
         return new Guest();
@@ -44,6 +46,7 @@ public class JpaGuestStore implements GuestStore {
 
     @Override
 
+    /** Ủy quyền lưu và flush để lỗi ràng buộc được phát hiện trong phạm vi giao dịch hiện tại. */
     public Guest save(Guest guest) {
 
         return repository.saveAndFlush(guest);
@@ -53,26 +56,31 @@ public class JpaGuestStore implements GuestStore {
 
     @Override
 
+    /** Đọc hồ sơ khách dùng chung theo ID và giữ nguyên Optional khi không tìm thấy. */
     public Optional<Guest> findSharedById(Long id) {
         return repository.findSharedById(id);
     }
 
     @Override
+    /** Đọc hồ sơ khách dùng chung theo số điện thoại. */
     public Optional<Guest> findByPhone(String phone) {
         return repository.findByPhone(phone);
     }
 
     @Override
+    /** Đọc hồ sơ khách dùng chung theo số giấy tờ định danh. */
     public Optional<Guest> findByIdentityNumber(String identityNumber) {
         return repository.findByIdentityNumber(identityNumber);
     }
 
     @Override
+    /** Trả về toàn bộ sổ khách theo thứ tự mà repository quy định. */
     public List<Guest> findAllShared() {
         return repository.findAllShared();
     }
 
     @Override
+    /** Chuyển tiếp tìm kiếm gần đúng trên tên, giấy tờ và điện thoại. */
     public List<Guest> searchShared(String query) {
         return repository.searchShared(query);
     }

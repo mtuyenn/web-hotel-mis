@@ -12,12 +12,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+/** Kho yêu cầu phê duyệt, bao gồm ràng buộc binding payload và khóa tiêu thụ. */
 public interface ApprovalRepository extends JpaRepository<ApprovalRequest, Long> {
+    /** Liệt kê yêu cầu phê duyệt theo trạng thái, bản ghi mới hơn đứng trước. */
     List<ApprovalRequest> findByStatusOrderByIdDesc(String status);
 
+    /** Khóa yêu cầu theo ID để tiêu thụ hoặc chuyển trạng thái phê duyệt độc quyền. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ApprovalRequest> findWithLockById(Long id);
 
+    /** Tìm phê duyệt còn dùng được khớp đủ hành động, đối tượng, người yêu cầu và payload. */
     @Query("""
             select a from ApprovalRequest a
             where a.action = :action and a.targetId = :targetId
@@ -32,6 +36,7 @@ public interface ApprovalRepository extends JpaRepository<ApprovalRequest, Long>
                                                       @Param("payloadFingerprint") String payloadFingerprint,
                                                       @Param("amount") BigDecimal amount);
 
+    /** Như truy vấn ràng buộc ở trên nhưng khóa bản ghi để gắn phê duyệt mà không bị dùng hai lần. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select a from ApprovalRequest a
@@ -47,5 +52,8 @@ public interface ApprovalRepository extends JpaRepository<ApprovalRequest, Long>
                                                               @Param("payloadFingerprint") String payloadFingerprint,
                                                               @Param("amount") BigDecimal amount);
 
+    /** Lấy các yêu cầu ở trạng thái đã chỉ định và đã hết hạn tại thời điểm now. */
     List<ApprovalRequest> findByStatusAndExpiresAtLessThanEqual(String status, Instant now);
+
+    Optional<ApprovalRequest> findFirstByRequesterAndCorrelationKey(String requester, String correlationKey);
 }

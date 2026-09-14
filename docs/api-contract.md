@@ -46,6 +46,11 @@ client phải xử lý cả 401 và 403.
 | GET | `/rooms`, `/rooms/availability` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL, STAFF |
 | PATCH | `/rooms/{id}/status` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL |
 | GET/POST | `/rooms/{room_id}/equipment` | GET: MANAGER, HOUSEKEEPING, TECHNICAL, FRONT_DESK; POST: MANAGER, TECHNICAL |
+| GET | `/rooms/{room_id}/media` | Có `ROOM_READ`; chỉ metadata ảnh active và tên tiện nghi |
+| POST | `/rooms/{room_id}/images` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; multipart `file`, tối đa 10 ảnh/phòng, 5 MB/ảnh, JPEG/PNG/WebP |
+| DELETE | `/rooms/{room_id}/images/{image_id}` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; soft-delete metadata và xóa file local |
+| POST | `/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN |
+| PUT | `/room-types/{room_type_id}/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; thay toàn bộ liên kết tiện nghi |
 | POST | `/reservations` | MANAGER, FRONT_DESK |
 | GET | `/reservations?status=&guest_id=&page=&size=` | Có `RESERVATION_READ`; front_desk/manager/director/admin xem toàn khách sạn, role khác xem phạm vi actor; mặc định 20, tối đa 100 bản ghi/trang; trả `items`, `page`, `size`, `total_elements`, `total_pages` |
 | GET | `/reservations/{id}` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, TECHNICAL, STAFF |
@@ -78,7 +83,15 @@ client phải xử lý cả 401 và 403.
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |
 | GET | `/governance/audit` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING; scoped by actor for accounting |
 | POST | `/auth/customers/register` | Public |
+| POST | `/auth/customers/login` | Public |
 | GET | `/auth/customers/me` | CUSTOMER; only the authenticated guest |
+| GET | `/public/rooms`, `/public/rooms/{room_id}` | Public; DTO công khai |
+| GET | `/public/rooms/availability` | Public; khả dụng theo khoảng thời gian, không lộ booking |
+| GET | `/public/services` | Public; chỉ dịch vụ active |
+| POST | `/public/payment-callbacks/deposit` | Payment provider; public route nhưng bắt buộc HMAC `X-Payment-Signature` |
+| POST | `/customer/reservations` | CUSTOMER; guest lấy từ JWT |
+| GET | `/customer/reservations`, `/customer/reservations/{id}` | CUSTOMER; chỉ booking của chính mình |
+| GET | `/customer/reservations/{id}/deposit-payment` | CUSTOMER; chỉ hướng dẫn cọc của chính mình |
 
 ## DTO chính
 
@@ -93,6 +106,8 @@ client phải xử lý cả 401 và 403.
   `service_id`, `quantity`, `used_at`.
 - Room: `room_id`, `room_type_id`, `room_type_name`, `daily_price`, `floor`,
   `status`, `available`.
+- Room media: `images[]` gồm `id`, `url`, `display_order`, `cover`,
+  `content_type`, `size_bytes`; `amenities[]` chỉ là tên tiện nghi active.
 - Invoice: `reservation_id`, `room_total`, `service_total`, `late_surcharge`,
   `compensation`, `extension_total`, `adjustment_total`, `discount`, `deposit`, `payable`,
   `payment_method`, `status`.
@@ -116,19 +131,69 @@ client phải xử lý cả 401 và 403.
 
 Contract đã chốt quy tắc trong `rule.md`. Checkout lập hóa đơn theo số dư còn
 phải thu; payment transaction mới làm giảm số dư và chuyển trạng thái đã thanh
-toán. Các điểm chưa chốt (VIP partial stay và phí hủy ngoài cọc) vẫn không được
-tự suy đoán. `NO_SHOW` chỉ được ghi nhận sau giờ trả dự kiến khi khách chưa
-check-in và tiền cọc bị giữ. Các endpoint mới phải được thêm vào bảng contract trước
-khi frontend sử dụng.
+toán. Lượt VIP lấy theo thời lượng đặt trong booking: dưới 24 giờ không tính,
+từ đủ 24 giờ tính đúng một lượt cho mỗi booking hoàn tất; booking nhiều phòng
+vẫn chỉ tính một lượt, còn hủy và `NO_SHOW` không tính. Hủy đúng mốc 48 giờ
+trước giờ nhận phòng mất cọc; không thu thêm phí hủy ngoài tiền cọc. `NO_SHOW`
+chỉ được ghi nhận sau giờ trả dự kiến khi khách chưa check-in và tiền cọc bị giữ.
+Các endpoint mới phải được thêm vào bảng contract trước khi frontend sử dụng.
+
+## Public portal và customer booking
+
+Phát hành Hotel OS một khách sạn có các endpoint anonymous chỉ đọc:
+
+- `GET /api/public/rooms`
+- `GET /api/public/rooms/{room_id}`
+- `GET /api/public/rooms/availability?from=&to=&type=` (khi khách chọn khoảng thời gian)
+- `GET /api/public/services`
+
+Ba endpoint này phải dùng DTO public riêng. Room public chỉ được chứa mã/tên
+phòng, loại phòng, tầng, giá công khai, ảnh, tiện nghi và trạng thái công khai.
+Service public chỉ chứa thông tin giới thiệu đang active; không trả tồn kho,
+giá vốn hoặc lịch sử giá. Không response public nào được chứa guest/employee,
+PII, reservation, invoice, payment, receipt, incident detail hoặc internal note.
+
+Các endpoint trên đã có controller, authorization và privacy contract test. Danh sách
+`/api/public/rooms` hỗ trợ query `page` (mặc định 0) và `size` (mặc định 20,
+tối đa 100). Để giữ tương thích response body vẫn là array; tổng số phần tử và
+trang hiện tại nằm ở `X-Total-Count`, `X-Page`, `X-Page-Size`. Catalog/detail có
+cache ngắn hạn; availability luôn trả `Cache-Control: no-store`. Anonymous public
+request vượt rate limit nhận `429` với error code chuẩn.
+
+Chi tiết
+phòng đã đọc ảnh active và tiện nghi active từ media/catalog store. Khi
+không truyền khoảng thời gian, trạng thái trả về là trạng thái vận hành hiện tại;
+khi truyền `from`/`to`, response chỉ trả `current_status` và `available`, không trả
+lịch hoặc danh tính booking.
+
+Customer đã đăng nhập sẽ có command/query riêng cho booking của chính mình,
+không dùng endpoint reservation nội bộ:
+
+- `POST /api/customer/reservations`
+- `GET /api/customer/reservations`
+- `GET /api/customer/reservations/{reservation_id}`
+- `GET /api/customer/reservations/{reservation_id}/deposit-payment`
+
+Các endpoint customer đã được triển khai ở mức tạo booking DRAFT và trả mã/hướng
+dẫn cọc `PENDING`. Backend lấy guest từ principal, không nhận `guest_id` tùy ý;
+customer chỉ xem được booking/payment instruction của chính mình. Callback thanh
+toán `/api/public/payment-callbacks/deposit` được xác minh bằng HMAC và xử lý
+idempotent theo `provider_event_id`; callback thành công tạo ledger BANK_TRANSFER,
+chuyển booking `DRAFT → DEPOSIT_PAID` và không chấp nhận số tiền lệch hoặc mã hết
+hạn. Cấu hình secret qua `HOTEL_PAYMENT_WEBHOOK_SECRET`. Mã thanh toán không phải
+bằng chứng đã trả tiền nếu chưa có callback hợp lệ. Worker sẽ tự chuyển booking
+`DRAFT/PENDING` hết hạn thành `CANCELLED/EXPIRED` để giải phóng phòng.
 
 ## Phạm vi tài khoản
 
 `employees` và `customer_accounts` là hai aggregate account riêng, cùng dùng
 số điện thoại duy nhất làm định danh đăng nhập. Customer account phải gắn đúng
-một guest; quyền `CUSTOMER` chỉ được xem hoặc thay đổi dữ liệu thuộc guest của
-mình. Luồng đăng ký khách hàng, login bằng phone cho cả hai loại account và
-customer ownership authorization vẫn cần triển khai ở middleware/service trước
-khi mở frontend production.
+một guest. Anonymous chỉ dùng public read API; customer muốn đặt phòng phải
+đăng ký/đăng nhập đầy đủ, chỉ được tạo và xem booking/payment instruction của
+chính mình. Customer không được xem dữ liệu khách khác, invoice nội bộ hoặc
+giao diện quản trị. Luồng ownership đã được tách riêng; callback thanh toán đã có
+contract test HMAC/idempotency; trước production vẫn cần job hết hạn giữ phòng,
+refresh token tự động và tích hợp provider/QR cụ thể.
 
 ## Cập nhật quyền đặt phòng ngày 10/09/2026
 

@@ -47,41 +47,49 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 
+/** Bảo vệ quản trị employee: hash mật khẩu, phone uniqueness, role ceiling và lockout. */
 class EmployeeServiceTest {
 
     @BeforeEach
+    /** Mỗi test bắt đầu với director để đủ quyền, rồi hạ role trong case cần kiểm tra. */
     void authenticateAsDirector() {
         authenticateAs(EmployeeRole.DIRECTOR);
     }
 
     @AfterEach
+    /** Xóa actor sau test để không rò quyền qua SecurityContext. */
     void clearAuthentication() {
         SecurityContextHolder.clearContext();
     }
 
     @Mock
 
+    /** Repository employee mock, nơi kiểm tra duplicate/lock và save. */
     EmployeeRepository employees;
 
     @Mock
+    /** Repository customer mock để cấm employee dùng lại phone của customer. */
     CustomerAccountRepository customerAccounts;
 
 
 
     @Mock
 
+    /** Encoder mock; expected bcrypt-hash chứng minh plaintext không được lưu. */
     PasswordEncoder passwordEncoder;
 
 
 
     @InjectMocks
 
+    /** Service thật với các port mock để test policy quản trị. */
     EmployeeService service;
 
 
 
     @Test
 
+    /** Given employee mới, When provision, Then password được hash và identity contract đúng. */
     void provisionHashesPasswordAndReturnsIdentityContract() {
 
         when(employees.existsById("ID01")).thenReturn(false);
@@ -110,6 +118,7 @@ class EmployeeServiceTest {
 
     @Test
 
+    /** Given id trùng, When provision, Then fail trước hash và save để tránh side effect. */
     void duplicateEmployeeIsRejectedBeforePasswordHashing() {
 
         when(employees.existsById("ID01")).thenReturn(true);
@@ -131,6 +140,7 @@ class EmployeeServiceTest {
     }
 
     @Test
+    /** Given phone thuộc customer, When provision employee, Then từ chối trước save. */
     void employeeCannotReuseCustomerPhone() {
         when(employees.existsById("ID02")).thenReturn(false);
         when(employees.existsByPhone("0909000002")).thenReturn(false);
@@ -148,6 +158,7 @@ class EmployeeServiceTest {
 
     @Test
 
+    /** Given employee hiện hữu, When reset, Then hash giá trị mới và save đúng entity. */
     void resetPasswordHashesNewValue() {
         Employee existing = new Employee();
         existing.setEmployeeId("ID01");
@@ -172,6 +183,7 @@ class EmployeeServiceTest {
     }
 
     @Test
+    /** Given actor manager, When chạm role cao hơn, Then cả provision/reset đều bị chặn. */
     void managerCannotProvisionOrResetHigherRole() {
         authenticateAs(EmployeeRole.MANAGER);
 
@@ -193,6 +205,7 @@ class EmployeeServiceTest {
     }
 
     @Test
+    /** Given target chính actor hiện tại, When đổi role, Then không cho self-target mutation. */
     void provisioningCannotTargetCurrentActorAsARoleChange() {
         when(employees.existsById("actor")).thenReturn(true);
 
@@ -205,6 +218,7 @@ class EmployeeServiceTest {
     }
 
     @Test
+    /** Given manager target HR, When provision/reset, Then role dưới trần được phép và save hai lần. */
     void managerCanProvisionAndResetHr() {
         authenticateAs(EmployeeRole.MANAGER);
         when(employees.existsById("HR01")).thenReturn(false);
@@ -223,6 +237,7 @@ class EmployeeServiceTest {
     }
 
     @Test
+    /** Given năm lần fail, When login success, Then account bị lock đúng ngưỡng rồi reset counter khi thành công. */
     void fifthFailedLoginLocksAccountAndSuccessfulLoginResetsAuditCounter() {
         Employee existing = new Employee();
         existing.setEmployeeId("ID01");
@@ -237,6 +252,7 @@ class EmployeeServiceTest {
         assertThat(existing.getLastLoginAt()).isNotNull();
     }
 
+    /** Đặt Authentication role cụ thể để service kiểm tra role ceiling theo security context. */
     private void authenticateAs(EmployeeRole role) {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("actor", "test",

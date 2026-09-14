@@ -8,14 +8,30 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+/**
+ * Quản lý các giao dịch thanh toán gắn với một hóa đơn.
+ */
 @RestController
 @RequestMapping("/api/invoices/{invoiceId}/payments")
 public class PaymentController {
+    /** Dịch vụ đọc và ghi giao dịch thanh toán, đồng thời áp dụng các quy tắc liên kết với hóa đơn. */
     private final PaymentTransactionService service;
     public PaymentController(PaymentTransactionService service) { this.service = service; }
+    /**
+     * Liệt kê thanh toán của hóa đơn qua GET /api/invoices/{invoiceId}/payments.
+     * invoiceId là path parameter, không có query/header/body; trả danh sách giao dịch để đối soát hóa đơn.
+     * Chỉ BILLING_READ được phép; hóa đơn không tồn tại hoặc lỗi truy vấn được dịch vụ báo lỗi. Đây là thao tác đọc,
+     * không có idempotency concern.
+     */
     @GetMapping 
     @PreAuthorize("@departmentAccess.allows(authentication, 'BILLING_READ')")
     public List<PaymentTransactionDtos.Response> list(@PathVariable Long invoiceId) { return service.listByInvoice(invoiceId); }
+    /**
+     * Ghi nhận thanh toán qua POST /api/invoices/{invoiceId}/payments.
+     * invoiceId là path parameter, body tạo giao dịch được {@code @Valid} kiểm tra; actor hiện tại được truyền cho dịch vụ,
+     * response là giao dịch đã ghi. Chỉ PAYMENT_WRITE được gọi; không có Idempotency-Key nên lỗi trùng/trạng thái hóa đơn
+     * do dịch vụ quyết định và trả về lỗi nghiệp vụ phù hợp.
+     */
     @PostMapping 
     @PreAuthorize("@departmentAccess.allows(authentication, 'PAYMENT_WRITE')")
     public PaymentTransactionDtos.Response record(@PathVariable Long invoiceId, @Valid @RequestBody PaymentTransactionDtos.CreateRequest request) { return service.record(invoiceId, request, SecurityActor.currentActor()); }

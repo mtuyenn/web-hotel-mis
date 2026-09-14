@@ -57,4 +57,4 @@ build.
 
 See [docs/architecture.md](docs/architecture.md),
 [docs/file-structure.md](docs/file-structure.md) and
-[docs/migration-plan.md](docs/migration-plan.md).
+[docs/backend-plan.md](docs/backend-plan.md).

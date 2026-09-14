@@ -28,19 +28,35 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * Tính và đối soát hóa đơn từ lưu trú, dịch vụ, phụ phí và bồi thường.
+ * Các use case thay đổi đều nằm trong giao dịch; refund/adjustment còn phải
+ * qua ApprovalService và liên kết idempotency trước khi ghi sổ.
+ */
 @Service
 public class BillingService {
+    private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+    /** Khóa đặt phòng để checkout không chạy đồng thời với thao tác khác. */
     private final ReservationRepository reservations;
+    /** Lưu hóa đơn và trạng thái công nợ đã đối soát. */
     private final InvoiceRepository invoices;
+    /** Chính sách tính giá, giảm giá và làm tròn tiền. */
     private final PricingPolicy pricing;
+    /** Ghi audit cho các biến động hóa đơn và thanh toán. */
     private final AuditService audit;
+    /** Nguồn các khoản bồi thường thiết bị đưa vào hóa đơn. */
     private final EquipmentIncidentRepository incidents;
+    /** Kiểm tra và tiêu thụ phê duyệt cho refund/điều chỉnh. */
     private final ApprovalService approvals;
+    /** Sổ giao dịch thu/hoàn tiền và khóa idempotency thanh toán. */
     private final PaymentTransactionRepository transactions;
+    /** Phát hành biên lai cho các khoản thanh toán. */
     private final ReceiptRepository receipts;
+    /** Lưu các điều chỉnh hóa đơn đã gắn actor và idempotency key. */
     private final InvoiceAdjustmentRepository adjustments;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -53,13 +69,17 @@ public class BillingService {
         this.adjustments = adjustments;
     }
 
-    /** Test-friendly constructor for callers that do not exercise adjustments. */
+    @org.springframework.beans.factory.annotation.Autowired
+    void setBusinessClock(Clock clock) { this.clock = clock; }
+
+    /** Hàm khởi tạo thuận tiện cho kiểm thử, dành cho các bên gọi không sử dụng chức năng điều chỉnh. */
     public BillingService(ReservationRepository reservations, InvoiceRepository invoices, PricingPolicy pricing,
                           AuditService audit, EquipmentIncidentRepository incidents, ApprovalService approvals,
                           PaymentTransactionRepository transactions, ReceiptRepository receipts) {
         this(reservations, invoices, pricing, audit, incidents, approvals, transactions, receipts, null);
     }
 
+    /** Checkout đặt phòng, tính toàn bộ khoản phải trả, đối soát và chuyển phòng sang trạng thái sau lưu trú. */
     @Transactional
     public InvoiceDtos.Response checkOut(Long reservationId, LocalDateTime checkoutAt, PaymentMethod method, String actor) {
         String boundActor = requireActor(actor);
@@ -108,18 +128,40 @@ public class BillingService {
         reconcile(invoice);
 
         reservation.setActualCheckOut(checkoutAt); reservation.transitionTo(ReservationStatus.CHECKED_OUT);
-        // ReservationRoom.checkOut is scheduled checkout and must remain unchanged.
+        // ReservationRoom.checkOut là thời điểm trả phòng theo lịch và phải được giữ nguyên.
         reservation.getRooms().forEach(x -> { x.setStatus(RoomStatus.RETURNED); x.getRoom().setStatus(RoomStatus.CLEANING); });
         reservation.getGuest().addSpend(subtotal.subtract(discount).max(BigDecimal.ZERO));
-        boolean completedPackage = "PACKAGE".equals(reservation.getRentalType()) && reservation.getRooms().stream()
-                .anyMatch(line -> java.time.Duration.between(line.getCheckIn(), checkoutAt).toHours() >= 24);
-        if (completedPackage) reservation.getGuest().recordCompletedStay(MembershipPolicy.defaults());
+        if (qualifiesForCompletedStay(reservation)) {
+            reservation.getGuest().recordCompletedStay(MembershipPolicy.defaults());
+        }
         audit.record(boundActor, "INVOICE_RECONCILED", "INVOICE", String.valueOf(invoice.getId()), null,
                 payable(invoice, subtotal.subtract(discount)).toPlainString(), null);
         return toResponse(invoice);
     }
 
-    /** Creates the advance payment and its receipt in the same transaction as reservation creation. */
+    /**
+     * Lượt VIP lấy theo khoảng thời gian đã đặt, không lấy theo thời gian thực tế.
+     * Một reservation nhiều phòng vẫn chỉ tạo tối đa một lượt lưu trú hoàn tất.
+     */
+    private boolean qualifiesForCompletedStay(Reservation reservation) {
+        if (reservation.getRooms() == null || reservation.getRooms().isEmpty()) return false;
+        LocalDateTime expectedCheckIn = reservation.getRooms().stream()
+                .map(ReservationRoom::getCheckIn)
+                .filter(java.util.Objects::nonNull)
+                .min(LocalDateTime::compareTo)
+                .orElse(null);
+        LocalDateTime expectedCheckOut = reservation.getRooms().stream()
+                .map(ReservationRoom::getOriginalCheckOut)
+                .filter(java.util.Objects::nonNull)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+        return expectedCheckIn != null && expectedCheckOut != null
+                && !java.time.Duration.between(expectedCheckIn, expectedCheckOut)
+                .minusHours(24).isNegative();
+    }
+
+    /** Tạo khoản thanh toán trước và biên lai tương ứng trong cùng giao dịch với việc tạo đặt phòng. */
+    /** Ghi tiền cọc, giao dịch thanh toán và biên lai một cách nguyên tử khi tạo đặt phòng. */
     @Transactional
     public void registerDeposit(Reservation reservation) {
         BigDecimal deposit = reservation.getDepositAmount() == null ? BigDecimal.ZERO : reservation.getDepositAmount();
@@ -127,13 +169,13 @@ public class BillingService {
         String actor = SecurityActor.currentActor();
         requireScope(reservation, actor);
         if (invoices.findByReservationId(reservation.getId()).isPresent()) return;
-        Invoice invoice = new Invoice(); invoice.setReservation(reservation); invoice.setDepositPaid(deposit);
+        Invoice invoice = new Invoice(); invoice.setReservation(reservation); invoice.setIssuedAt(LocalDateTime.now(clock)); invoice.setDepositPaid(deposit);
         invoice.setAmountDue(BigDecimal.ZERO); invoice.setStatus(PaymentStatus.DU_KIEN); invoice = invoices.saveAndFlush(invoice);
 
         PaymentTransaction payment = new PaymentTransaction(); payment.setInvoice(invoice); payment.setAmount(deposit);
         payment.setMethod(PaymentMethod.CASH); payment.setType(PaymentTransaction.TransactionType.PAYMENT);
         payment.setStatus(PaymentTransaction.TransactionStatus.COMPLETED); payment.setReference("DEPOSIT:" + reservation.getId());
-        payment.setOccurredAt(LocalDateTime.now()); payment.setActorId(actor);
+        payment.setOccurredAt(LocalDateTime.now(clock)); payment.setActorId(actor);
         payment.setIdempotencyKey(PaymentTransaction.storageIdempotencyKey("DEPOSIT:" + reservation.getId(), actor, deposit,
                 PaymentMethod.CASH, PaymentTransaction.TransactionType.PAYMENT, payment.getReference()));
         payment = transactions.saveAndFlush(payment);
@@ -146,6 +188,7 @@ public class BillingService {
                 deposit.toPlainString(), "DEPOSIT_RECEIPT:" + receipt.getReceiptNumber());
     }
 
+    /** Hoàn tiền cọc khi hủy đúng hạn; yêu cầu phê duyệt và không lặp lại theo reservation. */
     @Transactional
     public void settleCancellationDeposit(Reservation reservation, String actor, boolean late) {
         if (late || reservation.getDepositAmount() == null || reservation.getDepositAmount().signum() == 0) return;
@@ -167,6 +210,7 @@ public class BillingService {
                 source.getAmount().toPlainString(), "0", sourceReference(source));
     }
 
+    /** Lấy hóa đơn theo đặt phòng sau khi kiểm tra phạm vi actor. */
     @Transactional(readOnly = true)
     public InvoiceDtos.Response getByReservation(Long id) {
         Invoice invoice = invoices.findByReservationId(id)
@@ -175,6 +219,7 @@ public class BillingService {
         return toResponse(invoice);
     }
 
+    /** Hoàn toàn bộ tiền cọc với phê duyệt bắt buộc và khóa lặp lại theo hóa đơn. */
     @Transactional
     public InvoiceDtos.Response refundDeposit(Long reservationId, String actor) {
         String boundActor = requireActor(actor);
@@ -198,6 +243,7 @@ public class BillingService {
         return toResponse(invoice);
     }
 
+    /** Ghi điều chỉnh tăng/giảm hóa đơn, yêu cầu phê duyệt và lưu dấu idempotency. */
     @Transactional
     public InvoiceDtos.Response adjust(Long id, BigDecimal delta, String reason, String actor, String idempotencyKey) {
         String boundActor = requireActor(actor);
@@ -220,7 +266,7 @@ public class BillingService {
             throw error("ADJUSTMENT_EXCEEDS_TOTAL", "Điều chỉnh giảm không được làm tổng hóa đơn âm");
         approvals.requireApproved("BILLING_ADJUSTMENT", String.valueOf(id), payload, delta.abs(), boundActor);
         InvoiceAdjustment adjustment = new InvoiceAdjustment(); adjustment.setInvoice(invoice); adjustment.setDelta(delta);
-        adjustment.setReason(reason.trim()); adjustment.setActorId(boundActor); adjustment.setOccurredAt(LocalDateTime.now());
+        adjustment.setReason(reason.trim()); adjustment.setActorId(boundActor); adjustment.setOccurredAt(LocalDateTime.now(clock));
         adjustment.setIdempotencyKey(storedKey); adjustments.saveAndFlush(adjustment);
         invoice.setAdjustmentTotal(invoice.getAdjustmentTotal().add(delta));
         reconcile(invoice);
@@ -230,17 +276,19 @@ public class BillingService {
         return toResponse(invoice);
     }
 
+    /** Tạo giao dịch hoàn tiền liên kết với giao dịch thanh toán gốc. */
     private PaymentTransaction refundFor(Invoice invoice, PaymentTransaction source, BigDecimal amount,
                                          String reference, String idempotencyKey, String actor) {
         PaymentTransaction refund = new PaymentTransaction(); refund.setInvoice(invoice); refund.setAmount(amount);
         refund.setMethod(source.getMethod()); refund.setType(PaymentTransaction.TransactionType.REFUND);
         refund.setStatus(PaymentTransaction.TransactionStatus.COMPLETED);
-        refund.setReference("REFUND_OF:" + source.getId() + ":" + reference); refund.setOccurredAt(LocalDateTime.now());
+        refund.setReference("REFUND_OF:" + source.getId() + ":" + reference); refund.setOccurredAt(LocalDateTime.now(clock));
         refund.setActorId(actor); refund.setIdempotencyKey(PaymentTransaction.storageIdempotencyKey(idempotencyKey, actor,
                 amount, source.getMethod(), PaymentTransaction.TransactionType.REFUND, refund.getReference()));
         return transactions.saveAndFlush(refund);
     }
 
+    /** Tìm các khoản cọc còn số dư hoàn được theo thứ tự thời gian. */
     private List<PaymentTransaction> depositPayments(Invoice invoice) {
         return transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED).stream()
                 .filter(x -> x.getType() == PaymentTransaction.TransactionType.PAYMENT && x.getReference() != null
@@ -249,6 +297,7 @@ public class BillingService {
                 .sorted(Comparator.comparing(PaymentTransaction::getOccurredAt)).toList();
     }
 
+    /** Tính phần còn lại của một khoản thanh toán sau các refund liên quan. */
     private BigDecimal remainingFor(PaymentTransaction source, Invoice invoice) {
         BigDecimal refunded = transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED).stream()
                 .filter(x -> x.getType() == PaymentTransaction.TransactionType.REFUND && x.getReference() != null
@@ -257,6 +306,7 @@ public class BillingService {
         return source.getAmount().subtract(refunded);
     }
 
+    /** Đồng bộ tổng tiền, số dư, tiền cọc và trạng thái hóa đơn từ sổ giao dịch. */
     private void reconcile(Invoice invoice) {
         BigDecimal total = invoiceChargeTotal(invoice); BigDecimal balance = payable(invoice, total);
         invoice.setDepositPaid(depositBalance(invoice)); invoice.setAmountDue(balance);
@@ -265,10 +315,12 @@ public class BillingService {
         latestPayment(invoice).ifPresent(x -> invoice.setPaymentMethod(x.getMethod())); invoices.save(invoice);
     }
 
+    /** Tính số dư phải thu sau thanh toán ròng, không cho kết quả âm. */
     private BigDecimal payable(Invoice invoice, BigDecimal total) {
         return total.subtract(netPaid(invoice)).max(BigDecimal.ZERO).setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
+    /** Cộng payment và trừ refund đã completed của hóa đơn. */
     private BigDecimal netPaid(Invoice invoice) {
         var completed = transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED);
         BigDecimal payments = completed.stream().filter(x -> x.getType() == PaymentTransaction.TransactionType.PAYMENT)
@@ -278,22 +330,26 @@ public class BillingService {
         return payments.subtract(refunds);
     }
 
+    /** Cộng phần còn lại của các giao dịch tiền cọc chưa hoàn. */
     private BigDecimal depositBalance(Invoice invoice) {
         return depositPayments(invoice).stream().map(x -> remainingFor(x, invoice)).reduce(BigDecimal.ZERO, BigDecimal::add).max(BigDecimal.ZERO);
     }
 
+    /** Tính tổng charge sau giảm giá và điều chỉnh của hóa đơn. */
     private BigDecimal invoiceChargeTotal(Invoice invoice) {
         return pricing.roundFinalTotal(invoice.getRoomTotal().add(invoice.getServiceTotal()).add(invoice.getSurcharge())
                 .add(invoice.getCompensation()).add(invoice.getExtensionFee()).add(invoice.getAdjustmentTotal())
                 .subtract(invoice.getDiscount()).max(BigDecimal.ZERO));
     }
 
+    /** Lấy giao dịch completed mới nhất để đồng bộ phương thức thanh toán. */
     private java.util.Optional<PaymentTransaction> latestPayment(Invoice invoice) {
         return transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED).stream()
                 .filter(x -> x.getType() == PaymentTransaction.TransactionType.PAYMENT)
                 .max(Comparator.comparing(PaymentTransaction::getOccurredAt));
     }
 
+    /** Chuyển hóa đơn và các thành phần charge thành DTO công khai. */
     private InvoiceDtos.Response toResponse(Invoice invoice) {
         BigDecimal total = invoiceChargeTotal(invoice); BigDecimal balance = payable(invoice, total);
         PaymentStatus status = total.signum() == 0 && invoice.getStatus() == PaymentStatus.DU_KIEN ? PaymentStatus.DU_KIEN
@@ -304,17 +360,26 @@ public class BillingService {
                 latestPayment(invoice).map(PaymentTransaction::getMethod).orElse(invoice.getPaymentMethod()), status);
     }
 
+    /** Bắt buộc actor truyền vào khớp principal trước mutation tài chính. */
     private String requireActor(String actor) { return SecurityActor.requireBoundActor(actor); }
 
+    /** Kiểm tra actor là nhân viên sở hữu booking hoặc role toàn cục được phép. */
     private void requireScope(Reservation reservation, String actor) {
-        if (reservation == null || reservation.getEmployee() == null) throw new AccessDeniedException("Thiếu phạm vi đặt phòng");
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean global = auth != null && auth.getAuthorities().stream().map(x -> x.getAuthority())
                 .anyMatch(x -> x.equals("ROLE_ADMIN") || x.equals("ROLE_DIRECTOR") || x.equals("ROLE_MANAGER") || x.equals("ROLE_ACCOUNTING") || x.equals("ROLE_FRONT_DESK"));
+        if (reservation == null) throw new AccessDeniedException("Thiếu phạm vi đặt phòng");
+        // Booking online chưa có employee owner; chỉ staff có quyền toàn cục được xử lý tiếp.
+        if (reservation.getEmployee() == null) {
+            if (!global) throw new AccessDeniedException("Thiếu phạm vi đặt phòng");
+            return;
+        }
         if (!global && !actor.equals(reservation.getEmployee().getEmployeeId()))
             throw new AccessDeniedException("Không được phép thao tác ngoài phạm vi đặt phòng");
     }
 
+    /** Tạo mã tham chiếu mô tả refund bắt nguồn từ payment nào. */
     private String sourceReference(PaymentTransaction source) { return "REFUND_OF:" + source.getId(); }
+    /** Tạo DomainException thống nhất cho các lỗi billing. */
     private DomainException error(String code, String message) { return new DomainException(code, message); }
 }

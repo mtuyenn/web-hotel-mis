@@ -29,12 +29,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureMockMvc
+/** Kiểm tra room HTTP contract, status transition, availability validation và role boundary. */
 class RoomApiContractTest {
+    /** MockMvc thật cho JSON/status/security assertions. */
     @Autowired MockMvc mockMvc;
+    /** Repository room thật để seed và chuyển trạng thái. */
     @Autowired RoomRepository rooms;
+    /** Repository type thật; STD/2400 là fixture giá canonical. */
     @Autowired RoomTypeRepository roomTypes;
+    /** Dọn audit do status mutation tạo ra. */
     @Autowired JdbcTemplate jdbc;
 
+    /** Seed type STD và room R101 READY trước mỗi API test. */
     @BeforeEach
     void seedRoom() {
         jdbc.update("delete from audit_logs");
@@ -57,6 +63,7 @@ class RoomApiContractTest {
 
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
+    /** Given room READY, When search type/status, Then response snake_case và giá 2400.00 giữ nguyên. */
     void searchKeepsTheExistingRoomResponseShapeAndStatusCodes() throws Exception {
         mockMvc.perform(get("/api/rooms").param("type", "STD").param("status", "SAN_SANG"))
                 .andExpect(status().isOk())
@@ -71,6 +78,7 @@ class RoomApiContractTest {
 
     @Test
     @WithMockUser(username = "manager", roles = "MANAGER")
+    /** Given manager patch BAO_TRI, When update, Then route cũ trả status canonical hiện hành. */
     void statusPatchUsesTheExistingRouteAndWritesCanonicalStatusAsTheLegacyCode() throws Exception {
         mockMvc.perform(patch("/api/rooms/R101/status").param("status", "BAO_TRI"))
                 .andExpect(status().isOk())
@@ -80,6 +88,7 @@ class RoomApiContractTest {
 
     @Test
     @WithMockUser(username = "manager", roles = "MANAGER")
+    /** Given room OCCUPIED, When patch READY, Then transition domain error và không hợp thức hóa room. */
     void occupiedRoomCannotBeMadeAvailableThroughStatusPatch() throws Exception {
         Room room = rooms.findById("R101").orElseThrow();
         room.setStatus(RoomStatus.OCCUPIED);
@@ -94,6 +103,7 @@ class RoomApiContractTest {
 
     @Test
     @WithMockUser(username = "housekeeping", roles = "HOUSEKEEPING")
+    /** Given housekeeping room MAINTENANCE, When patch READY, Then role bị forbidden. */
     void housekeepingCannotMakeRoomAvailable() throws Exception {
         Room room = rooms.findById("R101").orElseThrow();
         room.setStatus(RoomStatus.MAINTENANCE);
@@ -106,6 +116,7 @@ class RoomApiContractTest {
 
     @Test
     @WithMockUser(username = "staff", roles = "STAFF")
+    /** Given status không thuộc enum, When search, Then trả INVALID_ROOM_STATUS. */
     void invalidRoomStatusIsRejectedByTheRoomContract() throws Exception {
         mockMvc.perform(get("/api/rooms").param("status", "NOT_A_STATUS"))
                 .andExpect(status().isUnprocessableEntity())
@@ -114,6 +125,7 @@ class RoomApiContractTest {
 
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
+    /** Given from sau to, When availability, Then trả INVALID_INTERVAL theo error contract. */
     void availabilityRejectsAnInvalidIntervalWithTheDomainErrorContract() throws Exception {
         mockMvc.perform(get("/api/rooms/availability")
                         .param("from", "2031-01-11T12:00:00")

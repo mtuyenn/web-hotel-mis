@@ -7,4 +7,5 @@ import org.springframework.boot.test.context.SpringBootTest;
         "spring.datasource.username=sa", "spring.datasource.password=", "spring.flyway.enabled=false",
         "spring.jpa.hibernate.ddl-auto=create-drop"})
 @AutoConfigureMockMvc
+/** Chạy workflow hóa đơn HTTP trên H2 bằng toàn bộ dịch vụ và repository thật. */
 class BillingHttpWorkflowTest extends BillingWorkflowAssertions {}

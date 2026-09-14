@@ -9,6 +9,8 @@ import com.hospitality.mis.entity.billing.PaymentTransaction;
 import com.hospitality.mis.entity.billing.Receipt;
 import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.governance.AuditService;
+import com.hospitality.mis.service.governance.DurableIdempotencyService;
+import com.hospitality.mis.service.reservation.IdempotencySupport;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -16,26 +18,58 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.List;
 
+/** Phát hành và tra cứu biên lai dựa trên số tiền thanh toán chưa lập biên lai. */
 @Service
 public class ReceiptService {
+    /** Lưu số biên lai và số tiền đã phát hành. */
     private final ReceiptRepository receipts;
+    /** Khóa hóa đơn trong lúc phát hành để tránh vượt số tiền thu. */
     private final InvoiceRepository invoices;
+    /** Đối chiếu số tiền thu/hoàn làm cơ sở giới hạn biên lai. */
     private final PaymentTransactionRepository transactions;
+    /** Ghi audit người phát hành và tender tương ứng. */
     private final AuditService audit;
+    private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+    private DurableIdempotencyService durableIdempotency;
 
     public ReceiptService(ReceiptRepository receipts, InvoiceRepository invoices,
                           PaymentTransactionRepository transactions, AuditService audit) {
         this.receipts = receipts; this.invoices = invoices; this.transactions = transactions; this.audit = audit;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    void setBusinessClock(Clock clock) { this.clock = clock; }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setDurableIdempotency(DurableIdempotencyService durableIdempotency) { this.durableIdempotency = durableIdempotency; }
+
+    /** Phát hành biên lai nếu số tiền chưa vượt phần thanh toán còn lại theo phương thức. */
     @Transactional
     public ReceiptDtos.Response issue(Long invoiceId, ReceiptDtos.CreateRequest request, String actor) {
+        String fallbackKey = request == null ? null : "receipt-" + request.receiptNumber();
+        return issue(invoiceId, request, actor, fallbackKey);
+    }
+
+    @Transactional
+    public ReceiptDtos.Response issue(Long invoiceId, ReceiptDtos.CreateRequest request, String actor, String key) {
         if (request == null || request.receiptNumber() == null || request.receiptNumber().isBlank()
                 || request.amount() == null || request.amount().signum() <= 0 || request.method() == null)
             throw new DomainException("INVALID_RECEIPT", "Biên lai phải có số, số tiền và phương thức");
         String boundActor = SecurityActor.requireBoundActor(actor);
+        String fingerprint = IdempotencySupport.fingerprint("RECEIPT|" + invoiceId + "|" + request.receiptNumber().trim()
+                + "|" + request.amount() + "|" + request.method());
+        if (durableIdempotency != null) {
+            return durableIdempotency.execute("receipt-issue", key, boundActor, fingerprint,
+                    ReceiptDtos.Response.class, () -> issueOnce(invoiceId, request, boundActor));
+        }
+        IdempotencySupport.requireKey(key);
+        return issueOnce(invoiceId, request, boundActor);
+    }
+
+    private ReceiptDtos.Response issueOnce(Long invoiceId, ReceiptDtos.CreateRequest request, String boundActor) {
         if (receipts.findByReceiptNumber(request.receiptNumber()).isPresent())
             throw new DomainException("RECEIPT_EXISTS", "Số biên lai đã tồn tại");
         var invoice = invoices.findForUpdate(invoiceId)
@@ -51,7 +85,7 @@ public class ReceiptService {
         if (request.amount().compareTo(paid.subtract(issued)) > 0)
             throw new DomainException("RECEIPT_EXCEEDS_PAYMENT", "Biên lai vượt số tiền đã thu chưa lập biên lai");
         Receipt receipt = new Receipt(); receipt.setReceiptNumber(request.receiptNumber()); receipt.setInvoice(invoice);
-        receipt.setAmount(request.amount()); receipt.setMethod(request.method()); receipt.setIssuedAt(LocalDateTime.now());
+        receipt.setAmount(request.amount()); receipt.setMethod(request.method()); receipt.setIssuedAt(LocalDateTime.now(clock));
         receipt.setIssuedBy(boundActor);
         Receipt saved = receipts.save(receipt);
         audit.record(boundActor, "RECEIPT_ISSUED", "RECEIPT", String.valueOf(saved.getId()), null,
@@ -59,6 +93,7 @@ public class ReceiptService {
         return toResponse(saved);
     }
 
+    /** Liệt kê biên lai theo hóa đơn sau khi kiểm tra phạm vi actor. */
     @Transactional(readOnly = true)
     public List<ReceiptDtos.Response> listByInvoice(Long invoiceId) {
         var invoice = invoices.findById(invoiceId)
@@ -67,6 +102,7 @@ public class ReceiptService {
         return receipts.findByInvoiceIdOrderByIssuedAtAsc(invoiceId).stream().map(this::toResponse).toList();
     }
 
+    /** Kiểm tra actor có phạm vi trên booking của hóa đơn hoặc role toàn cục. */
     private void requireScope(com.hospitality.mis.entity.billing.Invoice invoice, String actor) {
         var reservation = invoice.getReservation();
         if (reservation == null || reservation.getEmployee() == null) throw new AccessDeniedException("Thiếu phạm vi đặt phòng");
@@ -77,6 +113,7 @@ public class ReceiptService {
             throw new AccessDeniedException("Không được phép thao tác ngoài phạm vi đặt phòng");
     }
 
+    /** Chuyển biên lai persistence thành DTO. */
     private ReceiptDtos.Response toResponse(Receipt r) {
         return new ReceiptDtos.Response(r.getId(), r.getReceiptNumber(), r.getInvoice().getId(), r.getAmount(),
                 r.getMethod(), r.getIssuedAt(), r.getIssuedBy());

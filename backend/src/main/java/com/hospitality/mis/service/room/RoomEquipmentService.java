@@ -7,6 +7,7 @@ import com.hospitality.mis.dto.room.RoomEquipmentDtos;
 import com.hospitality.mis.entity.room.RoomEquipment;
 import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.governance.AuditService;
+import com.hospitality.mis.service.governance.DurableIdempotencyService;
 import com.hospitality.mis.service.reservation.IdempotencySupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -18,12 +19,18 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
 
+/** Quản lý thiết bị gắn với phòng, có khóa phòng, audit tùy chọn và idempotency. */
 @Service
 public class RoomEquipmentService {
+    /** Kho thiết bị, lưu các thuộc tính và cờ active của thiết bị. */
     private final RoomEquipmentRepository equipment;
+    /** Khóa phòng trước khi thêm thiết bị để xác nhận quan hệ hiện hữu. */
     private final RoomRepository rooms;
+    /** Ghi audit; có thể null ở constructor tương thích với caller cũ. */
     private final AuditService audit;
+    /** Giữ kết quả add theo actor/key/fingerprint trong instance hiện tại. */
     private final IdempotencySupport idempotency = new IdempotencySupport();
+    private DurableIdempotencyService durableIdempotency;
 
     public RoomEquipmentService(RoomEquipmentRepository equipment, RoomRepository rooms) {
         this(equipment, rooms, null);
@@ -36,18 +43,23 @@ public class RoomEquipmentService {
         this.audit = audit;
     }
 
-    /** Controller-compatible entry point; actor and key come from request context. */
+    @Autowired
+    void setDurableIdempotency(DurableIdempotencyService durableIdempotency) { this.durableIdempotency = durableIdempotency; }
+
+    /** Điểm vào tương thích với controller; tác nhân và khóa được lấy từ ngữ cảnh yêu cầu. */
+    /** Đọc actor và Idempotency-Key từ request context rồi ủy quyền cho overload nghiệp vụ. */
     @Transactional
     public RoomEquipmentDtos.Response add(RoomEquipmentDtos.CreateRequest request) {
         return add(request, currentActor(), currentIdempotencyKey());
     }
 
+    /** Khóa phòng, tạo thiết bị và bảo đảm retry không ghi bản ghi trùng. */
     @Transactional
     public RoomEquipmentDtos.Response add(RoomEquipmentDtos.CreateRequest request, String suppliedActor, String key) {
         String actor = authenticatedActor(suppliedActor);
         String fingerprint = IdempotencySupport.fingerprint("ROOM_EQUIPMENT|" + request.roomId() + "|" + request.name()
                 + "|" + request.originalValue() + "|" + request.purchasedOn() + "|" + request.quantity());
-        return idempotency.execute("room-equipment", key, actor, fingerprint, () -> {
+        return executeIdempotent("room-equipment", key, actor, fingerprint, RoomEquipmentDtos.Response.class, () -> {
             var room = rooms.findForUpdate(request.roomId())
                     .orElseThrow(() -> new DomainException("ROOM_NOT_FOUND", "Không tìm thấy phòng"));
             RoomEquipment item = new RoomEquipment();
@@ -59,15 +71,25 @@ public class RoomEquipmentService {
         });
     }
 
+    private <T> T executeIdempotent(String scope, String key, String actor, String fingerprint,
+                                    Class<T> responseType, java.util.function.Supplier<T> command) {
+        return durableIdempotency == null
+                ? idempotency.execute(scope, key, actor, fingerprint, command)
+                : durableIdempotency.execute(scope, key, actor, fingerprint, responseType, command);
+    }
+
+    /** Liệt kê thiết bị active của phòng theo tên. */
     @Transactional(readOnly = true)
     public List<RoomEquipmentDtos.Response> list(String roomId) {
         return equipment.findByRoomIdAndActiveTrueOrderByNameAsc(roomId).stream().map(this::toResponse).toList();
     }
 
+    /** Lấy actor hiện tại từ security context. */
     private String currentActor() {
         return SecurityActor.currentActor();
     }
 
+    /** Lấy Idempotency-Key từ HTTP request, bắt buộc với điểm vào controller. */
     private String currentIdempotencyKey() {
         var attributes = RequestContextHolder.getRequestAttributes();
         if (attributes instanceof ServletRequestAttributes servlet) {
@@ -76,6 +98,7 @@ public class RoomEquipmentService {
         throw new DomainException("IDEMPOTENCY_KEY_REQUIRED", "Thiếu Idempotency-Key");
     }
 
+    /** Ràng buộc actor với principal khi có authentication, hỗ trợ caller test không có context. */
     private String authenticatedActor(String supplied) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated()
@@ -84,6 +107,7 @@ public class RoomEquipmentService {
         return supplied;
     }
 
+    /** Chuyển thiết bị và thông tin phòng thành DTO. */
     private RoomEquipmentDtos.Response toResponse(RoomEquipment e) {
         return new RoomEquipmentDtos.Response(e.getId(), e.getRoom().getId(), e.getName(), e.getOriginalValue(),
                 e.getPurchasedOn(), e.getQuantity(), e.isActive());

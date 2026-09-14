@@ -26,15 +26,20 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ vòng đời approval, binding payload/amount và quyền director/manager. */
 class ApprovalServiceTest {
+    /** Repository giả lập có semantic findWithLock để test race/consume một lần. */
     @Mock ApprovalRepository approvals;
+    /** Audit giả lập để kiểm tra approval hết hạn vẫn tạo dấu vết. */
     @Mock AuditService audit;
 
+    /** Xóa authentication sau mỗi test security-sensitive. */
     @AfterEach
     void clearAuthentication() {
         SecurityContextHolder.clearContext();
     }
 
+    /** Given pending đã hết hạn, When approve, Then chuyển EXPIRED và audit trạng thái. */
     @Test
     void expiredPendingApprovalIsMarkedExpiredAndCannotBeApproved() {
         ApprovalRequest approval = request(Instant.now().minusSeconds(1));
@@ -50,6 +55,7 @@ class ApprovalServiceTest {
                 eq(ApprovalRequest.PENDING), eq(ApprovalRequest.EXPIRED), any(), any());
     }
 
+    /** Given requester tạo approval, When tự approve, Then bị chặn và vẫn PENDING. */
     @Test
     void requesterCannotApproveOwnRequest() {
         ApprovalRequest approval = request(Instant.now().plusSeconds(60));
@@ -62,6 +68,7 @@ class ApprovalServiceTest {
         assertThat(approval.getStatus()).isEqualTo(ApprovalRequest.PENDING);
     }
 
+    /** Given approval đúng action nhưng sai target/payload/amount, When consume, Then yêu cầu approval mới. */
     @Test
     void wrongActionTargetPayloadOrAmountCannotConsumeApproval() {
         ApprovalRequest approval = request(Instant.now().plusSeconds(60));
@@ -77,6 +84,7 @@ class ApprovalServiceTest {
                 .extracting("code").isEqualTo("APPROVAL_REQUIRED");
     }
 
+    /** Given approval APPROVED, When consume hai lần, Then lần hai fail và trạng thái chỉ consume một lần. */
     @Test
     void consumeIsOnceOnlyAndRecordsConsumedState() {
         ApprovalRequest approval = request(Instant.now().plusSeconds(60));
@@ -100,6 +108,7 @@ class ApprovalServiceTest {
                 eq(ApprovalService.fingerprintFor("{\"price\":10}")), eq(new BigDecimal("10")));
     }
 
+    /** Given refund nhạy cảm, When manager thử rồi director approve, Then chỉ director được APPROVED. */
     @Test
     void onlyDirectorCanApproveRefund() {
         ApprovalRequest refund = new ApprovalRequest("clerk", "PAYMENT_REFUND", "invoice-1", "{}",
@@ -116,10 +125,12 @@ class ApprovalServiceTest {
         assertThat(refund.getApprover()).isEqualTo("director");
     }
 
+    /** Tạo service thật với repository/audit mock hiện tại. */
     private ApprovalService service() {
         return new ApprovalService(approvals, audit);
     }
 
+    /** Fixture approval id 1 với fingerprint canonical để các test binding cùng payload. */
     private static ApprovalRequest request(Instant expiresAt) {
         ApprovalRequest request = new ApprovalRequest("requester", "PRICE_OVERRIDE", "room-1",
                 "{\"price\":10}", ApprovalService.fingerprintFor("{\"price\":10}"),
@@ -128,6 +139,7 @@ class ApprovalServiceTest {
         return request;
     }
 
+    /** Đặt role manager cho actor thao tác approval thông thường. */
     private static void authenticateAs(String actor) {
         SecurityContextHolder.getContext().setAuthentication(
                 new TestingAuthenticationToken(actor, "n/a", "ROLE_MANAGER"));

@@ -1,6 +1,7 @@
 package com.hospitality.mis.service.auth;
 
 import com.hospitality.mis.common.exception.DomainException;
+import com.hospitality.mis.common.validation.PhoneNumberNormalizer;
 import com.hospitality.mis.dao.auth.CustomerAccountRepository;
 import com.hospitality.mis.dao.guest.GuestStore;
 import com.hospitality.mis.dao.identity.EmployeeRepository;
@@ -13,12 +14,18 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Quản lý đăng ký tài khoản khách và ảnh chiếu hồ sơ khách hàng. */
 @Service
 public class CustomerAccountService {
+    /** Kho tài khoản, dùng để kiểm tra số điện thoại và lưu credential đã băm. */
     private final CustomerAccountRepository accounts;
+    /** Kho hồ sơ khách được liên kết với tài khoản. */
     private final GuestStore guests;
+    /** Kho nhân viên, ngăn số điện thoại dùng chung giữa hai loại tài khoản. */
     private final EmployeeRepository employees;
+    /** Băm mật khẩu trước khi persistence. */
     private final PasswordEncoder passwordEncoder;
+    /** Ghi audit cho việc đăng ký tài khoản. */
     private final AuditService audit;
 
     public CustomerAccountService(CustomerAccountRepository accounts, GuestStore guests,
@@ -31,10 +38,11 @@ public class CustomerAccountService {
         this.audit = audit;
     }
 
+    /** Đăng ký tài khoản, liên kết khách hiện có hoặc tạo khách mới theo giấy tờ. */
     @Transactional
     public CustomerAccountDtos.Response register(CustomerAccountDtos.RegisterRequest request) {
         if (request == null) throw new DomainException("INVALID_CUSTOMER_REQUEST", "Thiếu nội dung đăng ký");
-        String phone = request.phone().trim();
+        String phone = PhoneNumberNormalizer.normalize(request.phone());
         String identityNumber = request.identityNumber().trim();
         if (accounts.existsByPhone(phone) || employees.existsByPhone(phone)) {
             throw new DomainException("PHONE_ALREADY_IN_USE", "Số điện thoại đã được sử dụng");
@@ -67,6 +75,7 @@ public class CustomerAccountService {
         return toResponse(saved);
     }
 
+    /** Đọc tài khoản và khách liên quan để tạo hồ sơ hiện tại. */
     @Transactional(readOnly = true)
     public CustomerAccountDtos.MeResponse me(Long customerAccountId) {
         CustomerAccount account = accounts.findById(customerAccountId)
@@ -78,6 +87,7 @@ public class CustomerAccountService {
         return new CustomerAccountDtos.MeResponse(toResponse(account), guestResponse);
     }
 
+    /** Chuyển entity tài khoản sang DTO mà không làm lộ mật khẩu. */
     public CustomerAccountDtos.Response toResponse(CustomerAccount account) {
         return new CustomerAccountDtos.Response(account.getId(), account.getGuest().getId(), account.getPhone(),
                 account.isEnabled(), account.isAccountNonLocked());

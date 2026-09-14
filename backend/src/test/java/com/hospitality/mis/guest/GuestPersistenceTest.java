@@ -39,12 +39,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 })
 
+/** Bảo vệ round-trip Guest và truy vấn search trên persistence thật của H2. */
 class GuestPersistenceTest {
 
+    /** Repository thật của H2 fixture; dùng để chứng minh persist/reload canonical. */
     @Autowired GuestRepository guests;
 
 
 
+    /** Xóa toàn bộ guest trước mỗi test persistence. */
     @BeforeEach
 
     void cleanGuests() {
@@ -55,6 +58,7 @@ class GuestPersistenceTest {
 
 
 
+    /** Given đầy đủ field canonical, When save/reload, Then mapping và state nghiệp vụ được giữ nguyên. */
     @Test
 
     void canonicalFieldsPersistToTheGuestEntity() {
@@ -98,6 +102,7 @@ class GuestPersistenceTest {
 
 
 
+    /** Given một guest, When search từng token name/identity/phone, Then cùng match đúng một row. */
     @Test
 
     void canonicalSearchMatchesNameIdentityAndPhone() {

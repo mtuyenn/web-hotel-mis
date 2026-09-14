@@ -24,9 +24,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 })
 
+/** Kiểm tra context Spring tối thiểu và error boundary dùng chung được đăng ký. */
 class BackendContextTest {
+    /** Context thật của ứng dụng; fixture này chứng minh bean lỗi tồn tại ở biên web. */
     @Autowired ApplicationContext context;
 
+    /** Given context khởi động với schema rỗng, When lấy handler, Then lỗi được xử lý tập trung. */
     @Test
     void applicationContextExposesTheSharedErrorBoundary() {
         assertThat(context.getBean(com.hospitality.mis.common.exception.GlobalExceptionHandler.class)).isNotNull();

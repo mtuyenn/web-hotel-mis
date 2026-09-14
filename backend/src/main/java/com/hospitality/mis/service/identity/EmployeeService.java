@@ -5,6 +5,7 @@ package com.hospitality.mis.service.identity;
 
 
 import com.hospitality.mis.common.exception.DomainException;
+import com.hospitality.mis.common.validation.PhoneNumberNormalizer;
 
 import com.hospitality.mis.dao.identity.EmployeeRepository;
 import com.hospitality.mis.dao.auth.CustomerAccountRepository;
@@ -25,18 +26,25 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 
-/** Application use cases owned by the identity boundary. */
+/** Các ca sử dụng của ứng dụng thuộc ranh giới danh tính. */
 
 @Service
 
 public class EmployeeService {
+    /** Ngưỡng khóa tài khoản sau số lần đăng nhập thất bại liên tiếp. */
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    /** Độ dài mật khẩu tối thiểu theo hợp đồng xác thực. */
     private static final int MIN_PASSWORD_LENGTH = 8;
+    /** Độ dài tối đa tương thích với BCrypt. */
     private static final int MAX_PASSWORD_LENGTH = 72;
+    /** Kho nhân viên, gồm các truy vấn có khóa cho bộ đếm đăng nhập. */
     private final EmployeeRepository employees;
+    /** Kho tài khoản khách, dùng để kiểm tra trùng số điện thoại. */
     private final CustomerAccountRepository customerAccounts;
 
+    /** Mã hóa mật khẩu trước khi lưu. */
     private final PasswordEncoder passwordEncoder;
+    /** Ghi audit đăng nhập nếu được cấu hình. */
     private final AuditService audit;
 
     public EmployeeService(EmployeeRepository employees, CustomerAccountRepository customerAccounts,
@@ -51,6 +59,7 @@ public class EmployeeService {
 
     @Transactional
 
+    /** Tạo nhân viên sau khi kiểm tra quyền, mật khẩu và số điện thoại duy nhất. */
     public Employee provision(String employeeId, String fullName, String rawPassword,
 
                               EmployeeRole role, String phone, String address) {
@@ -71,7 +80,7 @@ public class EmployeeService {
 
         }
 
-        String normalizedPhone = phone == null ? null : phone.trim();
+        String normalizedPhone = PhoneNumberNormalizer.normalize(phone);
         if (employees.existsByPhone(normalizedPhone) || customerAccounts.existsByPhone(normalizedPhone)) {
             throw new DomainException("PHONE_ALREADY_IN_USE", "Số điện thoại đã được sử dụng");
         }
@@ -91,6 +100,7 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
 
+    /** Tải nhân viên bắt buộc, dùng cho các luồng cần entity hiện hữu. */
     public Employee findRequired(String employeeId) {
 
         return employees.findById(employeeId)
@@ -103,6 +113,7 @@ public class EmployeeService {
 
     @Transactional
 
+    /** Đặt lại mật khẩu và mở khóa tài khoản theo quyền quản lý chức vụ. */
     public Employee resetPassword(String employeeId, String rawPassword) {
         Employee employee = employees.findById(employeeId)
                 .orElseThrow(() -> new DomainException("EMPLOYEE_NOT_FOUND", "Không tìm thấy nhân viên"));
@@ -119,6 +130,7 @@ public class EmployeeService {
     }
 
     @Transactional
+    /** Khóa bản ghi nhân viên, tăng bộ đếm lỗi và khóa khi đạt ngưỡng. */
     public void recordLoginFailure(String employeeId) {
         employees.findForUpdateByEmployeeId(employeeId).ifPresent(employee -> {
             employee.recordLoginFailure(Instant.now(), MAX_FAILED_LOGIN_ATTEMPTS);
@@ -129,6 +141,7 @@ public class EmployeeService {
     }
 
     @Transactional
+    /** Khóa bản ghi nhân viên, xóa bộ đếm lỗi và ghi nhận đăng nhập thành công. */
     public void recordLoginSuccess(String employeeId) {
         employees.findForUpdateByEmployeeId(employeeId).ifPresent(employee -> {
             employee.recordLoginSuccess(Instant.now());
@@ -137,22 +150,26 @@ public class EmployeeService {
         });
     }
 
+    /** Kiểm tra mật khẩu không trắng và nằm trong biên độ hệ thống. */
     private boolean validPassword(String password) {
         return password != null && !password.isBlank()
                 && password.length() >= MIN_PASSWORD_LENGTH
                 && password.length() <= MAX_PASSWORD_LENGTH;
     }
 
+    /** Xác định authentication có được quản lý chức vụ mục tiêu không. */
     public boolean canManageRole(Authentication authentication, EmployeeRole targetRole) {
         EmployeeRole actorRole = roleOf(authentication);
         return actorRole != null && actorRole.canManage(targetRole);
     }
 
+    /** Kiểm tra quyền reset theo chức vụ của nhân viên mục tiêu. */
     public boolean canResetEmployee(Authentication authentication, String employeeId) {
         Employee employee = employees.findById(employeeId).orElse(null);
         return employee == null || canManageRole(authentication, employee.getRole());
     }
 
+    /** Bắt buộc actor đã xác thực có quyền quản lý chức vụ mục tiêu. */
     private void requireCurrentActorCanManage(EmployeeRole targetRole) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!canManageRole(authentication, targetRole)) {
@@ -161,6 +178,7 @@ public class EmployeeService {
         SecurityActor.currentPrincipal();
     }
 
+    /** Ánh xạ authority ROLE_* của authentication sang enum chức vụ. */
     private EmployeeRole roleOf(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return null;
         return authentication.getAuthorities().stream()
@@ -173,6 +191,7 @@ public class EmployeeService {
                 .orElse(null);
     }
 
+    /** Phân tích tên role, trả null cho authority không thuộc enum nhân viên. */
     private EmployeeRole parseRole(String role) {
         try {
             return EmployeeRole.valueOf(role);

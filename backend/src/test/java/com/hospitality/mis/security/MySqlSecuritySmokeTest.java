@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Security smoke checks against real MySQL without dropping the QLKS schema. */
+/** Kiểm tra nhanh bảo mật trên MySQL thực tế mà không xóa schema QLKS. */
 @SpringBootTest(properties = {
         "spring.datasource.url=${MIGRATION_TEST_DB_URL}",
         "spring.datasource.username=${MIGRATION_TEST_DB_USERNAME}",
@@ -36,17 +36,27 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named = "MIGRATION_TEST_DB_URL", matches = ".+")
 class MySqlSecuritySmokeTest {
+    /** Employee fixture id dùng để seed và cleanup mà không đụng dữ liệu ngoài test. */
     private static final String EMPLOYEE_ID = "msec001";
+    /** Phone unique cho row employee fixture. */
     private static final String PHONE = "0999999001";
+    /** Plain password chỉ dùng input login; expected storage là hash. */
     private static final String PASSWORD = "mysql-sec-password";
 
+    /** HTTP boundary thật trên MySQL schema hiện hành. */
     @Autowired MockMvc mvc;
+    /** Repository employee để seed/disable actor. */
     @Autowired EmployeeRepository employees;
+    /** Repository refresh để kiểm tra token revoke. */
     @Autowired RefreshTokenRepository refreshTokens;
+    /** Encoder tạo hash seed. */
     @Autowired PasswordEncoder passwordEncoder;
+    /** Mapper đọc access token. */
     @Autowired ObjectMapper objectMapper;
+    /** SQL audit assertion. */
     @Autowired JdbcTemplate jdbc;
 
+    /** Seed employee enabled trước mỗi smoke case. */
     @BeforeEach
     void seed() {
         refreshTokens.deleteAll();
@@ -62,6 +72,7 @@ class MySqlSecuritySmokeTest {
     }
 
     @AfterEach
+    /** Xóa refresh/audit/employee fixture để MySQL test có thể chạy lặp. */
     void cleanup() {
         refreshTokens.deleteAll();
         jdbc.update("delete from audit_logs where actor = ?", EMPLOYEE_ID);
@@ -69,13 +80,15 @@ class MySqlSecuritySmokeTest {
     }
 
     @Test
+    /** Given request anonymous, When gọi API MySQL-backed, Then authentication bị từ chối. */
     void anonymousRequestIsRejectedByMySqlBackedApplication() throws Exception {
         mvc.perform(get("/api/services"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
     }
 
     @Test
+    /** Given staff token, When đọc/ghi endpoint, Then read được nhưng write ngoài department bị 403. */
     void authenticatedStaffCanReadButCannotWriteDepartmentData() throws Exception {
         JsonNode token = login();
         String bearer = "Bearer " + token.get("access_token").asText();
@@ -85,10 +98,11 @@ class MySqlSecuritySmokeTest {
                         .contentType(APPLICATION_JSON)
                         .content("{\"id\":\"SEC1\",\"name\":\"Test\",\"price\":1,\"opening_stock\":0,\"safety_threshold\":0}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("ACCESS_DENIED"));
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
     @Test
+    /** Given access token hợp lệ rồi disable account, When dùng token cũ, Then request bị reject. */
     void tokenIsRejectedAfterMySqlAccountIsDisabled() throws Exception {
         JsonNode token = login();
         Employee employee = employees.findById(EMPLOYEE_ID).orElseThrow();
@@ -99,6 +113,7 @@ class MySqlSecuritySmokeTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    /** Login employee fixture và parse token response. */
     private JsonNode login() throws Exception {
         return objectMapper.readTree(mvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)

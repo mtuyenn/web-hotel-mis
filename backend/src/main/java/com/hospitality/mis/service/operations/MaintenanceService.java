@@ -1,3 +1,4 @@
+/* Service này điều phối việc khóa phòng, đổi trạng thái và ghi audit cho bảo trì. */
 package com.hospitality.mis.service.operations;
 
 
@@ -15,48 +16,50 @@ import java.util.List;
 
 @Service
 public class MaintenanceService {
-        // Maintenance work-order repository; all persistence goes through this DAO.
+        // Kho phiếu bảo trì; mọi thao tác lưu trữ đều đi qua DAO này.
     private final MaintenanceWorkOrderRepository orders;
-        // Room repository; row locks protect concurrent room-state changes.
+        // Kho phòng; khóa dòng bảo vệ các thay đổi trạng thái phòng đồng thời.
     private final RoomRepository rooms;
-        // Record the actor and before/after values for the audit trail.
+        // Ghi nhận người thực hiện cùng các giá trị trước và sau vào nhật ký audit.
     private final AuditService audit;
 
     public MaintenanceService(MaintenanceWorkOrderRepository orders, RoomRepository rooms, AuditService audit) {
         this.orders = orders; this.rooms = rooms; this.audit = audit;
     }
 
+    /** Tạo phiếu, khóa phòng và chuyển phòng sang MAINTENANCE trong cùng giao dịch. */
     @Transactional
     public MaintenanceDtos.Response create(MaintenanceDtos.CreateRequest request, String actor) {
-        // Do not create a duplicate work-order identifier.
+        // Không được tạo trùng mã phiếu bảo trì.
         if (orders.existsById(request.id())) throw new DomainException("MAINTENANCE_EXISTS", "Mã phiếu bảo trì đã tồn tại");
-        // Lock the room in this transaction so concurrent operations cannot change it at once.
+        // Khóa phòng trong giao dịch này để các thao tác đồng thời không thể thay đổi phòng cùng lúc.
         var room = rooms.findForUpdate(request.roomId()).orElseThrow(() -> new DomainException("ROOM_NOT_FOUND", "Không tìm thấy phòng"));
-        // An occupied room cannot be moved into maintenance.
+        // Phòng đang có khách không thể chuyển sang trạng thái bảo trì.
         if (room.getStatus() == com.hospitality.mis.entity.room.RoomStatus.OCCUPIED)
             throw new DomainException("ROOM_OCCUPIED", "Không thể đưa phòng đang có khách vào bảo trì");
         var order = new MaintenanceWorkOrder(); order.setId(request.id()); order.setRoom(room);
         order.setMaintenanceType(request.type()); order.setScheduledDate(request.scheduledDate()); order.setDescription(request.description());
-        // Opening a work order blocks the room from new reservations until completion.
+        // Mở phiếu bảo trì sẽ khóa phòng, không cho phép đặt phòng mới cho đến khi hoàn tất.
         order.setStatus(MaintenanceStatus.CHUA_XU_LY); room.setStatus(com.hospitality.mis.entity.room.RoomStatus.MAINTENANCE); rooms.save(room); orders.save(order);
         audit.record(actor, "MAINTENANCE_CREATED", "MAINTENANCE_WORK_ORDER", request.id(), null, request.roomId(), null);
         return toResponse(order);
     }
 
+    /** Kiểm tra transition tuần tự, khóa phòng và đồng bộ trạng thái phòng với phiếu. */
     @Transactional
     public MaintenanceDtos.Response updateStatus(String id, MaintenanceDtos.StatusRequest request, String actor) {
-        // Update an existing work order and expose business failures through standard codes.
+        // Cập nhật phiếu bảo trì hiện có và trả lỗi nghiệp vụ theo các mã chuẩn.
         var order = orders.findById(id).orElseThrow(() -> new DomainException("MAINTENANCE_NOT_FOUND", "Không tìm thấy phiếu bảo trì"));
         MaintenanceStatus next;
         try { next = MaintenanceStatus.valueOf(request.status().trim().toUpperCase()); }
         catch (IllegalArgumentException ex) { throw new DomainException("INVALID_MAINTENANCE_STATUS", "Trạng thái bảo trì không hợp lệ"); }
-        // Status may only progress through PENDING -> IN_PROGRESS -> COMPLETED.
+        // Trạng thái chỉ được chuyển theo thứ tự CHUA_XU_LY -> DANG_BAO_TRI -> DA_HOAN_THANH.
         if (!allowedTransition(order.getStatus(), next))
             throw new DomainException("INVALID_MAINTENANCE_TRANSITION",
                     "Cannot move maintenance from " + order.getStatus() + " to " + next);
         var before = order.getStatus().name(); order.setStatus(next);
         var room = rooms.findForUpdate(order.getRoom().getId()).orElseThrow(() -> new DomainException("ROOM_NOT_FOUND", "Room not found"));
-        // Completion returns the room to READY; other states keep it in MAINTENANCE.
+        // Hoàn tất sẽ đưa phòng về trạng thái SẴN SÀNG; các trạng thái khác giữ phòng ở trạng thái BẢO TRÌ.
         room.setStatus(next == MaintenanceStatus.DA_HOAN_THANH
                 ? com.hospitality.mis.entity.room.RoomStatus.READY
                 : com.hospitality.mis.entity.room.RoomStatus.MAINTENANCE);
@@ -64,13 +67,16 @@ public class MaintenanceService {
         return toResponse(order);
     }
 
+    /** Liệt kê lịch sử phiếu bảo trì của phòng theo lịch giảm dần. */
     @Transactional(readOnly = true)
     public List<MaintenanceDtos.Response> byRoom(String roomId) { return orders.findByRoomIdOrderByScheduledDateDesc(roomId).stream().map(this::toResponse).toList(); }
 
+    /** Chuyển phiếu bảo trì thành DTO cho API. */
     private MaintenanceDtos.Response toResponse(MaintenanceWorkOrder o) { return new MaintenanceDtos.Response(o.getId(), o.getRoom().getId(), o.getMaintenanceType(), o.getScheduledDate(), o.getStatus().name(), o.getDescription()); }
 
+    /** Cho phép giữ nguyên hoặc chỉ tiến qua chuỗi trạng thái đã định nghĩa. */
     private boolean allowedTransition(MaintenanceStatus current, MaintenanceStatus next) {
-        // Repeating the same state is allowed so retries remain harmless.
+        // Cho phép giữ nguyên trạng thái để việc thử lại không gây tác động ngoài ý muốn.
         if (current == next) return true;
         return (current == MaintenanceStatus.CHUA_XU_LY && next == MaintenanceStatus.DANG_BAO_TRI)
                 || (current == MaintenanceStatus.DANG_BAO_TRI && next == MaintenanceStatus.DA_HOAN_THANH);

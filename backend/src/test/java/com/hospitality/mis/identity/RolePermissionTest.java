@@ -6,8 +6,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Bảo vệ ma trận permission và trần quản trị employee của từng role. */
 class RolePermissionTest {
     @Test
+    /** Given role canonical, When đọc permissions, Then quyền nghiệp vụ đúng và không dư quyền. */
     void canonicalRolesExposeTheirPermissionPolicy() {
         assertThat(EmployeeRole.MANAGER.permissions())
                 .contains(Permission.EMPLOYEE_PROVISION, Permission.EMPLOYEE_PASSWORD_RESET,
@@ -24,6 +26,7 @@ class RolePermissionTest {
     }
 
     @Test
+    /** Given các role quản trị, When canManage, Then ceiling owner policy được áp dụng chính xác. */
     void employeeAdministrationCeilingFollowsTheOwnerPolicy() {
         assertThat(EmployeeRole.DIRECTOR.canManage(EmployeeRole.ADMIN)).isTrue();
         assertThat(EmployeeRole.ADMIN.canManage(EmployeeRole.ADMIN)).isTrue();

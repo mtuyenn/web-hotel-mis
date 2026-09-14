@@ -12,12 +12,21 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Cung cấp nhật ký kiểm toán theo phạm vi mà actor và vai trò toàn cục được phép xem.
+ */
 @RestController
 @RequestMapping("/api/governance/audit")
 public class AuditController {
+    /** Dịch vụ truy vấn sự kiện kiểm toán theo actor và cờ phạm vi toàn cục. */
     private final AuditService audit;
     public AuditController(AuditService audit) { this.audit = audit; }
 
+    /**
+     * Liệt kê nhật ký qua GET /api/governance/audit; không có path/query/header/body tham số.
+     * Chỉ AUDIT_READ được gọi; controller truyền actor hiện tại và chỉ bật phạm vi toàn cục cho ADMIN, DIRECTOR hoặc MANAGER.
+     * Trả danh sách sự kiện kiểm toán; lỗi truy vấn do dịch vụ xử lý và thao tác đọc không cần idempotency.
+     */
     @GetMapping
     
     @PreAuthorize("@departmentAccess.allows(authentication, 'AUDIT_READ')")

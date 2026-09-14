@@ -34,16 +34,24 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ room service: search/availability, lock trạng thái, actor và audit. */
 class RoomServiceTest {
+    /** Khoảng thời gian half-open dùng cho mọi availability assertion. */
     private static final LocalDateTime FROM = LocalDateTime.of(2031, 1, 10, 14, 0);
+    /** TO sau FROM; expected overlap chỉ áp trên khoảng này. */
     private static final LocalDateTime TO = LocalDateTime.of(2031, 1, 11, 12, 0);
 
+    /** RoomStore mock; findForUpdate thể hiện locking boundary khi đổi status. */
     @Mock RoomStore rooms;
+    /** Overlap port mock để tách availability khỏi reservation persistence. */
     @Mock ReservationOverlapPort overlaps;
+    /** Audit mock để kiểm tra actor/state transition. */
     @Mock AuditService audit;
 
+    /** Service thật được dựng sau khi đặt actor manager. */
     private RoomService service;
 
+    /** Đặt actor manager mặc định và dựng service thật cho mỗi test. */
     @BeforeEach
     void setUp() {
         setActor("manager", "MANAGER");
@@ -51,11 +59,13 @@ class RoomServiceTest {
     }
 
     @AfterEach
+    /** Dọn SecurityContext sau test. */
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
     }
 
     @Test
+    /** Given room/type canonical, When search, Then DTO map đủ field và không có legacy model. */
     void searchMapsCanonicalRoomAndRoomTypeWithoutLegacyTypesInTheServiceContract() {
         Room room = room("R101", RoomStatus.READY);
         when(rooms.search("STD", RoomStatus.READY)).thenReturn(List.of(room));
@@ -72,6 +82,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given READY/MAINTENANCE/CLEANING và overlap, When availability, Then chỉ room READY không overlap mới available. */
     void availabilityCombinesOperationalStateWithHalfOpenOverlapProtection() {
         Room ready = room("R101", RoomStatus.READY);
         Room maintenance = room("R102", RoomStatus.MAINTENANCE);
@@ -91,6 +102,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given TO trước FROM, When availability, Then fail trước query persistence. */
     void availabilityRejectsNonPositiveIntervalsBeforeTouchingPersistence() {
         DomainException exception = assertThrows(DomainException.class,
                 () -> service.availability(TO, FROM, null));
@@ -99,6 +111,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given technical và room READY, When chuyển MAINTENANCE, Then dùng findForUpdate và audit actor. */
     void technicalMaintenanceTransitionUsesTheLockedStateAndAuditActor() {
         setActor("technical", "TECHNICAL");
         Room room = room("R101", RoomStatus.READY);
@@ -113,6 +126,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given manager có quyền, When chuyển READY -> MAINTENANCE, Then mutation hợp lệ. */
     void managerCanUseTheExplicitMaintenancePath() {
         Room room = room("R101", RoomStatus.READY);
         when(rooms.findForUpdate("R101")).thenReturn(Optional.of(room));
@@ -123,6 +137,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given status null, When update, Then INVALID_ROOM_STATUS trước load và không có side effect. */
     void statusUpdateRejectsNullStatusWithoutChangingAStoredRoom() {
         DomainException exception = assertThrows(DomainException.class,
                 () -> service.updateStatus("R101", null, "manager"));
@@ -132,6 +147,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given OCCUPIED, When patch READY, Then state machine reject và audit không ghi. */
     void occupiedRoomCannotBePatchedToReady() {
         Room room = room("R101", RoomStatus.OCCUPIED);
         when(rooms.findForUpdate("R101")).thenReturn(Optional.of(room));
@@ -145,6 +161,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given housekeeping room MAINTENANCE, When patch READY, Then role forbidden và state giữ nguyên. */
     void housekeepingCannotMakeRoomAvailable() {
         setActor("housekeeping", "HOUSEKEEPING");
         Room room = room("R101", RoomStatus.MAINTENANCE);
@@ -159,6 +176,7 @@ class RoomServiceTest {
     }
 
     @Test
+    /** Given actor request khác authenticated, When update, Then fail trước room/audit interaction. */
     void statusUpdateRejectsClientActorThatDiffersFromAuthenticatedActor() {
         DomainException exception = assertThrows(DomainException.class,
                 () -> service.updateStatus("R101", RoomStatus.MAINTENANCE, "other"));
@@ -167,6 +185,7 @@ class RoomServiceTest {
         verifyNoInteractions(rooms, audit);
     }
 
+    /** Tạo security context role canonical để kiểm tra actor/authorization. */
     private void setActor(String actor, String role) {
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(actor, "test",
@@ -174,6 +193,7 @@ class RoomServiceTest {
         SecurityContextHolder.setContext(context);
     }
 
+    /** Dựng room fixture với type STD và giá 2400 để expected DTO có ý nghĩa. */
     private Room room(String id, RoomStatus status) {
         RoomType type = new RoomType();
         type.setId("STD");

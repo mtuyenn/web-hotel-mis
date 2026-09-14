@@ -11,10 +11,15 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.assertj.core.api.Assertions.*;
 
+/** Bảo vệ service search: scope theo role, bounds validation và fail-fast trước DB. */
 class ReservationSearchServiceTest {
+    /** Repository mock dùng verify query scope và không query khi input invalid. */
     private final ReservationRepository repository = mock(ReservationRepository.class);
+    /** Service thật chỉ dùng search dependencies; các port mutation không liên quan được để null. */
     private final ReservationService service = new ReservationService(repository, null, null, null, null, null, null, null, null);
+    /** Dọn authentication giữa các role case. */
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
+    /** Given frontdesk, When list toàn cục, Then query không bị giới hạn theo creator ca hiện tại. */
     @Test void frontDeskCanFindPreviousShiftBookings() {
         authenticate("clerk", "FRONT_DESK");
         when(repository.searchIds(isNull(), isNull(), isNull(), any())).thenReturn(Page.empty());
@@ -22,12 +27,14 @@ class ReservationSearchServiceTest {
         verify(repository).searchIds(isNull(), isNull(), isNull(), any());
         verify(repository, never()).findPageDetails(any());
     }
+    /** Given manager, When list, Then global scope truyền null filters xuống repository. */
     @Test void managerHasGlobalScope() {
         authenticate("manager", "MANAGER");
         when(repository.searchIds(isNull(), isNull(), isNull(), any())).thenReturn(Page.empty());
         service.list(null, null, 0, 20);
         verify(repository).searchIds(isNull(), isNull(), isNull(), any());
     }
+    /** Given anonymous/negative/oversized filters, When list, Then fail trước DB và không tương tác repository. */
     @Test void invalidBoundsAndUnauthenticatedQueriesDoNotReachDatabase() {
         assertThatThrownBy(() -> service.list(null, null, 0, 20))
                 .isInstanceOf(org.springframework.security.authentication.AuthenticationCredentialsNotFoundException.class);
@@ -37,6 +44,7 @@ class ReservationSearchServiceTest {
         assertThatThrownBy(() -> service.list(null, 0L, 0, 20)).extracting("code").isEqualTo("INVALID_SEARCH");
         verifyNoInteractions(repository);
     }
+    /** Đặt TestingAuthenticationToken role canonical cho search scope. */
     private void authenticate(String actor, String role) {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(actor, "", "ROLE_" + role));
     }

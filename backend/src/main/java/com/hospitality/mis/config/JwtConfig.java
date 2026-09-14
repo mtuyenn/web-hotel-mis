@@ -49,13 +49,17 @@ import java.time.Duration;
 
 
 @Configuration
-
+/** Cấu hình toàn bộ vòng đời JWT: khóa ký/giải mã, kiểm tra thời gian và ánh xạ quyền.
+ * Các dependency bắt buộc lấy từ cấu hình môi trường; thiếu hoặc yếu thì ứng dụng dừng
+ * ngay khi khởi tạo để không chạy với cơ chế xác thực không an toàn.
+ */
 public class JwtConfig {
 
 
 
     @Bean
 
+    /** Tạo khóa HMAC từ bí mật cấu hình; giới hạn tối thiểu 256 bit là điều kiện an toàn bắt buộc. */
     SecretKey jwtSecretKey(@Value("${JWT_SECRET}") String configuredSecret) {
 
         if (configuredSecret == null || configuredSecret.isBlank()) {
@@ -80,8 +84,10 @@ public class JwtConfig {
 
     @Bean
 
+    /** Cung cấp bộ mã hóa dùng cùng khóa với decoder để token phát hành có thể được xác minh. */
     JwtEncoder jwtEncoder(SecretKey jwtSecretKey) {
 
+        // JWK chỉ bọc cùng SecretKey; key ID ổn định để encoder/decoder dùng chung cấu hình ký.
         JWK jwk = new OctetSequenceKey.Builder(jwtSecretKey).keyID("hotel-mis").build();
 
         JWKSource<SecurityContext> jwks = new ImmutableJWKSet<>(new JWKSet(jwk));
@@ -94,6 +100,7 @@ public class JwtConfig {
 
     @Bean
 
+    /** Chỉ chấp nhận JWT ký bằng HS256 và còn trong thời gian hiệu lực. */
     JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
 
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
@@ -112,10 +119,12 @@ public class JwtConfig {
 
     @Bean
 
+    /** Gắn tên principal vào claim {@code sub} và giao việc tính authority cho converter của hệ thống. */
     JwtAuthenticationConverter jwtAuthenticationConverter(EmployeeJwtAuthenticationConverter converter) {
 
         JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
 
+        // sub là tên principal chuẩn của Spring; converter riêng chịu trách nhiệm lấy authority động.
         authenticationConverter.setPrincipalClaimName("sub");
 
         authenticationConverter.setJwtGrantedAuthoritiesConverter(converter);

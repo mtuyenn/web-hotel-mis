@@ -5,19 +5,45 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity @Table(name = "payment_transactions")
+/** Dòng giao dịch thanh toán/hoàn tiền bất biến trong sổ cái hóa đơn. */
 public class PaymentTransaction {
+    /** ID giao dịch do cơ sở dữ liệu sinh. */
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
+    /** Hóa đơn mà giao dịch tác động đến. */
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "invoice_id", nullable = false) private Invoice invoice;
+    /** Số tiền của lần thu hoặc hoàn tiền. */
     @Column(nullable = false, precision = 12, scale = 2) private BigDecimal amount;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) private PaymentMethod method;
+    /** Phân biệt thu tiền và hoàn tiền để tính số dư đúng chiều. */
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private TransactionType type;
+    /** Kết quả xử lý của giao dịch; chỉ giao dịch hoàn tất mới được quyết toán. */
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private TransactionStatus status = TransactionStatus.COMPLETED;
+    /** Mã tham chiếu từ cổng thanh toán hoặc giao dịch hoàn tiền gốc. */
     @Column(length = 100) private String reference;
+    /** Thời điểm giao dịch phát sinh theo nghiệp vụ. */
     @Column(name = "occurred_at", nullable = false) private LocalDateTime occurredAt;
+    /** Tác nhân tạo giao dịch, dùng cho audit/đối soát. */
     @Column(name = "actor_id", nullable = false, length = 50) private String actorId;
+    /** Khóa duy nhất của yêu cầu thu/hoàn, dùng để chống xử lý lặp. */
     @Column(name = "idempotency_key", length = 100, unique = true) private String idempotencyKey;
-    public enum TransactionType { PAYMENT, REFUND }
-    public enum TransactionStatus { COMPLETED, FAILED, VOIDED }
+    /** Mã sự kiện từ payment provider, dùng để nhận callback lặp an toàn. */
+    @Column(name = "external_event_id", length = 100, unique = true) private String externalEventId;
+    /** Loại bút toán: thu tiền hoặc hoàn tiền. */
+    public enum TransactionType {
+        /** Khoản tiền thu vào hóa đơn. */
+        PAYMENT,
+        /** Khoản tiền hoàn lại cho khách. */
+        REFUND
+    }
+    /** Trạng thái xử lý của bút toán thanh toán. */
+    public enum TransactionStatus {
+        /** Giao dịch đã hoàn tất và có hiệu lực. */
+        COMPLETED,
+        /** Giao dịch thất bại, không làm thay đổi số đã thu. */
+        FAILED,
+        /** Giao dịch đã bị vô hiệu hóa theo quy trình đối soát. */
+        VOIDED
+    }
     public Long getId() { return id; }
     public Invoice getInvoice() { return invoice; }
     public void setInvoice(Invoice value) { invoice = value; }
@@ -36,8 +62,10 @@ public class PaymentTransaction {
     public String getActorId() { return actorId; }
     public void setActorId(String value) { actorId = value; }
     public void setIdempotencyKey(String value) { idempotencyKey = value; }
+    public String getExternalEventId() { return externalEventId; }
+    public void setExternalEventId(String value) { externalEventId = value; }
 
-    /** Stores the request binding in the existing idempotency column. */
+    /** Chuẩn hóa khóa phía máy khách và gắn dấu vân tay đầu vào để chống tái sử dụng sai ngữ cảnh. */
     public static String storageIdempotencyKey(String key, String actor, BigDecimal amount,
                                                PaymentMethod method, TransactionType type, String reference) {
         if (key == null || key.isBlank()) return null;
@@ -56,7 +84,7 @@ public class PaymentTransaction {
         }
     }
 
-    /** Returns the client key while retaining the bound digest in storage. */
+    /** Trả về khóa máy khách, còn mã băm liên kết vẫn được giữ trong giá trị lưu trữ. */
     public String getIdempotencyKey() {
         if (idempotencyKey == null) return null;
         int separator = idempotencyKey.lastIndexOf('.');
@@ -66,6 +94,7 @@ public class PaymentTransaction {
 
     public String getStoredIdempotencyKey() { return idempotencyKey; }
 
+    /** Trích ID giao dịch gốc từ reference của một giao dịch hoàn tiền. */
     public String getSourceTransactionId() {
         if (reference == null || !reference.startsWith("REFUND_OF:")) return null;
         int end = reference.indexOf(':', "REFUND_OF:".length());
@@ -73,7 +102,7 @@ public class PaymentTransaction {
                 : reference.substring("REFUND_OF:".length(), end);
     }
 
-    /** Ledger rows are append-only. Corrections are represented by a new refund row. */
+    /** Các dòng sổ cái chỉ được ghi thêm; điều chỉnh phải tạo dòng hoàn tiền mới. */
     @PreUpdate
     void rejectUpdate() {
         throw new IllegalStateException("Payment transactions are immutable");

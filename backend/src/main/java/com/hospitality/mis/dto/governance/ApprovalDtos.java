@@ -10,10 +10,13 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** DTO yêu cầu và kết quả phê duyệt các thao tác nhạy cảm. */
 public final class ApprovalDtos {
+    /** Namespace không trạng thái cho payload governance. */
     private ApprovalDtos() {
     }
 
+    /** Request chứa action, đối tượng, payload và lý do để người có quyền xem xét. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record Request(
             @NotBlank String action,
@@ -24,7 +27,8 @@ public final class ApprovalDtos {
             @Size(max = 100) String idempotencyKey) {
     }
 
-    /** Public approval representation; persistence fingerprints are deliberately not exposed. */
+    /** Biểu diễn phê duyệt công khai; không đưa các dấu vân tay của dữ liệu lưu trữ ra bên ngoài. */
+    /** Biểu diễn phê duyệt công khai; không đưa các dấu vân tay của dữ liệu lưu trữ ra bên ngoài. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record Response(
             Long id,
@@ -41,6 +45,7 @@ public final class ApprovalDtos {
             Instant consumedAt,
             String idempotencyKey) {
 
+        /** Chuyển entity nội bộ thành response; null được giữ là null cho mapper gọi an toàn. */
         public static Response from(ApprovalRequest approval) {
             if (approval == null) {
                 return null;

@@ -16,11 +16,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
+/** Bảo vệ query scope/status trước pagination, gồm cả booking cũ hơn trang đầu. */
 class ReservationSearchIntegrationTest {
+    /** EntityManager seed 107 rows và clear persistence context trước query. */
     @Autowired EntityManager em;
+    /** Repository thật để kiểm tra count, page ids và detail hydration. */
     @Autowired ReservationRepository repository;
 
     @Test
+    /** Given nhiều owner/status và 105 booking nhiễu, When search, Then filter trước page và giữ total đúng. */
     void scopeAndStatusAreAppliedBeforePaginationIncludingOlderBookings() {
         Employee owner = employee("owner", "0900000001");
         Employee other = employee("other", "0900000002");
@@ -41,10 +45,12 @@ class ReservationSearchIntegrationTest {
                 .containsExactly(old.getId());
     }
 
+    /** Persist employee fixture với phone unique để tạo owner scopes độc lập. */
     private Employee employee(String id, String phone) {
         Employee e = new Employee(); e.setEmployeeId(id); e.setFullName(id); e.setPhone(phone);
         e.setPassword("test-hash"); e.setRole(EmployeeRole.FRONT_DESK); em.persist(e); return e;
     }
+    /** Persist reservation tại minute định trước để thứ tự pagination tái lập. */
     private Reservation reservation(Employee employee, Guest guest, ReservationStatus status, int minute) {
         Reservation r = new Reservation(); r.setEmployee(employee); r.setGuest(guest); r.transitionTo(status);
         ReflectionTestUtils.setField(r, "bookedAt", LocalDateTime.of(2031, 1, 1, 0, 0).plusMinutes(minute));

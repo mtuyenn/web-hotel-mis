@@ -8,17 +8,31 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.hospitality.mis.middleware.security.SecurityActor;
 
+/**
+ * Cung cấp API đăng ký và truy vấn hồ sơ tài khoản khách hàng hiện đang đăng nhập.
+ */
 @RestController
 @RequestMapping("/api/auth/customers")
 public class CustomerAccountController {
+    /** Dịch vụ tạo tài khoản và đọc thông tin khách hàng từ principal hiện tại. */
     private final CustomerAccountService service;
     public CustomerAccountController(CustomerAccountService service) { this.service = service; }
+    /**
+     * Đăng ký tài khoản khách hàng qua POST /api/auth/customers/register.
+     * Body đăng ký được {@code @Valid} kiểm tra; trả 201 cùng thông tin tài khoản mới. Endpoint công khai,
+     * còn dữ liệu trùng hoặc không hợp lệ được dịch vụ báo lỗi; không có idempotency key nên không cam kết tạo một lần khi gửi lặp.
+     */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public CustomerAccountDtos.Response register(@Valid @RequestBody CustomerAccountDtos.RegisterRequest request) {
         return service.register(request);
     }
 
+    /**
+     * Lấy hồ sơ khách hàng hiện tại qua GET /api/auth/customers/me, không có path/query/header/body tham số.
+     * {@code hasRole('CUSTOMER')} và kiểm tra principal trong thân phương thức giới hạn phạm vi đúng tài khoản khách hàng;
+     * trả thông tin hồ sơ, còn principal sai loại bị từ chối truy cập.
+     */
     @GetMapping("/me")
     @PreAuthorize("hasRole('CUSTOMER')")
     public CustomerAccountDtos.MeResponse me() {

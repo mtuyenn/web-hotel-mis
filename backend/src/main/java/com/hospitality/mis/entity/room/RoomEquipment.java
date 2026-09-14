@@ -4,14 +4,19 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/** Thiết bị tồn tại trong một phòng và snapshot giá trị phục vụ bồi thường. */
 @Entity @Table(name = "room_equipment")
 public class RoomEquipment {
+    /** ID thiết bị do cơ sở dữ liệu sinh. */
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "room_id", nullable = false) private Room room;
     @Column(nullable = false, length = 100) private String name;
+    /** Giá trị gốc dùng làm cơ sở tính thiệt hại. */
     @Column(name = "original_value", nullable = false, precision = 14, scale = 2) private BigDecimal originalValue;
     @Column(name = "purchased_on", nullable = false) private LocalDate purchasedOn;
+    /** Số lượng thiết bị cùng loại trong phòng. */
     @Column(nullable = false) private int quantity;
+    /** Cờ còn được sử dụng; false giữ lại lịch sử thay vì xóa vật lý. */
     @Column(nullable = false) private boolean active = true;
     public Long getId() { return id; } public Room getRoom() { return room; } public void setRoom(Room v) { room = v; }
     public String getName() { return name; } public void setName(String v) { name = v; }

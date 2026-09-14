@@ -35,16 +35,26 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureMockMvc
+/** Bảo vệ customer auth end-to-end: claims, refresh rotation, reset và phone uniqueness. */
 class CustomerAuthenticationIntegrationTest {
+    /** HTTP boundary thật cho đăng ký/login/refresh/reset. */
     @Autowired MockMvc mockMvc;
+    /** Mapper đọc token response và kiểm tra claim JWT. */
     @Autowired ObjectMapper objectMapper;
+    /** Encoder thật để xác minh mật khẩu không plaintext. */
     @Autowired PasswordEncoder passwordEncoder;
+    /** Decoder thật để đọc principal_type/principal_id canonical. */
     @Autowired JwtDecoder jwtDecoder;
+    /** Employee repository dùng seed phone collision. */
     @Autowired EmployeeRepository employees;
+    /** Customer account repository dùng kiểm tra account. */
     @Autowired CustomerAccountRepository accounts;
+    /** Refresh token repository dùng kiểm tra family/revoke. */
     @Autowired RefreshTokenRepository refreshTokens;
+    /** SQL audit assertion cho password reset. */
     @Autowired JdbcTemplate jdbc;
 
+    /** Dọn token/account/guest/audit và seed employee trước mỗi scenario. */
     @BeforeEach
     void setUp() {
         refreshTokens.deleteAll();
@@ -62,6 +72,7 @@ class CustomerAuthenticationIntegrationTest {
     }
 
     @Test
+    /** Given registration hợp lệ, When login, Then JWT định danh CUSTOMER bằng claim và subject đúng account. */
     void customerRegistrationAndLoginUseCustomerPrincipalClaims() throws Exception {
         JsonNode registration = objectMapper.readTree(mockMvc.perform(post("/api/auth/customers/register")
                         .contentType(APPLICATION_JSON)
@@ -83,6 +94,7 @@ class CustomerAuthenticationIntegrationTest {
     }
 
     @Test
+    /** Given employee/customer cùng hệ thống, When login/refresh, Then principal type và token rows không lẫn. */
     void employeeAndCustomerTokensAndRefreshRowsRemainDistinct() throws Exception {
         registerCustomer();
         JsonNode employee = objectMapper.readTree(mockMvc.perform(post("/api/auth/login")
@@ -110,6 +122,7 @@ class CustomerAuthenticationIntegrationTest {
     }
 
     @Test
+    /** Given refresh family customer, When rotate/replay/logout, Then token cũ và cả family bị revoke đúng. */
     void customerRefreshRotationReplayAndLogoutRevokeTheFamily() throws Exception {
         registerCustomer();
         JsonNode first = customerLogin();
@@ -117,7 +130,7 @@ class CustomerAuthenticationIntegrationTest {
         assertThat(rotated.get("refresh_token").asText()).isNotEqualTo(first.get("refresh_token").asText());
         mockMvc.perform(post("/api/auth/refresh").contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.RefreshRequest(first.get("refresh_token").asText()))))
-                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
         assertThat(refreshTokens.findAll()).allMatch(token -> token.getRevokedAt() != null);
 
         JsonNode fresh = customerLogin();
@@ -132,6 +145,7 @@ class CustomerAuthenticationIntegrationTest {
     }
 
     @Test
+    /** Given customer đã login, When reset password, Then chỉ chính customer đổi được và session bị revoke. */
     void customerPasswordResetIsBoundToAuthenticatedCustomerAndRevokesSessions() throws Exception {
         registerCustomer();
         JsonNode tokens = customerLogin();
@@ -149,15 +163,17 @@ class CustomerAuthenticationIntegrationTest {
     }
 
     @Test
+    /** Given phone đã thuộc employee, When register customer, Then uniqueness được enforce tại boundary. */
     void customerRegistrationCannotReuseEmployeePhone() throws Exception {
         mockMvc.perform(post("/api/auth/customers/register")
                         .contentType(APPLICATION_JSON)
                         .content(json(new CustomerAccountDtos.RegisterRequest(
                                 "0900000091", "customer-password", "Customer", "ID09000093"))))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.error").value("PHONE_ALREADY_IN_USE"));
+                .andExpect(jsonPath("$.code").value("PHONE_ALREADY_IN_USE"));
     }
 
+    /** Đăng ký customer fixture chuẩn dùng lại trong login/reset tests. */
     private void registerCustomer() throws Exception {
         mockMvc.perform(post("/api/auth/customers/register").contentType(APPLICATION_JSON)
                         .content(json(new CustomerAccountDtos.RegisterRequest(
@@ -165,10 +181,12 @@ class CustomerAuthenticationIntegrationTest {
                 .andExpect(status().isCreated());
     }
 
+    /** Login customer bằng password fixture hiện hành. */
     private JsonNode customerLogin() throws Exception {
         return customerLoginWithPassword("customer-password");
     }
 
+    /** Login customer với password chỉ định để kiểm tra reset. */
     private JsonNode customerLoginWithPassword(String password) throws Exception {
         return objectMapper.readTree(mockMvc.perform(post("/api/auth/customers/login")
                         .contentType(APPLICATION_JSON)
@@ -176,6 +194,7 @@ class CustomerAuthenticationIntegrationTest {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
 
+    /** Gửi refresh token qua HTTP để kiểm tra rotation/replay semantics. */
     private JsonNode refresh(String refreshToken) throws Exception {
         return objectMapper.readTree(mockMvc.perform(post("/api/auth/refresh").contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.RefreshRequest(refreshToken))))

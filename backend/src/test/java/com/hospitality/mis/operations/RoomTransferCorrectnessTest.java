@@ -33,13 +33,16 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ room transfer: lock thứ tự, composite identity, timestamp và actor scope. */
 class RoomTransferCorrectnessTest {
+    /** Các mock đại diện reservation lock, room lock, persisted transfer và audit side effect. */
     @Mock ReservationRepository reservations;
     @Mock RoomRepository rooms;
     @Mock RoomTransferRepository transfers;
     @Mock AuditService audit;
 
     @BeforeEach
+    /** Đặt front desk actor hợp lệ cho mutation. */
     void authenticateFrontDesk() {
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken("frontdesk", "test",
@@ -48,11 +51,13 @@ class RoomTransferCorrectnessTest {
     }
 
     @AfterEach
+    /** Dọn SecurityContext sau test. */
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
     }
 
     @Test
+    /** Given booking 101, When chuyển sang 102, Then line cũ cancel, line mới thêm và timestamp giữ nguyên. */
     void transferFlushesWithoutMutatingCompositeIdentityAndKeepsPersistedTimestamp() {
         Room from = room("101", RoomStatus.OCCUPIED);
         Room to = room("102", RoomStatus.READY);
@@ -90,6 +95,7 @@ class RoomTransferCorrectnessTest {
     }
 
     @Test
+    /** Given actor request khác authenticated, When transfer, Then fail trước load reservation/room. */
     void transferRejectsClientActorThatDiffersFromAuthenticatedActorBeforeLoadingReservation() {
         RoomTransferService service = new RoomTransferService(reservations, rooms, transfers, audit);
 
@@ -103,6 +109,7 @@ class RoomTransferCorrectnessTest {
         verifyNoInteractions(reservations, rooms, transfers, audit);
     }
 
+    /** Dựng room tối thiểu với status để fixture thể hiện rõ room nguồn/đích. */
     private static Room room(String id, RoomStatus status) {
         Room room = new Room(); room.setId(id); room.setStatus(status); return room;
     }

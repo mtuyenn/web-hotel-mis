@@ -50,16 +50,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 })
 
+/** Bảo vệ mapping JPA Employee và quan hệ owner với Reservation theo schema canonical. */
 class IdentityPersistenceTest {
 
     @Autowired
 
+    /** Repository thật để kiểm tra round-trip employee trên H2. */
     EmployeeRepository employees;
 
 
 
     @Test
 
+    /** Given employee đầy đủ, When save/reload, Then các field canonical không đổi. */
     void employeeRepositoryPersistsCanonicalEmployeeSchema() {
         Employee employee = new Employee();
         employee.setEmployeeId("ID01");
@@ -91,6 +94,7 @@ class IdentityPersistenceTest {
 
     @Test
 
+    /** Given entity/relationship annotations, When phản chiếu mapping, Then owner và constraint đúng schema. */
     void employeeIsTheConcreteJpaOwner() throws Exception {
         assertThat(Employee.class.isAnnotationPresent(Entity.class)).isTrue();
         assertThat(Employee.class.getAnnotation(Table.class).name()).isEqualTo("employees");
@@ -129,6 +133,7 @@ class IdentityPersistenceTest {
 
 
 
+    /** Assertion helper dùng length > 0 để chỉ kiểm tra các cột có giới hạn explicit. */
     private void assertColumn(String fieldName, String columnName, int length) throws Exception {
 
         Column column = Employee.class.getDeclaredField(fieldName).getAnnotation(Column.class);

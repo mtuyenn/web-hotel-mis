@@ -11,17 +11,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Command idempotency for the reservation and operations application services.
+ * Đảm bảo tính bất biến khi lặp lại lệnh cho các dịch vụ ứng dụng đặt phòng và vận hành.
  *
- * <p>The canonical schema currently persists a key only for reservation
- * creation. Other operation tables have no key column and cannot be changed in
- * this slice, so their completed command results are retained by this
- * application service instance. The key is always bound to the authenticated
- * actor and request fingerprint.</p>
+ * <p>Lược đồ chuẩn hiện chỉ lưu một khóa cho việc tạo đặt phòng. Các bảng thao tác
+ * khác không có cột khóa và không thể thay đổi trong phạm vi này, vì vậy kết quả
+ * các lệnh đã hoàn tất được dịch vụ ứng dụng này giữ lại. Khóa luôn được gắn với
+ * tác nhân đã xác thực và dấu vân tay của yêu cầu.</p>
  */
 public final class IdempotencySupport {
+    /** Kết quả đã hoàn tất trong lifetime của service, lập chỉ mục theo scope và key. */
     private final Map<String, Entry> completed = new ConcurrentHashMap<>();
 
+    /** Tuần tự hóa kiểm tra-key/thực thi/lưu-kết-quả để retry đồng thời không chạy lại lệnh. */
     @SuppressWarnings("unchecked")
     public synchronized <T> T execute(String scope, String key, String actor,
                                        String fingerprint, Supplier<T> command) {
@@ -42,6 +43,7 @@ public final class IdempotencySupport {
         return result;
     }
 
+    /** Chuẩn hóa và bắt buộc key retry trong giới hạn giao thức hiện tại. */
     public static String requireKey(String key) {
         if (key == null || key.isBlank()) {
             throw new DomainException("IDEMPOTENCY_KEY_REQUIRED", "Thiếu Idempotency-Key");
@@ -53,6 +55,7 @@ public final class IdempotencySupport {
         return normalized;
     }
 
+    /** Băm biểu diễn request chuẩn hóa để phát hiện dùng lại key cho payload khác. */
     public static String fingerprint(String canonicalRequest) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")

@@ -44,16 +44,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureMockMvc
+/** Kiểm tra wire contract governance: snake_case allowlist và không lộ metadata persistence. */
 class GovernanceApiContractTest {
+    /** HTTP boundary thật để kiểm tra security, serialization và status code. */
     @Autowired MockMvc mockMvc;
+    /** Mapper dùng đọc/kiểm tra exact field set của response. */
     @Autowired ObjectMapper objectMapper;
 
+    /** Service mock để contract test không phụ thuộc nghiệp vụ approval. */
     @MockBean ApprovalService approvalService;
+    /** Audit service mock cho endpoint list audit. */
     @MockBean AuditService auditService;
+    /** Authorization mock; true cho fixture id 42 để request đi tới controller. */
     @MockBean ApprovalAuthorization approvalAuthorization;
 
+    /** Approval PENDING id 42 là fixture chung cho create/list/serialization. */
     private ApprovalRequest pending;
 
+    /** Dựng approval canonical và cho phép actor test approve fixture id 42. */
     @BeforeEach
     void setUp() {
         pending = new ApprovalRequest("requester", "PRICE_OVERRIDE", "room-1", "{\"price\":100}",
@@ -63,6 +71,7 @@ class GovernanceApiContractTest {
         when(approvalAuthorization.canApprove(eq(42L), anyString())).thenReturn(true);
     }
 
+    /** Given approval response, When POST create, Then JSON snake_case đúng allowlist và không có field nội bộ. */
     @Test
     void approvalResponseUsesTheCanonicalAllowlistedSnakeCaseShape() throws Exception {
         when(approvalService.request(eq("actor"), eq("PRICE_OVERRIDE"), eq("room-1"),
@@ -95,6 +104,7 @@ class GovernanceApiContractTest {
         assertThat(json.fieldNames()).toIterable().allMatch(name -> !name.matches(".*[A-Z].*"));
     }
 
+    /** Given approved/rejected/pending rows, When gọi action và list, Then status/body semantics ổn định. */
     @Test
     void approvalActionsAndListKeepExistingStatusAndBodySemantics() throws Exception {
         ApprovalRequest approved = new ApprovalRequest("requester", "PRICE_OVERRIDE", "room-1", "{}", "fingerprint",
@@ -123,6 +133,7 @@ class GovernanceApiContractTest {
                 .andExpect(jsonPath("$[0].payload").value("{\"price\":100}"));
     }
 
+    /** Given audit row, When GET audit, Then snake_case và không serialize metadata của entity. */
     @Test
     void auditResponseUsesSnakeCaseWithoutEntitySerializationMetadata() throws Exception {
         AuditLog audit = new AuditLog("manager", "APPROVAL_APPROVED", "APPROVAL", "42",
@@ -146,6 +157,7 @@ class GovernanceApiContractTest {
         assertThat(json.fieldNames()).toIterable().allMatch(name -> !name.matches(".*[A-Z].*"));
     }
 
+    /** Given DTO explicit, When Jackson serialize, Then chỉ có field public contract, không có fingerprint nội bộ. */
     @Test
     void responseDtoSerializationIsExplicitAndDoesNotIncludePersistenceFingerprint() throws Exception {
         JsonNode approval = objectMapper.valueToTree(ApprovalDtos.Response.from(pending));
@@ -162,6 +174,7 @@ class GovernanceApiContractTest {
         assertThat(approval.has("payload_fingerprint")).isFalse();
     }
 
+    /** Tạo JWT employee tối thiểu với role được truyền để test controller authorization. */
     private static RequestPostProcessor jwtAs(String role) {
         return jwt().jwt(token -> token.subject("actor")
                         .claim("principal_id", "actor")

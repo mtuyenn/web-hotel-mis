@@ -8,13 +8,38 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/** DTO tài sản/thiết bị gắn với một phòng. */
 public final class RoomEquipmentDtos {
+    /** Namespace không trạng thái cho payload thiết bị phòng. */
     private RoomEquipmentDtos() {}
+    /** Request thêm thiết bị; giá trị và số lượng phải dương theo validation. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record CreateRequest(@NotBlank String roomId, @NotBlank String name,
-                                @NotNull @Positive BigDecimal originalValue, @NotNull LocalDate purchasedOn,
+    public record CreateRequest(
+                                /** Phòng sở hữu thiết bị. */
+                                @NotBlank String roomId,
+                                /** Tên thiết bị. */
+                                @NotBlank String name,
+                                /** Giá trị gốc dương của thiết bị. */
+                                @NotNull @Positive BigDecimal originalValue,
+                                /** Ngày mua. */
+                                @NotNull LocalDate purchasedOn,
+                                /** Số lượng thiết bị dương. */
                                 @Positive int quantity) {}
+    /** Thiết bị đã ghi nhận cùng giá trị gốc, ngày mua, số lượng và cờ hoạt động. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record Response(Long id, String roomId, String name, BigDecimal originalValue,
-                           LocalDate purchasedOn, int quantity, boolean active) {}
+    public record Response(
+                           /** Khóa thiết bị. */
+                           Long id,
+                           /** Phòng sở hữu. */
+                           String roomId,
+                           /** Tên thiết bị. */
+                           String name,
+                           /** Giá trị gốc. */
+                           BigDecimal originalValue,
+                           /** Ngày mua. */
+                           LocalDate purchasedOn,
+                           /** Số lượng. */
+                           int quantity,
+                           /** Thiết bị còn được sử dụng hay đã ngừng hoạt động. */
+                           boolean active) {}
 }

@@ -22,11 +22,11 @@ import jakarta.persistence.Version;
 
 /**
 
- * Canonical room state and scalar persistence mapping.
+ * Trạng thái phòng chuẩn và ánh xạ lưu trữ các thuộc tính vô hướng.
 
  *
 
- * The sole concrete JPA owner of the {@code rooms} table.
+ * Chủ thể JPA cụ thể duy nhất của bảng {@code rooms}.
  */
 @Entity
 @Table(name = "rooms")
@@ -35,6 +35,7 @@ public class Room {
     @Id
 
     @Column(name = "id", length = 10, nullable = false)
+    /** Mã phòng nghiệp vụ, được dùng trong đặt phòng và tồn phòng. */
     private String id;
 
 
@@ -57,6 +58,7 @@ public class Room {
     @Convert(converter = RoomStatusConverter.class)
 
     @Column(name = "status", length = 30, nullable = false)
+    /** Trạng thái vận hành quyết định phòng có thể phân bổ hay không. */
     private RoomStatus status = RoomStatus.READY;
 
 
@@ -64,10 +66,12 @@ public class Room {
     @Version
 
     @Column(name = "version", nullable = false)
+    /** Phiên bản lạc quan, ngăn hai thao tác đồng thời ghi đè trạng thái phòng. */
     private long version;
 
 
 
+    /** Constructor rỗng dành cho JPA. */
     public Room() {
     }
 
@@ -152,6 +156,7 @@ public class Room {
 
 
 
+    /** Cập nhật trạng thái sau khi kiểm tra status không null ở biên entity. */
     public void setStatus(RoomStatus status) {
 
         if (status == null) {

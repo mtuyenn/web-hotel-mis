@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 
-/** Runs real MySQL migrations and Hibernate validation; requires a disposable empty database. */
+/** Thực thi migration MySQL thực tế và kiểm tra Hibernate; yêu cầu một cơ sở dữ liệu trống dùng tạm thời. */
 
 @SpringBootTest(properties = {
         "spring.datasource.url=${MIGRATION_TEST_DB_URL}",
@@ -29,12 +29,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 
 class MySqlMigrationTest {
+    /** Flyway thật dùng kiểm tra migration line và pending state. */
     @Autowired Flyway flyway;
+    /** DataSource thật dùng kiểm tra product name và metadata SQL. */
     @Autowired DataSource dataSource;
 
 
     @Test
 
+    /** Given database MySQL rỗng, When validate/info, Then migration line đầy đủ và JPA validate thành công. */
     void cleanMySqlReceivesTheCompleteMigrationLineAndJpaMappingsValidate() throws Exception {
         try (var connection = dataSource.getConnection()) {
             assertThat(connection.getMetaData().getDatabaseProductName()).isEqualToIgnoringCase("MySQL");
@@ -46,11 +49,13 @@ class MySqlMigrationTest {
     }
 
     @Test
+    /** Given phone columns production, When đọc metadata, Then NOT NULL và unique được bảo vệ bằng SQL. */
     void employeeAndCustomerPhoneColumnsAreNotNullAndUniqueInSql() {
         assertPhoneConstraint("employees");
         assertPhoneConstraint("customer_accounts");
     }
 
+    /** Kiểm tra metadata column/index theo table được truyền, không sửa schema trong test. */
     private void assertPhoneConstraint(String tableName) {
         try (var connection = getConnection()) {
             try (var columns = connection.prepareStatement(
@@ -77,6 +82,7 @@ class MySqlMigrationTest {
         }
     }
 
+    /** Mở connection từ DataSource cho các assertion metadata SQL. */
     private java.sql.Connection getConnection() throws java.sql.SQLException {
         return dataSource.getConnection();
     }

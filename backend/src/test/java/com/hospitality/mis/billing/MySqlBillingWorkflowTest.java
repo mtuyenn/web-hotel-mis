@@ -7,4 +7,5 @@ import org.springframework.boot.test.context.SpringBootTest;
         "spring.datasource.username=${MIGRATION_TEST_DB_USERNAME}", "spring.datasource.password=${MIGRATION_TEST_DB_PASSWORD}",
         "spring.flyway.enabled=true", "spring.flyway.baseline-on-migrate=false", "spring.jpa.hibernate.ddl-auto=validate"})
 @AutoConfigureMockMvc
+/** Chạy cùng billing contract trên schema MySQL/Flyway thật để bắt khác biệt dialect. */
 class MySqlBillingWorkflowTest extends BillingWorkflowAssertions {}

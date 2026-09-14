@@ -16,19 +16,23 @@ import java.util.List;
 
 
 
+/** Quản lý danh mục dịch vụ, giá bán và tồn kho dịch vụ dùng cho đặt phòng. */
 @org.springframework.stereotype.Service
 public class ServiceCatalogService {
 
+    /** Kho dịch vụ (restock dùng khóa) và cộng tác viên audit cho mọi thay đổi danh mục. */
     private final ServiceRepository services; private final AuditService audit;
 
     public ServiceCatalogService(ServiceRepository services, AuditService audit) { this.services = services; this.audit = audit; }
 
     @Transactional(readOnly = true)
 
+    /** Trả toàn bộ danh mục dịch vụ dưới dạng DTO. */
     public List<ServiceDtos.Response> findAll() { return services.findAll().stream().map(this::toResponse).toList(); }
 
     @Transactional
 
+    /** Tạo dịch vụ mới, khởi tạo tồn kho và ngưỡng cảnh báo, rồi ghi audit. */
     public ServiceDtos.Response create(ServiceDtos.CreateRequest request, String actor) {
 
         if (services.existsById(request.id())) throw new DomainException("SERVICE_EXISTS", "Mã dịch vụ đã tồn tại");
@@ -42,6 +46,7 @@ public class ServiceCatalogService {
 
     @Transactional
 
+    /** Khóa dịch vụ, cộng tồn kho nhập thêm và ghi actor thực hiện. */
     public ServiceDtos.Response restock(String id, ServiceDtos.StockRequest request, String actor) {
 
         var service = services.findWithLockById(id).orElseThrow(() -> new DomainException("SERVICE_NOT_FOUND", "Không tìm thấy dịch vụ"));
@@ -50,5 +55,7 @@ public class ServiceCatalogService {
 
     }
 
+    /** Chuyển dịch vụ thành DTO và tính cờ tồn kho dưới ngưỡng an toàn. */
+    /** Chuyển dịch vụ thành DTO và tính cờ cảnh báo dưới safety threshold. */
     public ServiceDtos.Response toResponse(Service s) { return new ServiceDtos.Response(s.getId(), s.getName(), s.getPrice(), s.getUnit(), s.getStockQuantity(), s.getSafetyThreshold(), s.getStockQuantity() < s.getSafetyThreshold()); }
 }

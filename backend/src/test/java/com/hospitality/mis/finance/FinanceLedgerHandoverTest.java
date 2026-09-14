@@ -16,16 +16,23 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** Bảo vệ bàn giao ca: expected phải lấy từ ledger tiền mặt, không nhận từ client. */
 class FinanceLedgerHandoverTest {
+    /** Kho bàn giao giả lập để kiểm tra mốc ca trước và row mới. */
     private final CashShiftHandoverRepository handovers = mock(CashShiftHandoverRepository.class);
+    /** Ledger payment giả lập; net cash 950000 là expected authoritative. */
     private final PaymentTransactionRepository transactions = mock(PaymentTransactionRepository.class);
+    /** Audit giả lập vì test tập trung vào số tiền bàn giao. */
     private final AuditService audit = mock(AuditService.class);
 
+    /** Đăng nhập actor accounting, đúng role được phép bàn giao tiền. */
     @BeforeEach void auth() {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("cashier", "", "ROLE_ACCOUNTING"));
     }
+    /** Dọn security context sau test. */
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 
+    /** Given ledger 950000 nhưng client khai 940000, When handover, Then variance là -10000. */
     @Test void expectedAmountComesFromUnhandedCashLedgerAndClientCannotSupplyIt() {
         LocalDateTime priorAt = LocalDateTime.of(2031, 1, 1, 8, 0);
         CashShiftHandover prior = new CashShiftHandover(); prior.setHandedOverAt(priorAt);

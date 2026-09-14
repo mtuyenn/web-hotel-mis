@@ -4,16 +4,31 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** Công nợ phải trả hoặc phải thu được theo dõi với một đối tác. */
 @Entity @Table(name = "partner_debts")
 public class PartnerDebt {
+    /** ID công nợ do cơ sở dữ liệu sinh. */
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "partner_name", nullable = false, length = 150) private String partnerName;
     @Column(name = "reference_code", nullable = false, unique = true, length = 80) private String referenceCode;
+    /** Tổng giá trị công nợ ban đầu. */
     @Column(nullable = false, precision = 14, scale = 2) private BigDecimal amount;
+    /** Số đã tất toán; không vượt quá tổng công nợ theo nghiệp vụ. */
     @Column(nullable = false, precision = 14, scale = 2) private BigDecimal settledAmount = BigDecimal.ZERO;
+    /** Trạng thái tiến độ tất toán của công nợ. */
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private DebtStatus status = DebtStatus.OPEN;
     @Column(name = "recorded_at", nullable = false) private LocalDateTime recordedAt;
-    public enum DebtStatus { OPEN, PARTIALLY_SETTLED, SETTLED, VOIDED }
+    /** Các trạng thái từ mở đến tất toán hoặc hủy. */
+    public enum DebtStatus {
+        /** Công nợ chưa được tất toán. */
+        OPEN,
+        /** Đã tất toán một phần. */
+        PARTIALLY_SETTLED,
+        /** Đã tất toán đầy đủ. */
+        SETTLED,
+        /** Công nợ bị hủy. */
+        VOIDED
+    }
     public Long getId() { return id; } public String getPartnerName() { return partnerName; } public void setPartnerName(String v) { partnerName = v; }
     public String getReferenceCode() { return referenceCode; } public void setReferenceCode(String v) { referenceCode = v; }
     public BigDecimal getAmount() { return amount; } public void setAmount(BigDecimal v) { amount = v; }

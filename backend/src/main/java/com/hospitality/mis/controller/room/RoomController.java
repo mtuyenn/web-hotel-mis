@@ -36,12 +36,16 @@ import java.util.List;
 
 
 
+/**
+ * Tra cứu phòng, kiểm tra khả dụng và cập nhật trạng thái vận hành của phòng.
+ */
 @RestController
 
 @RequestMapping("/api/rooms")
 
 public class RoomController {
 
+    /** Dịch vụ truy vấn khả dụng và thay đổi trạng thái phòng theo quy tắc vận hành. */
     private final RoomService service;
 
 
@@ -54,6 +58,11 @@ public class RoomController {
 
 
 
+    /**
+     * Tìm phòng qua GET /api/rooms?type=...&status=...; type và status là query tùy chọn.
+     * status được chuyển đổi theo giá trị API, giá trị không hợp lệ tạo lỗi INVALID_ROOM_STATUS; trả danh sách phòng.
+     * Chỉ ROOM_READ được phép, thao tác đọc không có idempotency concern.
+     */
     @GetMapping
 
 
@@ -68,6 +77,11 @@ public class RoomController {
 
 
 
+    /**
+     * Tra cứu phòng khả dụng qua GET /api/rooms/availability?from=...&to=...&type=....
+     * from và to là query bắt buộc dạng ISO date-time, type tùy chọn; trả danh sách khoảng/phòng khả dụng.
+     * Chỉ ROOM_READ được phép; định dạng/thời gian không hợp lệ hoặc lỗi nghiệp vụ do service xử lý, thao tác đọc không cần idempotency.
+     */
     @GetMapping("/availability")
 
 
@@ -88,6 +102,11 @@ public class RoomController {
 
 
 
+    /**
+     * Cập nhật trạng thái phòng qua PATCH /api/rooms/{id}/status; id là path parameter và status là query bắt buộc.
+     * status được parse theo giá trị API, sai giá trị trả lỗi INVALID_ROOM_STATUS; response là phòng sau cập nhật.
+     * Chỉ ROOM_WRITE được phép, actor hiện tại được truyền; không có idempotency key và xung đột/trạng thái sai do service xử lý.
+     */
     @PatchMapping("/{id}/status")
 
 

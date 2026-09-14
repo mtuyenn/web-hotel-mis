@@ -49,7 +49,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureMockMvc
+/** Bảo vệ actor binding khi tạo reservation HTTP và guest port resolution. */
 class ReservationCreationHttpActorTest {
+    /** Boundary HTTP thật để kiểm tra authentication và request validation. */
     @Autowired MockMvc mockMvc;
 
     @MockBean ReservationRepository reservations;
@@ -62,9 +64,12 @@ class ReservationCreationHttpActorTest {
     @MockBean ServiceLineRepository serviceLines;
     @MockBean EquipmentIncidentService incidents;
 
+    /** Guest shared được resolve từ guest_id 41, không lấy actor/client làm nguồn danh tính. */
     private Guest guest;
+    /** Employee frontdesk canonical được attach vào reservation mới. */
     private Employee employee;
 
+    /** Stub happy path: guest/employee/room tồn tại, không overlap và save trả id 100. */
     @BeforeEach
     void stubSuccessfulCreation() {
         guest = new Guest();
@@ -93,6 +98,7 @@ class ReservationCreationHttpActorTest {
 
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
+    /** Given employee_id khớp principal, When POST create, Then CONFIRMED và attach đúng guest fixture. */
     void matchingAuthenticatedPrincipalCreatesConfirmedReservationWithResolvedGuest() throws Exception {
         mockMvc.perform(post("/api/reservations")
                         .contentType(APPLICATION_JSON)
@@ -111,6 +117,7 @@ class ReservationCreationHttpActorTest {
 
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
+    /** Given client spoof employee_id manager, When POST, Then ACTOR_MISMATCH trước lookup/save. */
     void spoofedEmployeeIdIsRejectedBeforeGuestLookupOrSave() throws Exception {
         mockMvc.perform(post("/api/reservations")
                         .contentType(APPLICATION_JSON)
@@ -124,17 +131,19 @@ class ReservationCreationHttpActorTest {
     }
 
     @Test
+    /** Given anonymous request, When POST, Then 401 và không chạm guest/repository. */
     void anonymousCreationIsRejectedBeforeGuestLookupOrSave() throws Exception {
         mockMvc.perform(post("/api/reservations")
                         .contentType(APPLICATION_JSON)
                         .content(validCreateRequest("frontdesk")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
         verify(sharedGuests, never()).findSharedById(anyLong());
         verify(reservations, never()).saveAndFlush(any(Reservation.class));
     }
 
+    /** Tạo JSON canonical với room/time/idempotency cố định; employeeId dùng cho spoof case. */
     private static String validCreateRequest(String employeeId) {
         return """
                 {

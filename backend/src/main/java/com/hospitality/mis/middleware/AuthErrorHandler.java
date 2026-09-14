@@ -1,7 +1,6 @@
 package com.hospitality.mis.middleware;
 
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.hospitality.mis.common.api.ApiError;
 import com.hospitality.mis.service.auth.AuthFailureException;
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.controller.auth.AuthController;
@@ -15,33 +14,43 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
+import java.time.Instant;
+import java.util.List;
+
 @RestControllerAdvice(basePackageClasses = AuthController.class)
 @Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
+/** Chuẩn hóa lỗi của các endpoint xác thực mà không tiết lộ dữ liệu nhạy cảm của exception. */
 public class AuthErrorHandler {
     @ExceptionHandler(AuthFailureException.class)
-    ResponseEntity<ErrorResponse> authenticationFailure(AuthFailureException exception) {
+    /** Trả 401 cho thất bại đăng nhập/refresh theo mã lỗi nghiệp vụ đã định nghĩa. */
+    ResponseEntity<ApiError> authenticationFailure(AuthFailureException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new ErrorResponse(exception.getCode()));
+                .body(error(HttpStatus.UNAUTHORIZED, exception.getCode(), exception.getMessage()));
     }
 
     @ExceptionHandler(DomainException.class)
-    ResponseEntity<ErrorResponse> domainFailure(DomainException exception) {
+    /** Trả lỗi nghiệp vụ ở biên auth dưới dạng 422, giữ nguyên mã để client xử lý ổn định. */
+    ResponseEntity<ApiError> domainFailure(DomainException exception) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(new ErrorResponse(exception.getCode()));
+                .body(error(HttpStatus.UNPROCESSABLE_ENTITY, exception.getCode(), exception.getMessage()));
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
             ConstraintViolationException.class})
-    ResponseEntity<ErrorResponse> invalidRequest(Exception exception) {
-        return ResponseEntity.badRequest().body(new ErrorResponse("INVALID_REQUEST"));
+    /** Gom mọi request auth sai định dạng thành một lỗi 400 không làm lộ chi tiết binding. */
+    ResponseEntity<ApiError> invalidRequest(Exception exception) {
+        return ResponseEntity.badRequest().body(error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
+                "Invalid request data"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    ResponseEntity<ErrorResponse> accessDenied() {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse("ACCESS_DENIED"));
+    /** Trả 403 thống nhất cho principal đã xác thực nhưng bị từ chối quyền. */
+    ResponseEntity<ApiError> accessDenied() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access is denied"));
     }
 
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record ErrorResponse(String error) {
+    private static ApiError error(HttpStatus status, String code, String message) {
+        return new ApiError(Instant.now(), status.value(), code, message, List.of());
     }
 }

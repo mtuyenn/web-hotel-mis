@@ -31,13 +31,13 @@ import java.util.Set;
 
 /**
 
- * Identity-owned employee/account model and JPA mapping.
+ * Mô hình nhân viên/tài khoản do ngữ cảnh định danh sở hữu và ánh xạ JPA.
 
  *
 
- * <p>This is the single concrete JPA owner for the canonical {@code employees}
- * account aggregate. Authentication status and lockout state are persisted on
- * the same aggregate.</p>
+ * <p>Đây là chủ thể JPA cụ thể duy nhất cho aggregate tài khoản {@code employees}
+ * chuẩn. Trạng thái xác thực và trạng thái khóa tài khoản được lưu trữ trên
+ * cùng aggregate.</p>
  */
 
 @Entity
@@ -46,6 +46,7 @@ public class Employee {
     @Id
 
     @Column(name = "id", length = 10, nullable = false)
+    /** Mã nhân viên định danh tài khoản và khóa ngoại của các đặt phòng. */
     private String employeeId;
 
 
@@ -56,12 +57,14 @@ public class Employee {
 
 
     @Column(name = "password", length = 255, nullable = false)
+    /** Mật khẩu đã băm, không chứa bí mật dạng rõ. */
     private String password;
 
 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "position", nullable = false, length = 30)
+    /** Vai trò quyết định tập quyền được suy ra cho nhân viên. */
     private EmployeeRole role;
 
 
@@ -75,7 +78,7 @@ public class Employee {
 
 
 
-    /** Matches Reservation.employee; the schema has a restrictive FK, so no cascade. */
+    /** Khớp với Reservation.employee; lược đồ có khóa ngoại hạn chế, nên không lan truyền. */
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY)
     private List<Reservation> reservations = new ArrayList<>();
 
@@ -85,6 +88,7 @@ public class Employee {
 
 
 
+    /** Constructor dùng bởi factory/nội bộ để tạo nhân viên đầy đủ thông tin. */
     protected Employee(String employeeId, String fullName, String password,
 
                        EmployeeRole role, String address, String phone) {
@@ -209,6 +213,7 @@ public class Employee {
 
     public void changePassword(String encodedPassword) {
 
+        // Chỉ nhận mật khẩu đã mã hóa; việc băm thuộc service xác thực.
         this.password = encodedPassword;
 
     }
@@ -216,21 +221,27 @@ public class Employee {
 
 
     @Column(name = "enabled", nullable = false)
+    /** Cờ tài khoản được phép xác thực. */
     private boolean enabled = true;
 
     @Column(name = "account_non_locked", nullable = false)
+    /** Cờ khóa do thất bại đăng nhập; false thì cần mở khóa theo quy trình. */
     private boolean accountNonLocked = true;
 
     @Column(name = "failed_login_attempts", nullable = false)
+    /** Số lần đăng nhập thất bại liên tiếp hiện tại. */
     private int failedLoginAttempts;
 
     @Column(name = "last_failed_login_at")
+    /** Lần gần nhất xác thực thất bại, dùng cho theo dõi bảo mật. */
     private java.time.Instant lastFailedLoginAt;
 
     @Column(name = "last_login_at")
+    /** Lần gần nhất đăng nhập thành công. */
     private java.time.Instant lastLoginAt;
 
     @Transient
+    /** Quyền suy ra từ role, không nhận trực tiếp từ dữ liệu máy khách. */
     public Set<Permission> getPermissions() {
         return role.permissions();
     }
@@ -249,17 +260,20 @@ public class Employee {
     public java.time.Instant getLastFailedLoginAt() { return lastFailedLoginAt; }
     public java.time.Instant getLastLoginAt() { return lastLoginAt; }
 
+    /** Ghi nhận thất bại và khóa tài khoản khi chạm ngưỡng cấu hình. */
     public void recordLoginFailure(java.time.Instant at, int maxAttempts) {
         failedLoginAttempts++;
         lastFailedLoginAt = at;
         if (failedLoginAttempts >= maxAttempts) accountNonLocked = false;
     }
 
+    /** Xóa chuỗi thất bại và ghi thời điểm đăng nhập thành công. */
     public void recordLoginSuccess(java.time.Instant at) {
         failedLoginAttempts = 0;
         lastLoginAt = at;
     }
 
+    /** Mở khóa và xóa bộ đếm thất bại sau khi đặt lại mật khẩu hợp lệ. */
     public void unlockAfterPasswordReset() {
         failedLoginAttempts = 0;
         accountNonLocked = true;

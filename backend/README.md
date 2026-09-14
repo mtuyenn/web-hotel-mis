@@ -17,6 +17,23 @@ Flyway quản lý schema theo thứ tự `V1` đến phiên bản hiện tại. 
 V1; các migration sau mở rộng cùng một schema contract. Hibernate chỉ validate
 mapping bằng `ddl-auto=validate`, không tự tạo hoặc sửa bảng.
 
+## Acceptance MySQL
+
+Các test `*MySql*Test` phải chạy trên một schema tạm, tách biệt và có thể bỏ đi;
+không trỏ `MIGRATION_TEST_DB_URL` vào schema local/production đang chứa dữ liệu.
+Ví dụ PowerShell:
+
+```powershell
+$env:MIGRATION_TEST_DB_URL = "jdbc:mysql://localhost:3306/QLKS_P0_ACCEPTANCE?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Ho_Chi_Minh"
+$env:MIGRATION_TEST_DB_USERNAME = "root"
+$env:MIGRATION_TEST_DB_PASSWORD = "<local-password>"
+mvn '-Dtest=MySqlMigrationTest,MySqlBillingConcurrencyTest,MySqlBillingWorkflowTest,MySqlSecuritySmokeTest' test
+```
+
+Migration đã được Flyway áp dụng là immutable. Mọi thay đổi schema tiếp theo
+phải nằm trong migration phiên bản mới; không dùng `flyway repair` để che checksum
+mismatch khi file migration bị sửa.
+
 ## API lõi
 
 - `GET /api/rooms`, `GET /api/rooms/availability?from=&to=&type=`

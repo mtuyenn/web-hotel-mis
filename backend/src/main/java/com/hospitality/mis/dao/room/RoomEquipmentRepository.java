@@ -4,6 +4,8 @@ import com.hospitality.mis.entity.room.RoomEquipment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
+/** Kho thiết bị phòng, giới hạn truy vấn hiển thị ở các thiết bị còn hoạt động. */
 public interface RoomEquipmentRepository extends JpaRepository<RoomEquipment, Long> {
+    /** Lấy thiết bị đang hoạt động của phòng, sắp xếp theo tên để hiển thị ổn định. */
     List<RoomEquipment> findByRoomIdAndActiveTrueOrderByNameAsc(String roomId);
 }

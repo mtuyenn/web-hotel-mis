@@ -1,6 +1,8 @@
 package com.hospitality.mis.service.auth;
 
+import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.auth.CustomerAccountRepository;
+import com.hospitality.mis.common.validation.PhoneNumberNormalizer;
 import com.hospitality.mis.dao.auth.RefreshTokenRepository;
 import com.hospitality.mis.dto.auth.AuthDtos;
 import com.hospitality.mis.dto.auth.CustomerAccountDtos;
@@ -26,15 +28,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
+/**
+ * Điều phối đăng nhập, phát hành/luân chuyển token và các thao tác mật khẩu.
+ * Refresh token được khóa trong giao dịch khi cần để ngăn dùng lại token.
+ */
 @Service
 public class AuthService {
+    /** Bộ xác thực Spring dùng để kiểm tra thông tin nhân viên. */
     private final AuthenticationManager authenticationManager;
+    /** Nạp quyền và trạng thái nhân viên khi cấp lại token. */
     private final UserDetailsService userDetailsService;
+    /** Chủ sở hữu chính sách tài khoản và bộ đếm đăng nhập lỗi. */
     private final EmployeeService employeeService;
+    /** Lưu refresh token; thao tác nhạy cảm dùng bản ghi đã khóa. */
     private final RefreshTokenRepository refreshTokens;
+    /** Tạo access/refresh token và mã hóa refresh token. */
     private final JwtTokenService tokenService;
+    /** Lưu và kiểm tra tài khoản khách khi khách đăng nhập. */
     private final CustomerAccountRepository customerAccounts;
+    /** So khớp và băm mật khẩu khách hàng. */
     private final PasswordEncoder passwordEncoder;
+    /** Ghi audit cho đăng nhập, đăng xuất và đổi mật khẩu. */
     private final AuditService audit;
 
     public AuthService(AuthenticationManager authenticationManager, UserDetailsService userDetailsService,
@@ -51,6 +65,7 @@ public class AuthService {
         this.audit = audit;
     }
 
+    /** Xác thực nhân viên, cập nhật bộ đếm đăng nhập và cấp một họ token mới. */
     @Transactional(noRollbackFor = AuthFailureException.class)
     public AuthDtos.TokenResponse login(AuthDtos.LoginRequest request) {
         try {
@@ -68,30 +83,37 @@ public class AuthService {
             try {
                 employeeService.recordLoginFailure(request.employeeId());
             } catch (RuntimeException ignored) {
-                // Authentication failures must remain indistinguishable to the client.
+                // Các lỗi xác thực phải luôn không thể phân biệt được đối với phía máy khách.
             }
             throw new AuthFailureException();
         }
     }
 
+    /** Xác thực tài khoản khách bằng số điện thoại và cấp token có quyền khách. */
     @Transactional(noRollbackFor = AuthFailureException.class)
     public AuthDtos.TokenResponse customerLogin(CustomerAccountDtos.LoginRequest request) {
-        CustomerAccount account = customerAccounts.findByPhone(request.phone()).orElse(null);
+        String phone;
+        try {
+            phone = PhoneNumberNormalizer.normalize(request.phone());
+        } catch (DomainException exception) {
+            throw new AuthFailureException();
+        }
+        CustomerAccount account = customerAccounts.findByPhone(phone).orElse(null);
         if (account == null || !EmployeeUserDetailsService.isBcryptHash(account.getPassword())
                 || !passwordEncoder.matches(request.password(), account.getPassword())) {
             audit.record("SYSTEM", "LOGIN_FAILED", "CUSTOMER_ACCOUNT",
-                    request.phone(), null, null, "Invalid credentials");
+                    phone, null, null, "Invalid credentials");
             throw new AuthFailureException();
         }
         if (!account.isEnabled()) {
             audit.record("customer:" + account.getId(), "LOGIN_FAILED", "CUSTOMER_ACCOUNT",
                     String.valueOf(account.getId()), null, null, "Account disabled");
-            throw new AuthFailureException("ACCOUNT_DISABLED");
+            throw new AuthFailureException();
         }
         if (!account.isAccountNonLocked()) {
             audit.record("customer:" + account.getId(), "LOGIN_FAILED", "CUSTOMER_ACCOUNT",
                     String.valueOf(account.getId()), null, null, "Account locked");
-            throw new AuthFailureException("ACCOUNT_LOCKED");
+            throw new AuthFailureException();
         }
         UserDetails user = User.withUsername(String.valueOf(account.getId())).password(account.getPassword())
                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")).build();
@@ -101,6 +123,7 @@ public class AuthService {
                 tokenService.generateFamilyId());
     }
 
+    /** Kiểm tra refresh token, phát hành token mới và thu hồi token cũ trong giao dịch. */
     @Transactional(noRollbackFor = AuthFailureException.class)
     public AuthDtos.TokenResponse refresh(String rawRefreshToken) {
         if (rawRefreshToken == null || rawRefreshToken.isBlank()) throw new AuthFailureException();
@@ -159,6 +182,7 @@ public class AuthService {
         return issued.response();
     }
 
+    /** Đăng xuất theo token cụ thể hoặc thu hồi toàn bộ họ token của actor. */
     @Transactional
     public void logout(SecurityActor.Principal actor, String rawRefreshToken) {
         Instant now = Instant.now();
@@ -177,6 +201,7 @@ public class AuthService {
         });
     }
 
+    /** Tạo tài khoản nhân viên qua EmployeeService và ghi nhận sự kiện provisioning. */
     @Transactional
     public AuthDtos.EmployeeResponse provision(AuthDtos.ProvisionRequest request) {
         Employee employee = employeeService.provision(request.employeeId(), request.fullName(), request.password(),
@@ -187,6 +212,7 @@ public class AuthService {
                 employee.getPhone(), employee.getAddress());
     }
 
+    /** Đổi mật khẩu nhân viên và buộc mọi refresh token cũ hết hiệu lực. */
     @Transactional
     public void resetPassword(String employeeId, AuthDtos.PasswordResetRequest request,
                               SecurityActor.Principal actor) {
@@ -196,6 +222,7 @@ public class AuthService {
         audit.record(actor.id(), "PASSWORD_RESET", "EMPLOYEE", employee.getEmployeeId(), null, null, null);
     }
 
+    /** Đổi mật khẩu của chính khách đang đăng nhập và thu hồi token cũ của khách. */
     @Transactional
     public void resetCustomerPassword(SecurityActor.Principal actor,
                                       CustomerAccountDtos.PasswordResetRequest request) {
@@ -213,6 +240,7 @@ public class AuthService {
                 null, null, null);
     }
 
+    /** Cấp token và lưu refresh token tương ứng trước khi trả response. */
     private AuthDtos.TokenResponse issueAndStore(JwtTokenService.PrincipalType type, String principalId,
                                                  UserDetails user, String familyId) {
         JwtTokenService.IssuedTokens issued = tokenService.issue(type, principalId, user.getAuthorities(), familyId);
@@ -220,6 +248,7 @@ public class AuthService {
         return issued.response();
     }
 
+    /** Chọn cách lưu token theo loại principal, giữ liên kết cùng familyId. */
     private void saveRefreshToken(JwtTokenService.PrincipalType type, String principalId,
                                   JwtTokenService.IssuedTokens issued, String familyId) {
         if (type == JwtTokenService.PrincipalType.CUSTOMER) {
@@ -231,17 +260,20 @@ public class AuthService {
         }
     }
 
+    /** Chuyển tài khoản khách thành UserDetails để kiểm tra quyền và trạng thái. */
     private UserDetails customerUser(CustomerAccount account) {
         return User.withUsername(String.valueOf(account.getId())).password(account.getPassword())
                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
                 .accountLocked(!account.isAccountNonLocked()).disabled(!account.isEnabled()).build();
     }
 
+    /** Thu hồi và lưu một refresh token vừa bị vô hiệu hóa. */
     private void revokeCurrent(RefreshToken token, Instant now) {
         token.revoke(now, null);
         refreshTokens.save(token);
     }
 
+    /** Thu hồi tất cả token trong một family khi phát hiện replay hoặc logout. */
     private void revokeFamily(String familyId, Instant at) {
         refreshTokens.findAllByFamilyId(familyId).forEach(token -> {
             if (token.getRevokedAt() == null) token.revoke(at, null);

@@ -41,17 +41,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 
 @AutoConfigureMockMvc
+/** Kiểm tra API guest, JSON snake_case, actor audit và error contract ổn định. */
 class GuestApiContractTest {
+    /** MockMvc thật đi qua security/controller; các request đều kiểm tra wire response. */
     @Autowired MockMvc mockMvc;
+    /** Repository thật để fixture search/create phản ánh persistence contract. */
     @Autowired GuestRepository guests;
+    /** Dọn audit trực tiếp để xác minh actor của request hiện tại. */
     @Autowired JdbcTemplate jdbc;
 
+    /** Xóa guest/audit trước mỗi test để kết quả search không bị nhiễu. */
     @BeforeEach
     void cleanGuests() {
         jdbc.update("delete from audit_logs");
         guests.deleteAllInBatch();
     }
 
+    /** Given header giả mạo manager nhưng authenticated frontdesk, When create, Then audit dùng actor thật. */
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void createUsesLowerSnakeCaseJsonAndBindsAuditToAuthenticatedActor() throws Exception {
@@ -85,6 +91,7 @@ class GuestApiContractTest {
         org.assertj.core.api.Assertions.assertThat(actor).isEqualTo("frontdesk");
     }
 
+    /** Given guest persisted, When front desk search, Then response giữ đủ field snake_case và default state. */
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void frontDeskSearchUsesLowerSnakeCaseResponseFields() throws Exception {
@@ -111,13 +118,15 @@ class GuestApiContractTest {
                 .andExpect(jsonPath("$[0].booking_blocked").value(false));
     }
 
+    /** Given anonymous request, When đọc guest, Then trả lỗi authentication ổn định. */
     @Test
     void anonymousGuestReadReturnsStableAuthenticationError() throws Exception {
         mockMvc.perform(get("/api/guests"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
     }
 
+    /** Given id không tồn tại, When đọc guest, Then trả domain error GUEST_NOT_FOUND có details rỗng. */
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void missingGuestReturnsStableDomainError() throws Exception {
@@ -129,6 +138,7 @@ class GuestApiContractTest {
                 .andExpect(jsonPath("$.details").isEmpty());
     }
 
+    /** Given body rỗng, When create, Then validation error có status/details theo contract. */
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void invalidGuestCreateReturnsStableValidationError() throws Exception {

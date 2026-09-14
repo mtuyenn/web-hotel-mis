@@ -17,16 +17,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
 
+/** Ghi nhận và truy vấn giao dịch thu/hoàn tiền của một hóa đơn. */
 @Service
 public class PaymentTransactionService {
+    /** Sổ giao dịch; request có idempotency key được kiểm tra ngay trên repository. */
     private final PaymentTransactionRepository transactions;
+    /** Khóa hóa đơn để tính số dư nhất quán khi thu hoặc hoàn tiền. */
     private final InvoiceRepository invoices;
+    /** Phê duyệt bắt buộc đối với giao dịch refund. */
     private final ApprovalService approvals;
+    /** Audit actor, loại giao dịch, số tiền và mã tham chiếu. */
     private final AuditService audit;
+    /** Làm tròn tổng hóa đơn theo chính sách tiền tệ của hệ thống. */
     private final PricingPolicy pricing;
+    private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 
     public PaymentTransactionService(PaymentTransactionRepository transactions, InvoiceRepository invoices,
                                      ApprovalService approvals, AuditService audit, PricingPolicy pricing) {
@@ -34,6 +42,10 @@ public class PaymentTransactionService {
         this.pricing = pricing;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    void setBusinessClock(Clock clock) { this.clock = clock; }
+
+    /** Ghi một khoản thu hoặc hoàn tiền, kiểm tra phạm vi, số dư, phê duyệt và idempotency. */
     @Transactional
     public PaymentTransactionDtos.Response record(Long invoiceId, PaymentTransactionDtos.CreateRequest request, String actor) {
         if (request == null || request.amount() == null || request.amount().signum() <= 0 || request.method() == null
@@ -60,7 +72,7 @@ public class PaymentTransactionService {
         }
 
         boolean needsApproval = request.type() == PaymentTransaction.TransactionType.REFUND;
-        // Bind approval to the exact request, including the retry key, amount and reference.
+        // Liên kết việc phê duyệt với đúng yêu cầu, bao gồm khóa retry, số tiền và mã tham chiếu.
         String approvalPayload = request.approvalPayload(invoiceId);
         if (needsApproval)
             approvals.requireApproved("PAYMENT_REFUND", String.valueOf(invoiceId), approvalPayload, request.amount(), boundActor);
@@ -80,7 +92,7 @@ public class PaymentTransactionService {
 
         PaymentTransaction tx = new PaymentTransaction(); tx.setInvoice(invoice); tx.setAmount(request.amount());
         tx.setMethod(source == null ? request.method() : source.getMethod()); tx.setType(request.type());
-        tx.setStatus(PaymentTransaction.TransactionStatus.COMPLETED); tx.setOccurredAt(LocalDateTime.now());
+        tx.setStatus(PaymentTransaction.TransactionStatus.COMPLETED); tx.setOccurredAt(LocalDateTime.now(clock));
         tx.setActorId(boundActor); tx.setIdempotencyKey(storedKey);
         tx.setReference(source == null ? request.reference() : "REFUND_OF:" + source.getId() + ":"
                 + (request.reference() == null || request.reference().isBlank() ? "PAYMENT_REFUND" : request.reference()));
@@ -94,6 +106,7 @@ public class PaymentTransactionService {
         return toResponse(saved);
     }
 
+    /** Liệt kê giao dịch theo thứ tự phát sinh sau khi kiểm tra quyền trên hóa đơn. */
     @Transactional(readOnly = true)
     public List<PaymentTransactionDtos.Response> listByInvoice(Long invoiceId) {
         Invoice invoice = invoices.findById(invoiceId).orElseThrow(() -> error("INVOICE_NOT_FOUND", "Không tìm thấy hóa đơn"));
@@ -101,6 +114,7 @@ public class PaymentTransactionService {
         return transactions.findByInvoiceIdOrderByOccurredAtAsc(invoiceId).stream().map(this::toResponse).toList();
     }
 
+    /** Chọn khoản thanh toán gốc còn đủ số dư để làm nguồn refund. */
     private PaymentTransaction sourceForRefund(Invoice invoice, BigDecimal amount) {
         return transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED).stream()
                 .filter(x -> x.getType() == PaymentTransaction.TransactionType.PAYMENT)
@@ -109,6 +123,7 @@ public class PaymentTransactionService {
                 .findFirst().orElseThrow(() -> error("REFUND_SOURCE_NOT_FOUND", "Không tìm thấy giao dịch gốc để hoàn tiền"));
     }
 
+    /** Tính số dư chưa hoàn của giao dịch thanh toán gốc. */
     private BigDecimal remaining(PaymentTransaction source, Invoice invoice) {
         BigDecimal refunded = transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED).stream()
                 .filter(x -> x.getType() == PaymentTransaction.TransactionType.REFUND && x.getReference() != null
@@ -117,6 +132,7 @@ public class PaymentTransactionService {
         return source.getAmount().subtract(refunded);
     }
 
+    /** Tính thanh toán ròng bằng payment trừ refund đã hoàn tất. */
     private BigDecimal netPaid(Invoice invoice) {
         var completed = transactions.findByInvoiceIdAndStatus(invoice.getId(), PaymentTransaction.TransactionStatus.COMPLETED);
         BigDecimal paid = completed.stream().filter(x -> x.getType() == PaymentTransaction.TransactionType.PAYMENT)
@@ -126,6 +142,7 @@ public class PaymentTransactionService {
         return paid.subtract(refunded);
     }
 
+    /** Tính lại amountDue và trạng thái hóa đơn sau mỗi giao dịch. */
     private void reconcile(Invoice invoice) {
         BigDecimal total = pricing.roundFinalTotal(invoice.getRoomTotal().add(invoice.getServiceTotal()).add(invoice.getSurcharge())
                 .add(invoice.getCompensation()).add(invoice.getExtensionFee()).add(invoice.getAdjustmentTotal())
@@ -137,6 +154,7 @@ public class PaymentTransactionService {
         invoices.save(invoice);
     }
 
+    /** Chỉ cho owner booking hoặc role tài chính/toàn cục thao tác hóa đơn. */
     private void requireScope(Invoice invoice, String actor) {
         var reservation = invoice.getReservation();
         if (reservation == null || reservation.getEmployee() == null) throw new AccessDeniedException("Thiếu phạm vi đặt phòng");
@@ -147,10 +165,12 @@ public class PaymentTransactionService {
             throw new AccessDeniedException("Không được phép thao tác ngoài phạm vi đặt phòng");
     }
 
+    /** Chuyển giao dịch persistence thành DTO không lộ dữ liệu nội bộ khác. */
     private PaymentTransactionDtos.Response toResponse(PaymentTransaction tx) {
         return new PaymentTransactionDtos.Response(tx.getId(), tx.getInvoice().getId(), tx.getAmount(), tx.getMethod(),
                 tx.getType(), tx.getStatus(), tx.getReference(), tx.getOccurredAt(), tx.getActorId());
     }
 
+    /** Tạo lỗi miền nhất quán cho validation giao dịch. */
     private DomainException error(String code, String message) { return new DomainException(code, message); }
 }

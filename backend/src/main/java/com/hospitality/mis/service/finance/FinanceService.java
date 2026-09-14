@@ -15,12 +15,18 @@ import com.hospitality.mis.middleware.security.SecurityActor;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Clock;
 
+/** Ghi nhận bàn giao ca, chi phí và công nợ đối tác, kèm audit tài chính. */
 @Service
 public class FinanceService {
+    /** Các kho sổ ca, chi phí và công nợ; giao dịch ghi được bao bọc bởi @Transactional. */
     private final CashShiftHandoverRepository handovers; private final ExpenseRepository expenses; private final PartnerDebtRepository debts;
+    /** Audit người thực hiện và giá trị tài chính thay đổi. */
     private final AuditService audit;
+    /** Tính tiền mặt ròng của actor giữa hai thời điểm bàn giao. */
     private final PaymentTransactionRepository transactions;
+    private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
     @org.springframework.beans.factory.annotation.Autowired
     public FinanceService(CashShiftHandoverRepository handovers, ExpenseRepository expenses, PartnerDebtRepository debts,
                           AuditService audit, PaymentTransactionRepository transactions) {
@@ -29,7 +35,10 @@ public class FinanceService {
     public FinanceService(CashShiftHandoverRepository handovers, ExpenseRepository expenses, PartnerDebtRepository debts, AuditService audit) {
         this(handovers, expenses, debts, audit, null);
     }
+    @org.springframework.beans.factory.annotation.Autowired
+    void setBusinessClock(Clock clock) { this.clock = clock; }
 
+    /** Tính tiền mặt kỳ ca trước, kiểm tra actor và lưu chênh lệch bàn giao. */
     @Transactional
     public FinanceDtos.CashHandoverResponse handover(FinanceDtos.CashHandoverRequest request, String actor) {
         actor = SecurityActor.requireBoundActor(actor);
@@ -38,7 +47,7 @@ public class FinanceService {
             throw new DomainException("INVALID_HANDOVER_AMOUNT", "Số tiền bàn giao không thể âm");
         if (request.fromActor().equals(request.toActor()))
             throw new DomainException("INVALID_HANDOVER_ACTORS", "Người giao và người nhận ca phải khác nhau");
-        LocalDateTime handedOverAt = LocalDateTime.now();
+        LocalDateTime handedOverAt = LocalDateTime.now(clock);
         LocalDateTime fromAt = handovers.findFirstByFromActorOrderByHandedOverAtDesc(actor)
                 .map(CashShiftHandover::getHandedOverAt).orElse(LocalDateTime.of(1970, 1, 1, 0, 0));
         BigDecimal expected = transactions.netCashByActorBetween(actor, fromAt, handedOverAt);
@@ -50,32 +59,40 @@ public class FinanceService {
         return toResponse(h);
     }
 
+    /** Ghi một khoản chi với actor đã thực hiện và thời điểm phát sinh. */
     @Transactional
     public FinanceDtos.ExpenseResponse recordExpense(FinanceDtos.ExpenseRequest request, String actor) {
         if (actor == null || actor.isBlank()) throw new DomainException("ACTOR_REQUIRED", "Thiếu actor thực hiện");
-        Expense e = new Expense(); e.setCategory(request.category()); e.setDescription(request.description()); e.setAmount(request.amount()); e.setPaidBy(actor); e.setPaidAt(LocalDateTime.now());
+        Expense e = new Expense(); e.setCategory(request.category()); e.setDescription(request.description()); e.setAmount(request.amount()); e.setPaidBy(actor); e.setPaidAt(LocalDateTime.now(clock));
         e = expenses.save(e);
         audit.record(actor, "EXPENSE_RECORDED", "EXPENSE", String.valueOf(e.getId()), null, e.getAmount().toPlainString(), null);
         return toResponse(e);
     }
 
+    /** Ghi công nợ đối tác với mã tham chiếu duy nhất và số đã thanh toán bằng không. */
     @Transactional
     public FinanceDtos.PartnerDebtResponse recordDebt(FinanceDtos.PartnerDebtRequest request) {
         if (debts.findByReferenceCode(request.referenceCode()).isPresent()) throw new DomainException("PARTNER_DEBT_EXISTS", "Mã công nợ đã tồn tại");
-        PartnerDebt d = new PartnerDebt(); d.setPartnerName(request.partnerName()); d.setReferenceCode(request.referenceCode()); d.setAmount(request.amount()); d.setSettledAmount(BigDecimal.ZERO); d.setRecordedAt(LocalDateTime.now());
+        PartnerDebt d = new PartnerDebt(); d.setPartnerName(request.partnerName()); d.setReferenceCode(request.referenceCode()); d.setAmount(request.amount()); d.setSettledAmount(BigDecimal.ZERO); d.setRecordedAt(LocalDateTime.now(clock));
         d = debts.save(d);
         audit.record(SecurityActor.currentActor(), "PARTNER_DEBT_RECORDED", "PARTNER_DEBT", String.valueOf(d.getId()), null, d.getAmount().toPlainString(), null);
         return toResponse(d);
     }
 
     @Transactional(readOnly = true)
+    /** Liệt kê bàn giao ca mới nhất trước. */
     public java.util.List<FinanceDtos.CashHandoverResponse> listHandovers() { return handovers.findAllByOrderByHandedOverAtDesc().stream().map(this::toResponse).toList(); }
     @Transactional(readOnly = true)
+    /** Liệt kê chi phí theo thời điểm thanh toán giảm dần. */
     public java.util.List<FinanceDtos.ExpenseResponse> listExpenses() { return expenses.findAllByOrderByPaidAtDesc().stream().map(this::toResponse).toList(); }
     @Transactional(readOnly = true)
+    /** Liệt kê công nợ đối tác theo thời điểm ghi nhận giảm dần. */
     public java.util.List<FinanceDtos.PartnerDebtResponse> listDebts() { return debts.findAllByOrderByRecordedAtDesc().stream().map(this::toResponse).toList(); }
 
+    /** Chuyển bản ghi bàn giao ca thành DTO. */
     private FinanceDtos.CashHandoverResponse toResponse(CashShiftHandover h) { return new FinanceDtos.CashHandoverResponse(h.getId(), h.getShiftCode(), h.getFromActor(), h.getToActor(), h.getExpectedAmount(), h.getActualAmount(), h.getVariance(), h.getHandedOverAt(), h.getNote()); }
+    /** Chuyển bản ghi chi phí thành DTO. */
     private FinanceDtos.ExpenseResponse toResponse(Expense e) { return new FinanceDtos.ExpenseResponse(e.getId(), e.getCategory(), e.getDescription(), e.getAmount(), e.getPaidBy(), e.getPaidAt(), e.getStatus()); }
+    /** Chuyển bản ghi công nợ thành DTO. */
     private FinanceDtos.PartnerDebtResponse toResponse(PartnerDebt d) { return new FinanceDtos.PartnerDebtResponse(d.getId(), d.getPartnerName(), d.getReferenceCode(), d.getAmount(), d.getSettledAmount(), d.getStatus(), d.getRecordedAt()); }
 }

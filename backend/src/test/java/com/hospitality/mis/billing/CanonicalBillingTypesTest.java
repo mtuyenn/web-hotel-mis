@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/** Bảo vệ các enum billing dùng đúng giá trị wire/schema hiện hành. */
 class CanonicalBillingTypesTest {
+    /** Given enum canonical, When serialize bằng name, Then không quay lại mã legacy. */
     @Test
     void paymentTypesUseCanonicalWireValues() {
         assertEquals("BANK_TRANSFER", PaymentMethod.BANK_TRANSFER.name());

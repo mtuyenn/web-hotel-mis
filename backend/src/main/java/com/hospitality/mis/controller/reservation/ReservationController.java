@@ -35,14 +35,19 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 
+/**
+ * Điều phối toàn bộ vòng đời đặt phòng, từ tra cứu và tạo đến nhận phòng, trả phòng và các thay đổi phát sinh.
+ */
 @RestController
 
 @RequestMapping("/api/reservations")
 
 public class ReservationController {
 
+    /** Dịch vụ áp dụng quy tắc vòng đời, phạm vi nhân viên và các thao tác chính trên đặt phòng. */
     private final ReservationService service;
 
+    /** Dịch vụ ghi nhận sự cố thiết bị gắn với đặt phòng; dùng chung cho endpoint sự cố của controller này. */
     private final com.hospitality.mis.service.operations.EquipmentIncidentService incidents;
 
 
@@ -58,6 +63,11 @@ public class ReservationController {
     }
 
 
+    /**
+     * Phân trang danh sách đặt phòng qua GET /api/reservations.
+     * status và guest_id là query tùy chọn; page mặc định 0 và size mặc định 20. Trả PageResponse cho màn hình vận hành.
+     * Chỉ RESERVATION_READ được phép; service áp dụng phạm vi dữ liệu và báo lỗi tham số/truy vấn. Đây là thao tác đọc, không cần idempotency.
+     */
     @org.springframework.web.bind.annotation.GetMapping
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_READ')")
     public ReservationDtos.PageResponse list(
@@ -72,6 +82,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Tạo đặt phòng qua POST /api/reservations; body tạo đặt phòng được {@code @Valid} kiểm tra, header
+     * {@code Idempotency-Key} tùy chọn giúp service chống tạo trùng khi client gửi lại. Trả 201 cùng đặt phòng mới.
+     * Chỉ RESERVATION_CREATE được phép; xung đột phòng, dữ liệu sai hoặc khóa không hợp lệ do service xử lý.
+     */
     @PostMapping
 
     @ResponseStatus(HttpStatus.CREATED)
@@ -87,6 +102,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Lấy chi tiết đặt phòng qua GET /api/reservations/{id}; id là path parameter và response là đặt phòng tương ứng.
+     * Chỉ RESERVATION_READ được phép; ngoài ra controller giới hạn nhân viên chỉ xem đặt phòng của mình, trừ vai trò đọc toàn cục.
+     * Không có body hay idempotency key; đặt phòng không tồn tại hoặc vượt phạm vi bị trả lỗi.
+     */
     @org.springframework.web.bind.annotation.GetMapping("/{id}")
 
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_READ')")
@@ -106,6 +126,12 @@ public class ReservationController {
 
 
 
+    /**
+     * Nhận phòng qua POST /api/reservations/{id}/check-in; id là path parameter, body check-in tùy chọn và header
+     * {@code Idempotency-Key} bắt buộc để tránh xử lý lặp. Trả đặt phòng sau chuyển trạng thái.
+     * Body tùy chọn không gắn {@code @Valid}, nên quy tắc nội dung do service xử lý; chỉ RESERVATION_WRITE được phép,
+     * còn trạng thái hoặc khóa lặp sai tạo lỗi nghiệp vụ.
+     */
     @PostMapping("/{id}/check-in")
 
 
@@ -123,6 +149,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Trả phòng và chốt hóa đơn qua POST /api/reservations/{id}/check-out.
+     * id là path parameter, body checkout bắt buộc và được {@code @Valid} kiểm tra, header {@code Idempotency-Key} bắt buộc.
+     * Trả response hóa đơn; chỉ RESERVATION_CHECKOUT được phép, còn trạng thái đặt phòng, thanh toán hoặc khóa lặp do service báo lỗi.
+     */
     @PostMapping("/{id}/check-out")
 
 
@@ -140,6 +171,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Hủy đặt phòng qua POST /api/reservations/{id}/cancel; id là path parameter, body lý do được {@code @Valid} kiểm tra,
+     * header {@code Idempotency-Key} bắt buộc. Trả đặt phòng sau hủy; chỉ RESERVATION_WRITE được phép và service xử lý hoàn tiền,
+     * trạng thái không thể hủy hoặc khóa lặp bằng lỗi nghiệp vụ.
+     */
     @PostMapping("/{id}/cancel")
 
 
@@ -151,6 +187,11 @@ public class ReservationController {
 
     }
 
+    /**
+     * Đánh dấu khách không đến qua POST /api/reservations/{id}/no-show; id là path parameter và header
+     * {@code Idempotency-Key} bắt buộc, không có body. Trả đặt phòng sau cập nhật; chỉ RESERVATION_WRITE được phép,
+     * còn trạng thái không phù hợp hoặc khóa lặp do service xử lý.
+     */
     @PostMapping("/{id}/no-show")
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_WRITE')")
     public ReservationDtos.Response noShow(@PathVariable Long id,
@@ -162,6 +203,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Gia hạn đặt phòng qua POST /api/reservations/{id}/extend; id là path parameter, body gia hạn được {@code @Valid} kiểm tra,
+     * header {@code Idempotency-Key} bắt buộc. Trả đặt phòng sau gia hạn; chỉ RESERVATION_WRITE được phép và xung đột lịch,
+     * trạng thái hoặc khóa lặp do service báo lỗi.
+     */
     @PostMapping("/{id}/extend")
 
 
@@ -179,6 +225,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Thêm dịch vụ vào đặt phòng qua POST /api/reservations/{id}/services; id là path parameter, body được {@code @Valid} kiểm tra,
+     * header {@code Idempotency-Key} bắt buộc. Trả đặt phòng sau cập nhật; chỉ RESERVATION_SERVICE_WRITE được phép,
+     * còn dịch vụ không tồn tại, trạng thái sai hoặc khóa lặp do service xử lý.
+     */
     @PostMapping("/{id}/services")
 
 
@@ -196,6 +247,11 @@ public class ReservationController {
 
 
 
+    /**
+     * Ghi nhận sự cố thiết bị của đặt phòng qua POST /api/reservations/{id}/equipment-incidents.
+     * id là path parameter, body sự cố được {@code @Valid} kiểm tra, header {@code Idempotency-Key} bắt buộc chống ghi trùng;
+     * trả response sự cố. Chỉ INCIDENT_WRITE được phép, còn đặt phòng không hợp lệ, validation hoặc khóa lặp do service xử lý.
+     */
     @PostMapping("/{id}/equipment-incidents")
 
 

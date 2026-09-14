@@ -102,30 +102,41 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @AutoConfigureMockMvc
 
+/** Bảo vệ security integration: token lifecycle, account state, role policy, audit và CORS. */
 class SecurityIntegrationTest {
 
+    /** MockMvc thật chạy qua filter/controller với H2 schema sạch. */
     @Autowired MockMvc mockMvc;
 
+    /** Employee repository dùng seed, lock, disable và role administration assertions. */
     @Autowired EmployeeRepository employees;
 
+    /** Approval repository cho self-approval/director policy. */
     @Autowired ApprovalRepository approvals;
 
+    /** Refresh token repository để kiểm tra hash, rotation và revoke family. */
     @Autowired RefreshTokenRepository refreshTokens;
 
+    /** Encoder thật; expected storage luôn là BCrypt. */
     @Autowired PasswordEncoder passwordEncoder;
 
+    /** UserDetails service dùng kiểm tra authority runtime. */
     @Autowired UserDetailsService userDetailsService;
 
+    /** Encoder JWT dùng tạo token hết hạn phục vụ negative security case. */
     @Autowired JwtEncoder jwtEncoder;
 
+    /** Mapper dựng/đọc payload auth canonical. */
     @Autowired ObjectMapper objectMapper;
 
+    /** SQL audit assertion cho login fail và actor binding. */
     @Autowired JdbcTemplate jdbc;
 
 
 
     @BeforeEach
 
+    /** Xóa token/approval/employee và seed role fixture trước mỗi test độc lập. */
     void seedUsers() {
 
         refreshTokens.deleteAll();
@@ -150,17 +161,25 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given không có bearer, When gọi API protected, Then trả 401 và error canonical. */
     void unauthenticatedApiRequestIsRejected() throws Exception {
 
         mockMvc.perform(get("/api/services"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith("application/json")))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"))
+                .andExpect(jsonPath("$.message").value("Authentication is required"))
+                .andExpect(jsonPath("$.details").isArray())
+                .andExpect(jsonPath("$.error").doesNotExist());
     }
 
 
 
     @Test
 
+    /** Given anonymous, When gọi health/OpenAPI, Then public endpoints vẫn 200. */
     void healthAndOpenApiRemainPublic() throws Exception {
 
         mockMvc.perform(get("/actuator/health"))
@@ -177,6 +196,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given credentials manager, When login, Then bearer TTL/refresh contract đúng và Basic bị từ chối. */
     void loginReturnsBearerTokensAndBasicIsRejected() throws Exception {
 
         JsonNode tokens = login("manager", "manager-password");
@@ -207,6 +227,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given refresh token, When rotate rồi replay token cũ, Then cả family bị revoke chống reuse. */
     void refreshRotatesAndReuseRevokesTheFamily() throws Exception {
 
         JsonNode first = login("manager", "manager-password");
@@ -242,6 +263,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given access+refresh hợp lệ, When logout, Then refresh row bị revoke và không refresh lại được. */
     void logoutRevokesRefreshToken() throws Exception {
 
         JsonNode tokens = login("manager", "manager-password");
@@ -269,6 +291,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given chữ ký giả hoặc exp quá khứ, When gọi API, Then JWT reject trước controller. */
     void invalidSignatureAndExpiredTokensAreRejected() throws Exception {
 
         JsonNode tokens = login("manager", "manager-password");
@@ -314,12 +337,13 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given plaintext/malformed BCrypt credential, When login, Then không authenticate và trả 401. */
     void wrongPlaintextAndMalformedCostCredentialsAreRejectedWith401() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.LoginRequest("manager", "wrong-password"))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
 
 
         Employee plaintext = employee("plaintext", "plaintext-password", EmployeeRole.FRONT_DESK, "0900000005");
@@ -348,6 +372,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    /** Given năm password sai, When vượt threshold, Then audit đủ và account bị lock. */
     void failedLoginsAreAuditedAndLockTheAccountAtTheThreshold() throws Exception {
         for (int attempt = 0; attempt < 5; attempt++) {
             mockMvc.perform(post("/api/auth/login")
@@ -367,10 +392,11 @@ class SecurityIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.LoginRequest("staff", "staff-password"))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("ACCOUNT_LOCKED"));
+                .andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"));
     }
 
     @Test
+    /** Given account disabled, When login, Then credentials không tạo token. */
     void disabledAccountCannotAuthenticate() throws Exception {
         Employee disabled = employees.findById("staff").orElseThrow();
         disabled.setEnabled(false);
@@ -380,10 +406,11 @@ class SecurityIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.LoginRequest("staff", "staff-password"))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("ACCOUNT_DISABLED"));
+                .andExpect(jsonPath("$.code").value("ACCOUNT_DISABLED"));
     }
 
     @Test
+    /** Given access token đã phát, When disable hoặc lock account, Then token cũ cũng bị reject. */
     void existingAccessTokenIsRejectedAfterAccountIsDisabledOrLocked() throws Exception {
         JsonNode disabledTokens = login("staff", "staff-password");
         Employee disabled = employees.findById("staff").orElseThrow();
@@ -393,7 +420,7 @@ class SecurityIntegrationTest {
         mockMvc.perform(get("/api/services")
                         .header(AUTHORIZATION, bearer(disabledTokens.get("access_token").asText())))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
         seedUsers();
         JsonNode lockedTokens = login("staff", "staff-password");
@@ -404,10 +431,11 @@ class SecurityIntegrationTest {
         mockMvc.perform(get("/api/services")
                         .header(AUTHORIZATION, bearer(lockedTokens.get("access_token").asText())))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
     }
 
     @Test
+    /** Given refresh của account disabled/locked, When refresh, Then reject và revoke token hiện tại. */
     void refreshRejectsDisabledOrLockedAccountAndRevokesCurrentToken() throws Exception {
         JsonNode disabledTokens = login("staff", "staff-password");
         Employee disabled = employees.findById("staff").orElseThrow();
@@ -420,7 +448,7 @@ class SecurityIntegrationTest {
                         .content(json(new AuthDtos.RefreshRequest(
                                 disabledRefreshToken))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("ACCOUNT_DISABLED"));
+                .andExpect(jsonPath("$.code").value("ACCOUNT_DISABLED"));
         assertThat(refreshTokens.findAll()).anySatisfy(token -> {
             if (token.getTokenHash().equals(JwtTokenService.hash(disabledRefreshToken))) {
                 assertThat(token.getRevokedAt()).isNotNull();
@@ -430,7 +458,7 @@ class SecurityIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.RefreshRequest(disabledRefreshToken))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
 
         seedUsers();
         JsonNode lockedTokens = login("staff", "staff-password");
@@ -444,7 +472,7 @@ class SecurityIntegrationTest {
                         .content(json(new AuthDtos.RefreshRequest(
                                 lockedRefreshToken))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("ACCOUNT_LOCKED"));
+                .andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"));
         assertThat(refreshTokens.findAll()).anySatisfy(token -> {
             if (token.getTokenHash().equals(JwtTokenService.hash(lockedRefreshToken))) {
                 assertThat(token.getRevokedAt()).isNotNull();
@@ -454,12 +482,13 @@ class SecurityIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content(json(new AuthDtos.RefreshRequest(lockedRefreshToken))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("INVALID_CREDENTIALS"));
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
 
     @Test
 
+    /** Given mọi EmployeeRole, When map authority/UserDetails, Then mapping exhaustive và quyền thật tồn tại. */
     void roleMappingIsExhaustiveAndUserDetailsHasRealAuthority() {
 
         for (EmployeeRole role : EmployeeRole.values()) assertEquals(role.name(), EmployeeUserDetailsService.roleFor(role));
@@ -483,6 +512,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given pending approval, When requester/manager approve, Then self-approval fail và manager được phép. */
     void onlyManagersCanApproveAndRequesterCannotSelfApprove() throws Exception {
 
         ApprovalRequest pending = approvals.saveAndFlush(
@@ -497,7 +527,13 @@ class SecurityIntegrationTest {
 
                                 .get("access_token").asText())))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("ACCESS_DENIED"));
+                .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith("application/json")))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+                .andExpect(jsonPath("$.message").value("Access is denied"))
+                .andExpect(jsonPath("$.details").isArray())
+                .andExpect(jsonPath("$.error").doesNotExist());
 
 
         mockMvc.perform(post("/api/governance/approvals/{id}/approve", pending.getId())
@@ -527,6 +563,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given header actor giả mạo, When mutate, Then audit lấy principal trong SecurityContext. */
     void auditActorComesFromSecurityContextNotHeader() throws Exception {
 
         mockMvc.perform(post("/api/governance/approvals")
@@ -538,7 +575,7 @@ class SecurityIntegrationTest {
 
                         .contentType(APPLICATION_JSON)
 
-                        .content("{\"action\":\"PRICE_OVERRIDE\",\"target_id\":\"price-2\",\"payload\":\"{}\",\"reason\":\"review\"}"))
+                        .content("{\"action\":\"PRICE_OVERRIDE\",\"target_id\":\"price-2\",\"payload\":\"{}\",\"reason\":\"review\",\"idempotency_key\":\"security-audit-actor\"}"))
 
                 .andExpect(status().isCreated());
 
@@ -561,6 +598,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given từng role không đủ quyền, When gọi mutation, Then trả 403 nhất quán. */
     void mutatingEndpointRoleChecksReturn403() throws Exception {
 
         String staffToken = bearer(login("staff", "staff-password").get("access_token").asText());
@@ -589,6 +627,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given manager provision/reset, When đổi password, Then lưu BCrypt, không lộ password và revoke sessions. */
     void managerProvisioningAndPasswordResetAlwaysUseBcryptAndRevokeSessions() throws Exception {
 
         String managerToken = bearer(login("manager", "manager-password").get("access_token").asText());
@@ -643,6 +682,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    /** Given manager/admin/director, When provision/reset các role, Then owner ceiling được enforce từng chiều. */
     void employeeAdministrationEnforcesRoleCeilingsForProvisionAndReset() throws Exception {
         String managerToken = bearer(login("manager", "manager-password").get("access_token").asText());
         provision(managerToken, "m-admin", EmployeeRole.ADMIN, "0900000012")
@@ -681,6 +721,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    /** Given HR, When đọc authority hoặc gọi admin/finance, Then không có quyền và mọi mutation bị 403. */
     void hrCannotProvisionOrResetAndHasNoFinancialPermissions() throws Exception {
         UserDetails hr = userDetailsService.loadUserByUsername("hr");
         assertThat(hr.getAuthorities()).extracting(a -> a.getAuthority())
@@ -697,6 +738,7 @@ class SecurityIntegrationTest {
 
     @Test
 
+    /** Given origin trong/ngoài allowlist, When preflight, Then chỉ origin cấu hình được CORS. */
     void corsAllowsConfiguredOriginAndRejectsUnconfiguredOrigin() throws Exception {
 
         mockMvc.perform(options("/api/services")
@@ -723,6 +765,7 @@ class SecurityIntegrationTest {
 
 
 
+    /** Gọi login endpoint và parse token response dùng lại cho lifecycle tests. */
     private JsonNode login(String employeeId, String password) throws Exception {
 
         return objectMapper.readTree(mockMvc.perform(post("/api/auth/login")
@@ -748,6 +791,7 @@ class SecurityIntegrationTest {
                         + "\",\"phone\":\"" + phone + "\"}"));
     }
 
+    /** Gửi password reset với bearer token để assertion role/ownership không lặp request boilerplate. */
     private org.springframework.test.web.servlet.ResultActions reset(String token, String employeeId)
             throws Exception {
         return mockMvc.perform(post("/api/auth/employees/{employeeId}/password", employeeId)
@@ -758,6 +802,7 @@ class SecurityIntegrationTest {
 
 
 
+    /** Gọi refresh endpoint với raw token; repository lưu hash chứ không lưu plaintext. */
     private JsonNode refresh(String refreshToken) throws Exception {
 
         return objectMapper.readTree(mockMvc.perform(post("/api/auth/refresh")
@@ -774,6 +819,7 @@ class SecurityIntegrationTest {
 
 
 
+    /** Serialize DTO auth thành JSON đúng request contract. */
     private String json(Object value) throws Exception {
 
         return objectMapper.writeValueAsString(value);
@@ -782,6 +828,7 @@ class SecurityIntegrationTest {
 
 
 
+    /** Tạo employee fixture với password hash và phone unique cho role matrix. */
     private Employee employee(String id, String password, EmployeeRole role, String phone) {
         Employee employee = new Employee();
         employee.setEmployeeId(id);
@@ -794,6 +841,7 @@ class SecurityIntegrationTest {
 
 
 
+    /** Thêm scheme Bearer vào access token raw. */
     private String bearer(String token) {
 
         return "Bearer " + token;
@@ -802,6 +850,7 @@ class SecurityIntegrationTest {
 
 
 
+    /** Tạo header Basic để chứng minh cơ chế cũ không còn được chấp nhận. */
     private String basic(String username, String password) {
 
         String credentials = username + ":" + password;

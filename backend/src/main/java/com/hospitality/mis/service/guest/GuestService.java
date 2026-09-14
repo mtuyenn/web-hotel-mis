@@ -7,6 +7,7 @@ import com.hospitality.mis.dao.guest.GuestStore;
 
 
 import com.hospitality.mis.common.exception.DomainException;
+import com.hospitality.mis.common.validation.PhoneNumberNormalizer;
 
 import com.hospitality.mis.dto.guest.GuestDtos;
 
@@ -28,12 +29,15 @@ import java.util.List;
 
 
 
+/** Tạo, tra cứu và chuẩn hóa hồ sơ khách; các thay đổi đều ghi audit. */
 @Service
 
 public class GuestService {
 
+    /** Kho hồ sơ khách, cung cấp các truy vấn dùng chung không lộ dữ liệu nội bộ. */
     private final GuestStore guests;
 
+    /** Ghi actor và kết quả khi tạo hồ sơ khách. */
     private final AuditService audit;
 
 
@@ -50,10 +54,11 @@ public class GuestService {
 
     @Transactional
 
+    /** Tạo khách mới, kiểm tra duy nhất số điện thoại/giấy tờ và mặc định hạng STANDARD. */
     public GuestDtos.Response create(GuestDtos.CreateRequest request, String actor) {
 
         String identityNumber = required(request.identityNumber(), "identityNumber");
-        String phone = required(request.phone(), "phone");
+        String phone = PhoneNumberNormalizer.normalize(request.phone());
         if (guests.findByPhone(phone).isPresent()) {
             throw new DomainException("GUEST_PHONE_EXISTS", "Số điện thoại khách hàng đã tồn tại");
         }
@@ -90,12 +95,14 @@ public class GuestService {
 
 
     @Transactional(readOnly = true)
+    /** Lấy một hồ sơ khách hoặc báo lỗi không tìm thấy. */
     public GuestDtos.Response get(Long id) {
         return guests.findSharedById(id).map(this::toResponse)
                 .orElseThrow(() -> new DomainException("GUEST_NOT_FOUND", "Không tìm thấy khách hàng: " + id));
     }
 
     @Transactional(readOnly = true)
+    /** Tìm khách theo chuỗi; chuỗi rỗng trả danh sách hồ sơ dùng chung. */
     public List<GuestDtos.Response> search(String query) {
         if (query == null || query.isBlank()) {
             return guests.findAllShared().stream().map(this::toResponse).toList();
@@ -104,6 +111,7 @@ public class GuestService {
     }
 
 
+    /** Chuyển entity khách thành DTO hiển thị, gồm các chỉ số hành vi đặt phòng. */
     public GuestDtos.Response toResponse(Guest g) {
 
         return new GuestDtos.Response(g.getId(), g.getFullName(), g.getBirthYear(), g.getIdentityNumber(), g.getPhone(),
@@ -117,6 +125,7 @@ public class GuestService {
 
 
 
+    /** Chuẩn hóa trường bắt buộc và tạo mã lỗi theo tên trường. */
     private static String required(String value, String field) {
 
         if (value == null || value.isBlank()) {
@@ -131,6 +140,7 @@ public class GuestService {
 
 
 
+    /** Chuẩn hóa trường tùy chọn, đổi chuỗi trắng thành null. */
     private static String optional(String value) {
 
         return value == null || value.isBlank() ? null : value.trim();

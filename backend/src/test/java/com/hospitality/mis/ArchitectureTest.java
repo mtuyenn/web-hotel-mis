@@ -11,8 +11,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
+/** Kiểm tra biên runtime duy nhất của ứng dụng và các bất biến của kiểu dùng chung. */
 class ArchitectureTest {
 
+    /** Given các lớp lõi, When kiểm tra package, Then app và primitive dùng chung không bị trộn biên. */
     @Test
 
     void applicationAndSharedPrimitivesHaveOneRuntimeBoundary() {
@@ -22,6 +24,7 @@ class ArchitectureTest {
         assertThat(IdempotencyKey.class.getPackage()).isNotEqualTo(HospitalityMisApplication.class.getPackage());
     }
 
+    /** Given input hợp lệ/không hợp lệ, When tạo primitive, Then chuẩn hóa và từ chối giá trị rỗng. */
     @Test
     void sharedPrimitivesEnforceTheirCanonicalInvariants() {
         assertThat(ActorId.system().value()).isEqualTo(ActorId.SYSTEM_VALUE);

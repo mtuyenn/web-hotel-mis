@@ -10,26 +10,94 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** DTO cho bàn giao tiền mặt, chi phí và công nợ đối tác của vận hành. */
 public final class FinanceDtos {
+    /** Namespace không trạng thái cho các payload tài chính. */
     private FinanceDtos() {}
+    /** Request bàn giao ca; mã ca và hai tác nhân bắt buộc để truy vết. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record CashHandoverRequest(@NotBlank String shiftCode, @NotBlank String fromActor,
-                                      @NotBlank String toActor, @NotNull BigDecimal actualAmount, String note) {}
+    public record CashHandoverRequest(
+                                      /** Mã ca cần bàn giao. */
+                                      @NotBlank String shiftCode,
+                                      /** Tác nhân giao tiền. */
+                                      @NotBlank String fromActor,
+                                      /** Tác nhân nhận tiền. */
+                                      @NotBlank String toActor,
+                                      /** Số tiền thực tế kiểm đếm. */
+                                      @NotNull BigDecimal actualAmount,
+                                      /** Ghi chú về bàn giao hoặc chênh lệch. */
+                                      String note) {}
+    /** Kết quả bàn giao gồm số kỳ vọng, số thực tế và chênh lệch. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record CashHandoverResponse(Long id, String shiftCode, String fromActor, String toActor,
-                                       BigDecimal expectedAmount, BigDecimal actualAmount, BigDecimal variance,
-                                       LocalDateTime handedOverAt, String note) {}
+    public record CashHandoverResponse(
+                                       /** Khóa bản ghi bàn giao. */
+                                       Long id,
+                                       /** Mã ca. */
+                                       String shiftCode,
+                                       /** Tác nhân giao. */
+                                       String fromActor,
+                                       /** Tác nhân nhận. */
+                                       String toActor,
+                                       /** Số tiền hệ thống kỳ vọng. */
+                                       BigDecimal expectedAmount,
+                                       /** Số tiền thực tế. */
+                                       BigDecimal actualAmount,
+                                       /** Chênh lệch giữa thực tế và kỳ vọng. */
+                                       BigDecimal variance,
+                                       /** Thời điểm bàn giao. */
+                                       LocalDateTime handedOverAt,
+                                       /** Ghi chú. */
+                                       String note) {}
+    /** Request ghi nhận một khoản chi phí dương theo nhóm và mô tả. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record ExpenseRequest(@NotBlank String category, @NotBlank String description,
+    public record ExpenseRequest(
+                                 /** Nhóm chi phí để báo cáo. */
+                                 @NotBlank String category,
+                                 /** Mô tả khoản chi. */
+                                 @NotBlank String description,
+                                 /** Số tiền chi dương. */
                                  @NotNull @Positive BigDecimal amount) {}
+    /** Khoản chi đã ghi nhận cùng tác nhân, thời điểm và trạng thái. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record ExpenseResponse(Long id, String category, String description, BigDecimal amount,
-                                  String paidBy, LocalDateTime paidAt, Expense.ExpenseStatus status) {}
+    public record ExpenseResponse(
+                                  /** Khóa khoản chi. */
+                                  Long id,
+                                  /** Nhóm chi phí. */
+                                  String category,
+                                  /** Mô tả khoản chi. */
+                                  String description,
+                                  /** Số tiền. */
+                                  BigDecimal amount,
+                                  /** Tác nhân đã trả tiền. */
+                                  String paidBy,
+                                  /** Thời điểm trả. */
+                                  LocalDateTime paidAt,
+                                  /** Trạng thái khoản chi. */
+                                  Expense.ExpenseStatus status) {}
+    /** Request ghi nhận công nợ phải trả cho một đối tác. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record PartnerDebtRequest(@NotBlank String partnerName, @NotBlank String referenceCode,
+    public record PartnerDebtRequest(
+                                     /** Tên đối tác. */
+                                     @NotBlank String partnerName,
+                                     /** Mã hợp đồng hoặc chứng từ. */
+                                     @NotBlank String referenceCode,
+                                     /** Số tiền nợ ban đầu dương. */
                                      @NotNull @Positive BigDecimal amount) {}
+    /** Công nợ đối tác với số đã tất toán và trạng thái hiện tại. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record PartnerDebtResponse(Long id, String partnerName, String referenceCode, BigDecimal amount,
-                                      BigDecimal settledAmount, PartnerDebt.DebtStatus status,
+    public record PartnerDebtResponse(
+                                      /** Khóa công nợ. */
+                                      Long id,
+                                      /** Tên đối tác. */
+                                      String partnerName,
+                                      /** Mã tham chiếu. */
+                                      String referenceCode,
+                                      /** Tổng số tiền phải trả. */
+                                      BigDecimal amount,
+                                      /** Số tiền đã tất toán. */
+                                      BigDecimal settledAmount,
+                                      /** Trạng thái công nợ. */
+                                      PartnerDebt.DebtStatus status,
+                                      /** Thời điểm ghi nhận. */
                                       LocalDateTime recordedAt) {}
 }

@@ -34,26 +34,36 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ reservation service dùng GuestStore shared port và attach entity đã resolve. */
 class ReservationServiceGuestPortTest {
     @org.junit.jupiter.api.BeforeEach
+    /** Đặt frontdesk actor hợp lệ cho create. */
     void authenticateActor() {
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
             new org.springframework.security.authentication.TestingAuthenticationToken("frontdesk", "", "ROLE_FRONT_DESK"));
     }
     @org.junit.jupiter.api.AfterEach
+    /** Dọn actor sau test. */
     void clearActor() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
 
+    /** Reservation repository mock; verify save và overlap check của create. */
     @Mock ReservationRepository reservations;
+    /** Shared GuestStore là port bắt buộc: service phải resolve guest chung qua đây. */
     @Mock GuestStore sharedGuests;
+    /** Employee lookup mock cho actor owner. */
     @Mock EmployeeRepository employees;
+    /** Room lock/availability mock cho line reservation. */
     @Mock RoomRepository rooms;
+    /** Audit mock giữ construction service đúng production graph. */
     @Mock AuditService audit;
+    /** Billing, catalog và inventory ports không được test này giả lập thành model khác. */
     @Mock BillingService billing;
     @Mock ServiceRepository serviceCatalog;
     @Mock ServiceLineRepository serviceLines;
     @Mock InventoryMovementRepository inventoryMovements;
 
     @Test
+    /** Given guest_id 41 resolve thành guest chung, When create, Then reservation attach đúng object và response id. */
     void createUsesSharedGuestPortAndAttachesResolvedGuestToReservation() {
         Guest guest = guest(41L);
         Employee employee = employee("frontdesk");
@@ -87,11 +97,13 @@ class ReservationServiceGuestPortTest {
         assertThat(response.employeeId()).isEqualTo("frontdesk");
     }
 
+    /** Dựng service thật với toàn bộ dependency mock của reservation create. */
     private ReservationService service() {
         return new ReservationService(reservations, sharedGuests, employees, rooms, audit, billing,
                 serviceCatalog, serviceLines, inventoryMovements);
     }
 
+    /** Guest fixture shared có identity/phone canonical để port lookup nhận diện. */
     private static Guest guest(Long id) {
         Guest guest = new Guest();
         guest.setId(id);
@@ -101,6 +113,7 @@ class ReservationServiceGuestPortTest {
         return guest;
     }
 
+    /** Employee fixture tối thiểu cho reservation owner. */
     private static Employee employee(String id) {
         Employee employee = new Employee();
         employee.setEmployeeId(id);

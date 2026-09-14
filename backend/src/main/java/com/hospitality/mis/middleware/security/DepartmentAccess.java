@@ -7,10 +7,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 @Component("departmentAccess")
+/** Kiểm tra capability dựa trên authority của authentication hiện tại, không dựa vào input request. */
 public class DepartmentAccess {
+    /**
+     * Từ chối anonymous/chưa xác thực, sau đó đối chiếu capability với quyền của từng role.
+     * Role lạ bị bỏ qua thay vì được suy diễn thành quyền; đây là điểm kiểm soát fail-closed.
+     */
     public boolean allows(Authentication authentication, String capability) {
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) return false;
+        // capability phải ánh xạ vào enum hiện hành; authority chỉ được công nhận nếu role biết rõ.
         Permission permission = Permission.valueOf(capability);
         return authentication.getAuthorities().stream().anyMatch(authority -> {
             String name = authority.getAuthority();

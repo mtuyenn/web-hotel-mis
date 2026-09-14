@@ -21,9 +21,14 @@ customer riêng và không nhận capability của nhân viên.
 | KITCHEN | Service và inventory read/write |
 | STAFF | Room, guest và reservation read |
 
+`ROOM_CATALOG_WRITE` chỉ cấp cho TECHNICAL, MANAGER, DIRECTOR và ADMIN để quản lý
+ảnh phòng, danh mục tiện nghi và liên kết tiện nghi với loại phòng. HOUSEKEEPING,
+FRONT_DESK và STAFF chỉ có quyền đọc media qua `ROOM_READ`.
+
 ## Quy tắc bảo vệ bắt buộc
 
-- Login/refresh là public; mọi endpoint nghiệp vụ còn lại phải yêu cầu actor.
+- Login/refresh và các endpoint `/api/public/**` chỉ đọc là public; mọi endpoint nghiệp vụ nội bộ hoặc ghi dữ liệu phải yêu cầu actor. Public endpoint chỉ trả DTO công khai theo allow-list.
+- Customer booking/payment instruction là authenticated customer scope; customer chỉ được tạo và xem dữ liệu thuộc guest của chính mình, không được dùng reservation endpoint nội bộ.
 - Actor trong token phải được dùng để kiểm tra ownership/scope ở service, không
   tin `employee_id` do client gửi khi thao tác đại diện cho người đang đăng nhập.
 - Refund, điều chỉnh hóa đơn, override giá và thay đổi nhạy cảm phải có
@@ -32,8 +37,9 @@ customer riêng và không nhận capability của nhân viên.
   không vượt qua scope/approval.
 - Các test security phải kiểm tra cả role hợp lệ, role bị từ chối và truy cập
   chéo scope.
-- `DepartmentAuthorizationMatrixTest` bao phủ toàn bộ mapping HTTP hiện tại:
-  51 endpoint với các principal ADMIN, DIRECTOR, MANAGER, FRONT_DESK,
+- `DepartmentAuthorizationMatrixTest` bao phủ toàn bộ mapping nội bộ hiện tại;
+  các endpoint `/api/public/**` được kiểm tra riêng ở public contract test.
+  Ma trận customer booking gồm các principal ADMIN, DIRECTOR, MANAGER, FRONT_DESK,
   ACCOUNTING, HOUSEKEEPING, TECHNICAL, KITCHEN, STAFF, CUSTOMER, role lạ và
   anonymous. Ca bị từ chối phải trả 401/403 trước khi gọi service nghiệp vụ.
 - JWT access token gắn với refresh-token family còn hiệu lực qua `session_id`.
@@ -51,6 +57,6 @@ customer riêng và không nhận capability của nhân viên.
 - ACCOUNTING không được thay đổi reservation hay checkout, dù là người tạo đơn.
 - Không cho actor chưa xác thực gọi ReservationService. Quyền được kiểm tra
   trước cả kết quả idempotency đã lưu.
-- Ma trận HTTP hiện kiểm tra 51 endpoint × 13 loại principal, cộng 1 test kiểm
+- Ma trận HTTP hiện kiểm tra 59 endpoint nội bộ × 13 loại principal, cộng 1 test kiểm
   tra độ bao phủ. Đây chỉ là bằng chứng cho quyền endpoint hiện được khai báo;
-  các phần chưa theo rule được liệt kê trong `rule-audit-2026-09-10.md`.
+  các capability chưa hoàn thiện được theo dõi trong `backend-plan.md`.

@@ -3,15 +3,13 @@
 ## Target boundary
 
 ```text
-React/TypeScript
-        |
-        v
-Spring Boot REST API  <--- agent typed API tools
-  |       |        |
- Auth   Use cases  Audit/approval
-        |
-        v
-Repositories -> MySQL
+Public portal --------> public read controllers/DTO
+Employee React app ---> JWT/RBAC application API <--- agent typed API tools
+                              |       |        |
+                            Auth   Use cases  Audit/approval
+                                      |
+                                      v
+                              Repositories -> MySQL
 
 Chat UI -> Agent orchestrator
                        |
@@ -19,6 +17,9 @@ Chat UI -> Agent orchestrator
 ```
 
 The backend API is the only business-data boundary and the only MySQL writer.
+Anonymous public endpoints are read-only and return allow-listed public DTOs;
+they never reuse employee responses or expose guest, reservation, invoice or
+internal operational data.
 The agent must never connect directly to MySQL or generate production SQL.
 Live room availability, booking, invoice, inventory and cash data are
 structured business data and must be read or changed through authenticated API

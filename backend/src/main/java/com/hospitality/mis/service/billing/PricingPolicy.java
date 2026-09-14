@@ -24,16 +24,19 @@ import com.hospitality.mis.common.exception.DomainException;
 
 
 
-/** Pure policy object: calculations have no database or time side effects. */
+/** Đối tượng chính sách thuần túy: các phép tính không có tác động phụ lên cơ sở dữ liệu hoặc thời gian. */
 
 @Component
 
 public class PricingPolicy {
 
+    /** Số giờ tối thiểu được tính cho hình thức thuê theo giờ. */
     private final int hourlyMinimum;
 
+    /** Số phút miễn phí trước khi tính phụ thu trả phòng trễ. */
     private final int graceMinutes;
 
+    /** Tỷ lệ giảm được cấu hình cho khách VIP; tier thực tế quyết định mức áp dụng. */
     private final BigDecimal vipDiscount;
 
 
@@ -50,6 +53,7 @@ public class PricingPolicy {
 
 
 
+    /** Tính tiền phòng theo ngày hoặc theo giờ, áp dụng mức tối thiểu của thuê giờ. */
     public BigDecimal roomCharge(BigDecimal dailyPrice, LocalDateTime from, LocalDateTime to, boolean hourly) {
 
         if (dailyPrice == null || dailyPrice.signum() < 0 || from == null || to == null || !from.isBefore(to))
@@ -75,6 +79,7 @@ public class PricingPolicy {
 
 
 
+    /** Tính phí gia hạn theo số giờ làm tròn lên từ số phút phát sinh. */
     public BigDecimal extensionCharge(BigDecimal dailyPrice, int extensionMinutes) {
 
         if (dailyPrice == null || extensionMinutes <= 0) return BigDecimal.ZERO;
@@ -89,6 +94,7 @@ public class PricingPolicy {
 
 
 
+    /** Tính phụ thu trả trễ sau thời gian ân hạn theo mốc trong ngày hoặc qua ngày. */
     public BigDecimal lateSurcharge(BigDecimal roomTotal, LocalDateTime plannedCheckout, LocalDateTime actualCheckout) {
 
         if (roomTotal == null || plannedCheckout == null || actualCheckout == null
@@ -110,6 +116,7 @@ public class PricingPolicy {
 
 
 
+    /** Tính giảm giá phòng theo hạng thành viên; hạng STANDARD không giảm. */
     public BigDecimal vipDiscount(BigDecimal roomTotal, MembershipTier tier) {
 
         if (roomTotal == null || tier == null || tier == MembershipTier.STANDARD) return BigDecimal.ZERO;
@@ -121,12 +128,14 @@ public class PricingPolicy {
 
 
 
+    /** Làm tròn tổng hóa đơn đến nghìn đồng gần nhất và giữ scale tiền tệ. */
     public BigDecimal roundFinalTotal(BigDecimal total) {
         if (total == null) return BigDecimal.ZERO;
         return total.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(1000)).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /** Tính bồi thường thiết bị theo tuổi thiết bị và số lượng tại ngày tham chiếu. */
     public BigDecimal equipmentCompensation(BigDecimal originalValue, LocalDate purchasedAt, int quantity,
 
                                             LocalDate referenceDate) {

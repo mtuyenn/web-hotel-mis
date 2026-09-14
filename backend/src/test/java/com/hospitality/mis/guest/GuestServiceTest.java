@@ -45,14 +45,18 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 
+/** Bảo vệ service guest: chuẩn hóa input, duplicate guard, search scope và audit. */
 class GuestServiceTest {
 
+    /** Port guest giả lập; kiểm tra service gọi đúng store và không tạo persistence model khác. */
     @Mock GuestStore guests;
 
+    /** Audit giả lập để chứng minh actor tạo guest được ghi lại. */
     @Mock AuditService audit;
 
 
 
+    /** Given input có khoảng trắng, When create, Then trim canonical state và audit actor frontdesk. */
     @Test
 
     void createUsesCanonicalGuestStateAndRecordsAudit() {
@@ -94,6 +98,7 @@ class GuestServiceTest {
 
 
 
+    /** Given blank search và id thiếu, When gọi service, Then search deterministic và get ném GUEST_NOT_FOUND. */
     @Test
 
     void blankSearchReturnsDeterministicStoreResultsAndMissingGuestIsDomainError() {
@@ -125,6 +130,7 @@ class GuestServiceTest {
 
     }
 
+    /** Given phone đã tồn tại, When create, Then fail trước newGuest và không mutate store. */
     @Test
     void duplicateGuestPhoneIsRejectedBeforeCreatingEntity() {
         Guest existing = guest(43L);
@@ -142,6 +148,7 @@ class GuestServiceTest {
 
 
 
+    /** Tạo Guest fixture tối thiểu với id/phone identity ổn định cho search và duplicate tests. */
     private Guest guest(Long id) {
         Guest entity = new Guest();
         entity.setId(id);

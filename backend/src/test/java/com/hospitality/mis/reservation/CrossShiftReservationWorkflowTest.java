@@ -39,13 +39,20 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 @AutoConfigureMockMvc
 @Transactional
 @WithMockUser(username = "next-shift", roles = "FRONT_DESK")
+/** Bảo vệ workflow qua ca: actor mới được vận hành booking cũ, còn creator không mở rộng quyền. */
 class CrossShiftReservationWorkflowTest {
+    /** HTTP boundary thật của workflow liên ca. */
     @Autowired MockMvc mvc;
+    /** EntityManager seed aggregate và đọc audit sau request. */
     @Autowired EntityManager em;
+    /** Reservation service thật để kiểm tra authorization/no-show trực tiếp. */
     @Autowired ReservationService service;
+    /** Booking được tạo bởi shift-one và xử lý bởi next-shift. */
     private Reservation reservation;
+    /** Mốc arrival cố định để kiểm tra check-in/no-show window. */
     private final LocalDateTime arrival = LocalDateTime.of(2031, 1, 10, 12, 0);
 
+    /** Seed employee/guest/room/reservation CONFIRMED thuộc ca trước. */
     @BeforeEach void seed() {
         Employee creator = new Employee(); creator.setEmployeeId("shift-one");
         creator.setFullName("Previous shift"); creator.setPhone("0900000111");
@@ -62,6 +69,7 @@ class CrossShiftReservationWorkflowTest {
         em.persist(reservation); em.flush();
     }
 
+    /** Given booking của ca trước, When ca sau check-in/out, Then workflow thành công và audit là next-shift. */
     @Test void nextShiftFindsChecksInAndChecksOutBookingAndAuditUsesCurrentActor() throws Exception {
         mvc.perform(get("/api/reservations")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].employee_id").value("shift-one"));
@@ -81,6 +89,7 @@ class CrossShiftReservationWorkflowTest {
     }
 
     @ParameterizedTest @ValueSource(strings = {"ACCOUNTING", "HOUSEKEEPING", "TECHNICAL", "STAFF", "CUSTOMER", "ADMIN", "DIRECTOR"})
+    /** Given mọi role không vận hành, When creator cố mutate, Then bị deny dù username là owner cũ. */
     void nonOperatorsCannotMutateEvenWhenTheyAreTheCreator(String role) {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("shift-one", "", "ROLE_" + role));
         assertThatThrownBy(() -> service.checkIn(reservation.getId(), new ReservationDtos.CheckInRequest(arrival), "shift-one", UUID.randomUUID().toString()))
@@ -88,6 +97,7 @@ class CrossShiftReservationWorkflowTest {
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
     }
 
+    /** Given không có authentication, When truyền actor thủ công, Then không được tin input client. */
     @Test void suppliedActorWithoutAuthenticationCannotMutate() {
         SecurityContextHolder.clearContext();
         assertThatThrownBy(() -> service.cancel(reservation.getId(), new ReservationDtos.CancelRequest("cancel"), "shift-one", UUID.randomUUID().toString()))
@@ -95,6 +105,7 @@ class CrossShiftReservationWorkflowTest {
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
     }
 
+    /** Given clock trước/sau checkout, When mark no-show, Then boundary enforce và cọc bị forfeit sau hạn. */
     @Test void noShowIsRejectedWhileStayIsStillOpenAndForfeitsDepositAfterCheckoutTime() {
         reservation.setDepositAmount(new BigDecimal("500000"));
         ReflectionTestUtils.setField(service, "clock", Clock.fixed(
@@ -111,6 +122,7 @@ class CrossShiftReservationWorkflowTest {
         assertThat(reservation.getRooms().get(0).getStatus()).isEqualTo(RoomStatus.CANCELLED);
     }
 
+    /** Given khách chưa check-in quá stay window, When cancel, Then chuyển NO_SHOW và giữ cọc FORFEIT. */
     @Test void cancellingAfterStayWindowWithoutCheckInBecomesNoShowAndKeepsDeposit() {
         reservation.setDepositAmount(new BigDecimal("500000"));
         ReflectionTestUtils.setField(service, "clock", Clock.fixed(

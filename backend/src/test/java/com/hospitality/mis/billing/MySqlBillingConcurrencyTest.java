@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Verifies billing idempotency and invoice locking with real InnoDB transactions. */
+/** Xác minh tính idempotent của thanh toán và cơ chế khóa hóa đơn bằng các giao dịch InnoDB thực tế. */
 @SpringBootTest(properties = {
         "spring.datasource.url=${MIGRATION_TEST_DB_URL}",
         "spring.datasource.username=${MIGRATION_TEST_DB_USERNAME}",
@@ -36,13 +36,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 @EnabledIfEnvironmentVariable(named = "MIGRATION_TEST_DB_URL", matches = ".+")
 class MySqlBillingConcurrencyTest {
+    /** ID cố định để hai transaction đồng thời cùng tranh chấp một invoice/reservation. */
     private static final long ID = 9_900_001L;
+    /** Actor fixture và khóa dọn dẹp dữ liệu test, không phải danh tính đặc biệt của production. */
     private static final String ACTOR = "cbill01";
 
+    /** SQL trực tiếp giúp quan sát row và amount sau commit thực tế. */
     @Autowired JdbcTemplate jdbc;
+    /** Service thanh toán thật, dùng transaction InnoDB và idempotency production. */
     @Autowired PaymentTransactionService payments;
+    /** Service đặt phòng thật, dùng lock phòng để chống overbooking. */
     @Autowired ReservationService reservations;
 
+    /** Seed một invoice và một phòng sạch trước mỗi test concurrency. */
     @BeforeEach
     void seed() {
         cleanup();
@@ -58,6 +64,7 @@ class MySqlBillingConcurrencyTest {
                 ID, ID, new BigDecimal("100000"), new BigDecimal("100000"), "CHUA_THANH_TOAN");
     }
 
+    /** Xóa theo actor/ID sau test để retry suite không bị dữ liệu cũ làm sai kết quả. */
     @AfterEach
     void cleanup() {
         jdbc.update("delete from receipts where invoice_id in (select id from invoices where reservation_id in (select id from reservations where employee_id = ?))", ACTOR);
@@ -73,6 +80,7 @@ class MySqlBillingConcurrencyTest {
         jdbc.update("delete from employees where id = ?", ACTOR);
     }
 
+    /** Given hai retry cùng key, When chạy đồng thời, Then cùng trả một ledger id và amount due giảm một lần. */
     @Test
     void simultaneousRetriesCreateOnePaymentAndReturnTheSameLedgerEntry() throws Exception {
         var request = new PaymentTransactionDtos.CreateRequest(new BigDecimal("10000"), PaymentMethod.CASH,
@@ -95,6 +103,7 @@ class MySqlBillingConcurrencyTest {
         }
     }
 
+    /** Given hai booking cùng phòng/khoảng thời gian, When chạy đồng thời, Then một thành công và một OVERBOOKING. */
     @Test
     void simultaneousReservationsCannotBookTheSameRoomTwice() throws Exception {
         LocalDateTime checkIn = LocalDateTime.of(2031, 1, 1, 12, 0);
@@ -113,6 +122,7 @@ class MySqlBillingConcurrencyTest {
         }
     }
 
+    /** Đồng bộ hai worker tại barrier rồi gọi service trong security context riêng của từng thread. */
     private PaymentTransactionDtos.Response recordWhenReleased(PaymentTransactionDtos.CreateRequest request,
                                                                  CountDownLatch ready, CountDownLatch start) throws Exception {
         SecurityContextHolder.getContext().setAuthentication(
@@ -126,6 +136,7 @@ class MySqlBillingConcurrencyTest {
         }
     }
 
+    /** Đồng bộ hai booking worker; mã lỗi được trả về để assertion phân biệt người thắng lock. */
     private String reserveWhenReleased(String key, LocalDateTime checkIn,
                                        CountDownLatch ready, CountDownLatch start) throws Exception {
         SecurityContextHolder.getContext().setAuthentication(

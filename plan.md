@@ -1,6 +1,6 @@
 # Kế hoạch tiếp tục xây dựng Hotel MIS Web
 
-> Cập nhật 10/09/2026: xem [đối chiếu rule mới](docs/rule-audit-2026-09-10.md). Các nhận định hoàn thành hoặc chưa chốt bên dưới là lịch sử; rule.md mới nhất được ưu tiên.
+> Kế hoạch chi tiết hiện hành nằm tại [kế hoạch backend](docs/backend-plan.md) và [kế hoạch frontend](plan_fontend.md). `rule.md` luôn là nguồn quyết định nghiệp vụ ưu tiên.
 
 ## 1. Mục tiêu và nguyên tắc bắt buộc
 
@@ -79,8 +79,10 @@ Các quyết định nền tảng đã được chốt trong `rule.md` và đư�
 8. Chỉ làm tròn tổng cuối hóa đơn đến 1.000 VND.
 
 `NO_SHOW` đã được chốt: khách được check-in đến trước giờ trả; hết giờ trả mà
-chưa check-in thì chuyển `NO_SHOW` và mất cọc. Còn mở cách tính lượt lưu trú
-VIP khi ở dở và phí hủy ngoài tiền cọc.
+chưa check-in thì chuyển `NO_SHOW` và mất cọc. Lượt VIP lấy theo thời lượng đặt
+trong booking: dưới 24 giờ không tính, từ đủ 24 giờ tính đúng một lượt cho mỗi
+booking hoàn tất; booking nhiều phòng vẫn chỉ tính một lượt. Hủy đúng 48 giờ
+trước giờ nhận phòng mất cọc và không thu thêm phí hủy ngoài tiền cọc.
 
 Sau khi chốt, mọi API/DTO/enum/schema/test phải dùng đúng contract này. Không tạo tên thay thế để hỗ trợ quyết định cũ.
 
@@ -233,15 +235,14 @@ Một feature chỉ được coi là hoàn thành khi:
 
 Lead tiếp tục theo thứ tự này:
 
-1. Đóng hai điểm mở còn lại: partial-stay VIP và phí hủy ngoài cọc.
-2. Audit từng endpoint/DTO theo `docs/api-contract.md`; bổ sung contract test.
-3. Sửa logic reservation và billing đang lệch contract (48 giờ, hourly,
+1. Audit từng endpoint/DTO theo `docs/api-contract.md`; bổ sung contract test.
+2. Sửa logic reservation và billing đang lệch contract (48 giờ, hourly,
    VIP, late checkout, rounding).
-4. Hoàn thiện test security, error contract và state transition.
-5. Viết frontend flow typed cho login, guest, room và reservation.
-6. Sau khi reservation ổn định mới hoàn thiện billing/operations.
-7. Chạy acceptance MySQL sạch trong CI và local.
-8. Chỉ sau khi web core ổn định mới bắt đầu chatbot/RAG.
+3. Hoàn thiện test security, error contract và state transition.
+4. Viết frontend flow typed cho login, guest, room và reservation.
+5. Sau khi reservation ổn định mới hoàn thiện billing/operations.
+6. Chạy acceptance MySQL sạch trong CI và local.
+7. Chỉ sau khi web core ổn định mới bắt đầu chatbot/RAG.
 
 ## 8. Rủi ro và cách xử lý
 

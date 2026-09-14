@@ -16,8 +16,10 @@ import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
 import com.hospitality.mis.service.reservation.ReservationService;
+import com.hospitality.mis.service.reservation.CustomerReservationService;
 import com.hospitality.mis.service.room.RoomService;
 import com.hospitality.mis.service.room.RoomEquipmentService;
+import com.hospitality.mis.service.room.RoomMediaService;
 import com.hospitality.mis.middleware.security.ApprovalAuthorization;
 import com.hospitality.mis.dto.reservation.ReservationDtos;
 import com.hospitality.mis.entity.reservation.ReservationStatus;
@@ -33,6 +35,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import java.util.*;
 import java.util.stream.Stream;
@@ -41,8 +44,9 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
-/** Independent HTTP allow/deny matrix; mocked services isolate endpoint RBAC from business rules. */
+/** Ma trận cho phép/từ chối HTTP độc lập; các dịch vụ giả lập giúp tách RBAC của endpoint khỏi các quy tắc nghiệp vụ. */
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:departmentmatrix;MODE=MySQL;DB_CLOSE_DELAY=-1",
     "spring.datasource.username=sa", "spring.datasource.password=",
@@ -50,7 +54,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 })
 @AutoConfigureMockMvc
 class DepartmentAuthorizationMatrixTest {
+    /** HTTP boundary thật; mỗi endpoint trong matrix chạy qua security filter. */
     @Autowired MockMvc mvc;
+    /** Mapping registry dùng chứng minh mọi protected endpoint có matrix row. */
     @Autowired RequestMappingHandlerMapping requestMappingHandlerMapping;
     @MockBean AuthService mock0;
     @MockBean CustomerAccountService mock1;
@@ -70,9 +76,13 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean ReservationService mock15;
     @MockBean RoomService mock16;
     @MockBean RoomEquipmentService mock17;
+    @MockBean CustomerReservationService mock18;
+    @MockBean RoomMediaService mock19;
     @MockBean ApprovalAuthorization approvalAuthorization;
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17); }
+    /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19); }
 
+    /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
         when(approvalAuthorization.canApprove(anyLong(), anyString())).thenReturn(true);
         when(mock15.get(1L)).thenReturn(new ReservationDtos.Response(1L, 1L, "actor",
@@ -81,9 +91,11 @@ class DepartmentAuthorizationMatrixTest {
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
+    /** Một row matrix: method/path, role allowlist và body canonical của endpoint. */
     record Endpoint(String method, String path, String roles, String body) {
         public String toString() { return method + " " + path; }
     }
+    /** Danh sách endpoint bảo vệ, là nguồn dữ liệu cho cả matrix và coverage check. */
     static List<Endpoint> endpoints() { return List.of(
             new Endpoint("POST", "/api/auth/employees", "ADMIN,DIRECTOR,MANAGER", "{\"employee_id\":\"new\",\"full_name\":\"New\",\"password\":\"valid-password\",\"role\":\"STAFF\",\"phone\":\"0900000000\"}"),
             new Endpoint("POST", "/api/auth/employees/emp/password", "ADMIN,DIRECTOR,MANAGER", "{\"password\":\"valid-password\"}"),
@@ -95,7 +107,12 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/rooms/availability?from=2026-10-01T12:00:00&to=2026-10-02T12:00:00", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("PATCH", "/api/rooms/101/status?status=SAN_SANG", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
             new Endpoint("GET", "/api/rooms/101/equipment", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
+            new Endpoint("GET", "/api/rooms/101/media", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("POST", "/api/rooms/101/equipment", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"room_id\":\"101\",\"name\":\"TV\",\"original_value\":100,\"purchased_on\":\"2026-01-01\",\"quantity\":1}"),
+            new Endpoint("POST", "/api/rooms/101/images", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", ""),
+            new Endpoint("DELETE", "/api/rooms/101/images/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
+            new Endpoint("POST", "/api/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"name\":\"Wi-Fi\"}"),
+            new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),
             new Endpoint("GET", "/api/reservations", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("GET", "/api/reservations/1", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("POST", "/api/reservations", "MANAGER,FRONT_DESK", "{\"guest_id\":1,\"employee_id\":\"actor\",\"deposit\":0,\"rental_type\":\"PACKAGE\",\"rooms\":[{\"room_id\":\"101\",\"expected_check_in\":\"2026-10-01T12:00:00\",\"expected_check_out\":\"2026-10-02T12:00:00\"}]}"),
@@ -136,8 +153,13 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/governance/audit", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{}"),
             new Endpoint("GET", "/api/auth/customers/me", "CUSTOMER", "{}"),
             new Endpoint("POST", "/api/auth/customers/password", "CUSTOMER", "{\"password\":\"valid-password\"}"),
+            new Endpoint("POST", "/api/customer/reservations", "CUSTOMER", "{\"rental_type\":\"PACKAGE\",\"rooms\":[{\"room_id\":\"101\",\"expected_check_in\":\"2026-10-01T12:00:00\",\"expected_check_out\":\"2026-10-02T12:00:00\"}],\"idempotency_key\":\"customer-key\"}"),
+            new Endpoint("GET", "/api/customer/reservations", "CUSTOMER", "{}"),
+            new Endpoint("GET", "/api/customer/reservations/1", "CUSTOMER", "{}"),
+            new Endpoint("GET", "/api/customer/reservations/1/deposit-payment", "CUSTOMER", "{}"),
             new Endpoint("POST", "/api/auth/logout", "ADMIN,DIRECTOR,MANAGER,HR,FRONT_DESK,ACCOUNTING,HOUSEKEEPING,TECHNICAL,KITCHEN,STAFF,CUSTOMER,UNKNOWN", "{}")
     ); }
+    /** Sinh role case, gồm UNKNOWN để bảo vệ default deny. */
     static Stream<Arguments> matrix() {
         return endpoints().stream().flatMap(endpoint -> Stream.of(
             "ADMIN", "DIRECTOR", "MANAGER", "HR", "FRONT_DESK", "ACCOUNTING", "HOUSEKEEPING",
@@ -146,10 +168,14 @@ class DepartmentAuthorizationMatrixTest {
     }
 
     @ParameterizedTest(name = "{1}: {0}") @MethodSource("matrix")
+    /** Given endpoint/role, When gọi HTTP, Then allowlist quyết định status và allowed mới chạm mock. */
     void roleCanOnlyInvokeAuthorizedDepartmentFunctions(Endpoint endpoint, String role) throws Exception {
-        var request = request(HttpMethod.valueOf(endpoint.method()), endpoint.path())
-            .contentType("application/json").content(endpoint.body())
-            .header("Idempotency-Key", "matrix-key");
+        var request = endpoint.method().equals("POST") && endpoint.path().contains("/images")
+            ? multipart(endpoint.path()).file(new MockMultipartFile("file", "room.jpg", "image/jpeg",
+                new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff}))
+            : request(HttpMethod.valueOf(endpoint.method()), endpoint.path())
+                .contentType("application/json").content(endpoint.body());
+        request.header("Idempotency-Key", "matrix-key");
         if (!role.equals("ANONYMOUS")) request.with(jwt().jwt(token -> token.subject(role.equals("CUSTOMER") ? "1" : "actor")
             .claim("principal_id", role.equals("CUSTOMER") ? "1" : "actor").claim("principal_type", role.equals("CUSTOMER") ? "CUSTOMER" : "EMPLOYEE"))
             .authorities(new SimpleGrantedAuthority("ROLE_" + role)));
@@ -167,13 +193,14 @@ class DepartmentAuthorizationMatrixTest {
         }
     }
 
+    /** Given handler mappings production, When đối chiếu matrix, Then không protected endpoint bị bỏ sót. */
     @Test void everyProtectedApiMappingIsCoveredByTheMatrix() {
         Set<String> publicPaths = Set.of("/api/auth/login", "/api/auth/customers/login",
             "/api/auth/refresh", "/api/auth/customers/register");
         Set<String> covered = new HashSet<>();
         for (var entry : requestMappingHandlerMapping.getHandlerMethods().entrySet()) {
             for (String pattern : entry.getKey().getPatternValues()) {
-                if (!pattern.startsWith("/api/") || publicPaths.contains(pattern)) continue;
+                if (!pattern.startsWith("/api/") || pattern.startsWith("/api/public/") || publicPaths.contains(pattern)) continue;
                 for (var method : entry.getKey().getMethodsCondition().getMethods()) {
                     String regex = pattern.replaceAll("\\{[^}]+}", "[^/]+");
                     var matches = endpoints().stream().filter(e -> e.method().equals(method.name())

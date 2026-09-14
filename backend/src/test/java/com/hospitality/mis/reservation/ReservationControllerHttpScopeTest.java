@@ -30,17 +30,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureMockMvc
+/** Kiểm tra scope/read contract reservation qua HTTP với service mock. */
 class ReservationControllerHttpScopeTest {
+    /** MockMvc boundary thật của security và JSON mapping. */
     @Autowired MockMvc mockMvc;
 
+    /** Service mock trả response reservation thuộc frontdesk. */
     @MockBean ReservationService service;
+    /** Incident mock để context controller khởi động mà không kéo nghiệp vụ operations. */
     @MockBean EquipmentIncidentService incidents;
 
+    /** Seed reservation id 7 cho mọi read-scope case. */
     @BeforeEach
     void stubReservation() {
         when(service.get(7L)).thenReturn(responseOwnedBy("frontdesk"));
     }
 
+    /** Given filter snake_case, When list, Then service nhận đúng args và page metadata giữ nguyên. */
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void listBindsSnakeCaseFiltersAndReturnsPageMetadata() throws Exception {
@@ -52,12 +58,14 @@ class ReservationControllerHttpScopeTest {
                 .andExpect(jsonPath("$.total_elements").value(11)).andExpect(jsonPath("$.total_pages").value(2));
     }
 
+    /** Customer không có staff reservation read nên bị 403. */
     @Test
     @WithMockUser(username = "customer", roles = "CUSTOMER")
     void customerCannotReadStaffReservationList() throws Exception {
         mockMvc.perform(get("/api/reservations")).andExpect(status().isForbidden());
     }
 
+    /** Owner frontdesk đọc reservation của mình qua HTTP. */
     @Test
     @WithMockUser(username = "frontdesk", roles = "FRONT_DESK")
     void ownerReadSucceedsOverHttp() throws Exception {
@@ -67,6 +75,7 @@ class ReservationControllerHttpScopeTest {
                 .andExpect(jsonPath("$.employee_id").value("frontdesk"));
     }
 
+    /** Ca sau vẫn đọc booking của ca trước, bảo vệ cross-shift continuity. */
     @Test
     @WithMockUser(username = "other", roles = "FRONT_DESK")
     void nextShiftCanReadReservation() throws Exception {
@@ -75,30 +84,35 @@ class ReservationControllerHttpScopeTest {
                 .andExpect(jsonPath("$.employee_id").value("frontdesk"));
     }
 
+    /** Manager có global read scope. */
     @Test
     @WithMockUser(username = "manager", roles = "MANAGER")
     void managerHasGlobalRead() throws Exception {
         assertGlobalRead("manager");
     }
 
+    /** Director có global read scope. */
     @Test
     @WithMockUser(username = "director", roles = "DIRECTOR")
     void directorHasGlobalRead() throws Exception {
         assertGlobalRead("director");
     }
 
+    /** Admin có global read scope. */
     @Test
     @WithMockUser(username = "admin", roles = "ADMIN")
     void adminHasGlobalRead() throws Exception {
         assertGlobalRead("admin");
     }
 
+    /** Helper dùng chung assertion read 200 và owner id không bị đổi. */
     private void assertGlobalRead(String actor) throws Exception {
         mockMvc.perform(get("/api/reservations/{id}", 7L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.employee_id").value("frontdesk"));
     }
 
+    /** Fixture response id 7/guest 11; employeeId thay đổi để kiểm tra scope. */
     private static ReservationDtos.Response responseOwnedBy(String employeeId) {
         return new ReservationDtos.Response(7L, 11L, employeeId,
                 com.hospitality.mis.entity.reservation.ReservationStatus.CONFIRMED,

@@ -1,3 +1,4 @@
+/* Entity này biểu diễn phiếu bảo trì và liên kết phiếu với phòng cần xử lý. */
 package com.hospitality.mis.entity.operations;
 
 import com.hospitality.mis.entity.room.Room;
@@ -5,34 +6,40 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 /**
- * JPA entity representing a room maintenance work order.
+ * Thực thể JPA biểu diễn một phiếu bảo trì phòng.
  *
- * <p>Java property names use English so the schema and other modules share one
- * vocabulary. Business-facing translations belong in the presentation layer,
- * not in the domain model.</p>
+ * <p>Tên thuộc tính Java dùng tiếng Anh để lược đồ và các mô-đun khác thống nhất
+ * cách gọi. Bản dịch hướng đến người dùng thuộc về tầng trình bày,
+ * không phải mô hình miền.</p>
  */
 @Entity
 @Table(name = "maintenance_work_orders")
 public class MaintenanceWorkOrder {
+    /** Mã phiếu bảo trì nghiệp vụ. */
     @Id
     @Column(name = "id", length = 10)
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
+    /** Phòng cần được xử lý bảo trì. */
     private Room room;
 
     @Column(name = "maintenance_type", nullable = false)
+    /** Loại công việc bảo trì cần thực hiện. */
     private String maintenanceType;
 
     @Column(name = "scheduled_date", nullable = false)
+    /** Ngày dự kiến thực hiện công việc. */
     private LocalDate scheduledDate;
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
+    /** Trạng thái vòng đời của phiếu, bắt đầu ở CHUA_XU_LY. */
     private MaintenanceStatus status = MaintenanceStatus.CHUA_XU_LY;
 
     @Column(name = "description")
+    /** Mô tả chi tiết triệu chứng hoặc yêu cầu xử lý. */
     private String description;
 
     public String getId() { return id; }

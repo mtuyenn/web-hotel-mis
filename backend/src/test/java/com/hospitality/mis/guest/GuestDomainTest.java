@@ -36,8 +36,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 
+/** Bảo vệ mapping entity Guest và các policy booking/membership thuần domain. */
 class GuestDomainTest {
 
+    /** Given Guest canonical, When soi annotation/column, Then entity duy nhất map vào schema v1. */
     @Test
 
     void canonicalModelIsTheSoleConcreteGuestEntity() throws Exception {
@@ -54,6 +56,7 @@ class GuestDomainTest {
 
 
 
+    /** Given state Guest canonical, When gọi accessor, Then dữ liệu được giữ đúng kiểu và giá trị. */
     @Test
 
     void canonicalStateUsesCanonicalAccessors() {
@@ -82,6 +85,7 @@ class GuestDomainTest {
 
 
 
+    /** Given ngưỡng 4 lần hủy muộn, When ghi lần cuối, Then guest bị block đúng tại boundary. */
     @Test
 
     void bookingPolicyBlocksOnlyAtTheConfiguredLateCancellationThreshold() {
@@ -117,6 +121,7 @@ class GuestDomainTest {
 
 
 
+    /** Given các ngưỡng stay/spend, When tính tier, Then STANDARD/SILVER/GOLD/PLATINUM ổn định. */
     @Test
 
     void membershipPolicyUsesSpendOrCompletedStayThreshold() {
@@ -134,6 +139,7 @@ class GuestDomainTest {
 
 
 
+    /** Given quan hệ guest, When kiểm tra mapping, Then inverse relation không phá owner canonical. */
     @Test
 
     void guestReservationRelationshipIsInverseAndNonDestructive() throws Exception {
@@ -143,6 +149,7 @@ class GuestDomainTest {
 
 
 
+    /** Đọc tên column annotation để tránh lặp reflection assertion trong test mapping. */
     private String columnName(String fieldName) throws NoSuchFieldException {
 
         return Guest.class.getDeclaredField(fieldName)

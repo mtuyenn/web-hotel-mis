@@ -38,27 +38,41 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ cancellation boundary, idempotency và check-in lock/overlap invariants. */
 class ReservationCancellationCorrectnessTest {
     @org.junit.jupiter.api.BeforeEach
+    /** Đặt frontdesk actor để mutation không bị chặn bởi security. */
     void authenticateActor() {
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
             new org.springframework.security.authentication.TestingAuthenticationToken("frontdesk", "", "ROLE_FRONT_DESK"));
     }
     @org.junit.jupiter.api.AfterEach
+    /** Dọn actor sau test. */
     void clearActor() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
 
+    /** Reservation repository mock; findForUpdate là boundary lock của cancellation/check-in. */
     @Mock ReservationRepository reservations;
+    /** Shared guest port mock giữ test độc lập với guest persistence. */
     @Mock GuestStore guests;
+    /** Employee lookup mock cho owner của reservation fixture. */
     @Mock EmployeeRepository employees;
+    /** Room repository mock để test lock và physical readiness. */
     @Mock RoomRepository rooms;
+    /** Audit mock để chứng minh rejected path không ghi sự kiện. */
     @Mock AuditService audit;
+    /** Billing mock để kiểm tra settle deposit đúng branch refund/forfeit. */
     @Mock BillingService billing;
+    /** Catalog/service-line ports không phải trọng tâm nhưng giữ dependency graph production. */
     @Mock ServiceRepository serviceCatalog;
     @Mock ServiceLineRepository serviceLines;
+    /** Inventory port giữ construction service đầy đủ cho workflow reservation. */
     @Mock InventoryMovementRepository inventoryMovements;
+    /** Service thật với toàn bộ port mock, được dựng lại mỗi test. */
     private ReservationService service;
+    /** Clock cố định để boundary 48 giờ không phụ thuộc thời gian chạy. */
     private final LocalDateTime now = LocalDateTime.of(2031, 1, 1, 12, 0);
 
+    /** Dựng service và inject clock cố định cho mọi cancellation/check-in assertion. */
     @BeforeEach
     void setUp() {
         service = new ReservationService(reservations, guests, employees, rooms, audit, billing,
@@ -67,6 +81,7 @@ class ReservationCancellationCorrectnessTest {
     }
 
     @Test
+    /** Given đúng 48h và 48h+1m, When cancel, Then lần đầu forfeit, lần sau refund. */
     void exactlyConfiguredBoundaryIsLateAndMoreThanBoundaryIsFree() {
         Reservation atBoundary = reservation(new GuestWithId(41L), employee(), now.plusHours(48));
         when(reservations.findForUpdate(7L)).thenReturn(Optional.of(atBoundary));
@@ -82,6 +97,7 @@ class ReservationCancellationCorrectnessTest {
     }
 
     @Test
+    /** Given cùng key, When retry giống payload, Then replay một result; payload khác thì conflict. */
     void sameKeyReturnsOneResultAndDifferentPayloadConflicts() {
         Reservation reservation = reservation(new GuestWithId(41L), employee(), now.plusHours(72));
         when(reservations.findForUpdate(7L)).thenReturn(Optional.of(reservation));
@@ -94,6 +110,7 @@ class ReservationCancellationCorrectnessTest {
     }
 
     @Test
+    /** Given room MAINTENANCE, When check-in, Then reject trước transition/audit. */
     void checkInRejectsMaintenanceRoomBeforeChangingReservation() {
         Reservation blocked = reservation(new GuestWithId(43L), employee(), now);
         blocked.getRooms().get(0).getRoom().setStatus(com.hospitality.mis.entity.room.RoomStatus.MAINTENANCE);
@@ -109,6 +126,7 @@ class ReservationCancellationCorrectnessTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.EnumSource(value = com.hospitality.mis.entity.room.RoomStatus.class,
             names = {"OCCUPIED", "CLEANING", "OUT_OF_SERVICE"})
+    /** Given status vật lý không READY, When check-in, Then reject và booking vẫn CONFIRMED. */
     void checkInRejectsUnreadyPhysicalRoom(com.hospitality.mis.entity.room.RoomStatus status) {
         Reservation blocked = reservation(new GuestWithId(43L), employee(), now);
         blocked.getRooms().get(0).getRoom().setStatus(status);
@@ -119,6 +137,7 @@ class ReservationCancellationCorrectnessTest {
         assertThat(blocked.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
     }
 
+    /** Given overlap phát hiện lại dưới lock, When check-in, Then OVERBOOKING trước mutation. */
     @Test void checkInRechecksOverlapsBeforeChangingState() {
         Reservation blocked = reservation(new GuestWithId(43L), employee(), now);
         blocked.getRooms().get(0).getRoom().setStatus(com.hospitality.mis.entity.room.RoomStatus.READY);
@@ -131,6 +150,7 @@ class ReservationCancellationCorrectnessTest {
         assertThat(blocked.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
     }
 
+    /** Dựng reservation CONFIRMED với deposit và một line RESERVED cho test state. */
     private Reservation reservation(Guest guest, Employee employee, LocalDateTime checkIn) {
         Reservation result = new Reservation(); result.setGuest(guest); result.setEmployee(employee);
         result.setDepositAmount(new BigDecimal("100.00"));
@@ -141,9 +161,11 @@ class ReservationCancellationCorrectnessTest {
         return result;
     }
 
+    /** Employee fixture khớp actor authenticated frontdesk. */
     private Employee employee() { Employee employee = new Employee(); employee.setEmployeeId("frontdesk"); return employee; }
 
     private static class GuestWithId extends Guest {
+        /** Guest id ổn định để cancellation/audit binding không bị mơ hồ. */
         GuestWithId(Long id) { setId(id); setFullName("Guest"); setPhone("090000000" + id); setIdentityNumber("00100100100" + id); }
     }
 }

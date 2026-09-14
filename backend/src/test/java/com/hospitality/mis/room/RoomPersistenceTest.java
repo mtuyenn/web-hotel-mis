@@ -18,11 +18,16 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.username=sa", "spring.datasource.password=",
         "spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"
 })
+/** Bảo vệ round-trip Room/RoomType và version khởi tạo phục vụ optimistic locking. */
 class RoomPersistenceTest {
+    /** Repository room thật để reload bằng findForUpdate. */
+    /** Repository room thật để reload bằng findForUpdate. */
     @Autowired RoomRepository rooms;
+    /** Repository type thật, persist trước room vì FK. */
     @Autowired RoomTypeRepository roomTypes;
 
     @Test
+    /** Given type STD và room READY, When save/reload khóa, Then liên kết và version 0 được giữ. */
     void canonicalRoomAndTypePersistAndReload() {
         RoomType type = new RoomType();
         type.setId("STD"); type.setName("Standard"); type.setDailyPrice(new BigDecimal("2400.00"));

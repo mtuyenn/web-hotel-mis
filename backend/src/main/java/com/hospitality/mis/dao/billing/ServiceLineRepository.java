@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 
 
+/** Kho dòng sử dụng dịch vụ; thao tác mặc định của JpaRepository là đủ cho aggregate này. */
 public interface ServiceLineRepository extends JpaRepository<ServiceUsage, ServiceUsageId> {
 
 }

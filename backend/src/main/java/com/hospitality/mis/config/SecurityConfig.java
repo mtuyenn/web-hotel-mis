@@ -2,6 +2,8 @@ package com.hospitality.mis.config;
 
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hospitality.mis.common.api.ApiError;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.annotation.Bean;
@@ -28,6 +30,9 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import org.springframework.security.web.access.AccessDeniedHandler;
 
+import java.time.Instant;
+import java.util.List;
+
 
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -37,13 +42,18 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @Configuration
 
 @EnableMethodSecurity
-
+/** Thiết lập biên bảo vệ HTTP, với mặc định mọi endpoint chưa nêu rõ đều cần xác thực. */
 public class SecurityConfig {
 
 
 
     @Bean
 
+    /**
+     * Lắp chuỗi filter stateless, JWT resource server và các dependency xử lý lỗi/audit.
+     * CORS, endpoint công khai và phương thức HTTP giữ nguyên hợp đồng hiện tại; mọi request
+     * khác phải qua authentication, còn quyết định quyền chi tiết tiếp tục do method security.
+     */
     SecurityFilterChain securityFilterChain(HttpSecurity http,
 
                                             JwtDecoder jwtDecoder,
@@ -103,7 +113,9 @@ public class SecurityConfig {
 
                                 "/api/auth/refresh",
 
-                                "/api/auth/customers/register"
+                                "/api/auth/customers/register",
+
+                                "/api/public/**"
 
                         ).permitAll()
 
@@ -127,9 +139,11 @@ public class SecurityConfig {
 
     @Bean
 
-    AuthenticationEntryPoint authenticationEntryPoint() {
+    /** Trả lỗi 401 thống nhất khi request chưa có hoặc có credential không hợp lệ. */
+    AuthenticationEntryPoint authenticationEntryPoint(ObjectMapper objectMapper) {
 
-        return (request, response, exception) -> writeError(response, HttpServletResponse.SC_UNAUTHORIZED);
+        return (request, response, exception) -> writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                "AUTHENTICATION_REQUIRED", "Authentication is required", objectMapper);
 
     }
 
@@ -137,19 +151,20 @@ public class SecurityConfig {
 
     @Bean
 
-    AccessDeniedHandler accessDeniedHandler() {
+    /** Trả lỗi 403 khi principal hợp lệ nhưng không có quyền vào tài nguyên. */
+    AccessDeniedHandler accessDeniedHandler(ObjectMapper objectMapper) {
         return (request, response, exception) -> writeError(response, HttpServletResponse.SC_FORBIDDEN,
-                "ACCESS_DENIED");
+                "ACCESS_DENIED", "Access is denied", objectMapper);
     }
 
-    private static void writeError(HttpServletResponse response, int status) throws java.io.IOException {
-        writeError(response, status, "AUTHENTICATION_REQUIRED");
-    }
-
-    private static void writeError(HttpServletResponse response, int status, String code)
+    /** Ghi đúng schema ApiError cho lỗi phát sinh trước khi request vào controller. */
+    private static void writeError(HttpServletResponse response, int status, String code, String message,
+                                   ObjectMapper objectMapper)
             throws java.io.IOException {
         response.setStatus(status);
         response.setContentType("application/json");
-        response.getWriter().write("{\"error\":\"" + code + "\"}");
+        response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
+        objectMapper.writeValue(response.getWriter(),
+                new ApiError(Instant.now(), status, code, message, List.of()));
     }
 }

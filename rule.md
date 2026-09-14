@@ -63,10 +63,10 @@ Trong tài liệu này, “hủy vào phút chót/hủy sát giờ” nghĩa là
 | Thời điểm hủy | Kết quả |
 |---|---|
 | Hơn 48 giờ trước giờ nhận phòng | Miễn phí theo chính sách free-before-48-hours. |
-| Trong vòng 48 giờ trước giờ nhận phòng | Mất tiền đặt cọc. |
+| Trong vòng 48 giờ trước giờ nhận phòng, bao gồm đúng mốc 48 giờ | Mất tiền đặt cọc. |
 | Hơn 3 lần hủy gần giờ nhận phòng | Khóa các lượt đặt trong tương lai; tức lần hủy thứ 4 thuộc nhóm này là lần bắt đầu khóa. |
 
-Khách vẫn được check-in bất cứ lúc nào trong thời gian đặt phòng còn hiệu lực, trước giờ trả dự kiến. Nếu hết thời gian đặt phòng mà khách chưa check-in thì chuyển sang `NO_SHOW` và mất tiền đặt cọc; không hoàn cọc trong trường hợp này. Không được chuyển `NO_SHOW` trước giờ trả dự kiến. Khoản phí hủy bổ sung ngoài tiền đặt cọc chưa được quy định và vẫn là **Chưa chốt — Không được tự suy đoán**.
+Khách vẫn được check-in bất cứ lúc nào trong thời gian đặt phòng còn hiệu lực, trước giờ trả dự kiến. Nếu hết thời gian đặt phòng mà khách chưa check-in thì chuyển sang `NO_SHOW` và mất tiền đặt cọc; không hoàn cọc trong trường hợp này. Không được chuyển `NO_SHOW` trước giờ trả dự kiến. Không thu thêm khoản phí hủy nào ngoài tiền đặt cọc; hủy trong vòng 48 giờ trước giờ nhận phòng chỉ mất tiền đặt cọc.
 
 ## 7. Đặt cọc, hóa đơn và thanh toán
 
@@ -84,7 +84,7 @@ Khách vẫn được check-in bất cứ lúc nào trong thời gian đặt ph�
 
 ## 8. VIP
 
-Phải theo dõi độc lập cả tổng chi tiêu tích lũy và số lượt lưu trú đã hoàn tất. Một gói ngày-đêm 24 giờ hoặc dài hơn 24 giờ được tính là 1 lượt lưu trú.
+Phải theo dõi độc lập cả tổng chi tiêu tích lũy và số lượt lưu trú đã hoàn tất. Số giờ dùng để tính lượt lấy theo thời lượng đã đặt trong booking, từ `expected_check_in` đến `expected_check_out`, không lấy theo thời gian check-in/check-out thực tế. Booking có thời lượng dưới 24 giờ được tính 0 lượt; booking có thời lượng từ đủ 24 giờ trở lên được tính đúng 1 lượt, dù thời lượng là 48 giờ, 72 giờ hoặc dài hơn. Một booking nhiều phòng của cùng khách vẫn chỉ tính 1 lượt. Booking bị hủy hoặc chuyển `NO_SHOW` không được tính lượt; chỉ ghi nhận lượt sau khi checkout hoàn tất.
 
 | Hạng | Điều kiện theo lượt lưu trú hoàn tất | Giảm trên giá phòng |
 |---|---:|---:|
@@ -92,7 +92,7 @@ Phải theo dõi độc lập cả tổng chi tiêu tích lũy và số lượt 
 | Gold | 25 lượt | 10% |
 | Platinum | 50 lượt | 15% |
 
-Giảm VIP chỉ áp dụng trên giá phòng, không mặc định áp dụng lên phụ thu, dịch vụ/minibar, bồi thường hoặc khoản khác. Ngưỡng theo chi tiêu và cách tính lượt cho lưu trú một phần hoặc loại lưu trú khác là **Chưa chốt — Không được tự suy đoán**.
+Giảm VIP chỉ áp dụng trên giá phòng, không mặc định áp dụng lên phụ thu, dịch vụ/minibar, bồi thường hoặc khoản khác. Ngưỡng theo tổng chi tiêu vẫn áp dụng theo bảng trên; cách tính lượt cho lưu trú một phần và thuê theo giờ đã chốt theo thời lượng đặt trong booking như quy định tại khoản này.
 
 Phải giữ các bộ đếm vi phạm cộng dồn; các lượt vi phạm không cần liên tiếp. Khi số lần trả phòng muộn vượt quá 3, hoặc số lần hủy vào phút chót/hủy sát giờ (tức hủy trong vòng 48 giờ trước giờ nhận phòng theo lịch) vượt quá 2, hạ đúng 1 hạng VIP. Đây là cùng một bộ đếm hủy trong vòng 48 giờ được nêu tại mục Hủy đặt phòng. Sau khi hạ hạng, các bộ đếm vẫn được giữ nguyên và tiếp tục cộng dồn; mỗi lần vượt ngưỡng tiếp theo hạ thêm 1 hạng nếu còn có thể. Không tự suy đoán hành vi khi khách đã ở hạng Regular.
 
@@ -124,7 +124,7 @@ Phải giữ các bộ đếm vi phạm cộng dồn; các lượt vi phạm kh�
 - KITCHEN quản lý dịch vụ, minibar, kho tổng và tồn minibar từng phòng; đổi giá dịch vụ cần MANAGER duyệt.
 - ACCOUNTING độc lập quản lý hóa đơn, thanh toán, thu/chi và công nợ; ACCOUNTING không sửa reservation hoặc trạng thái phòng, kể cả sau approval. Chỉ FRONT_DESK hoặc MANAGER mới sửa reservation/phòng; ACCOUNTING chỉ ghi nhận tài chính.
 - STAFF chỉ xem dữ liệu cơ bản.
-- CUSTOMER/Người dùng chỉ xem hồ sơ của chính mình, phòng còn trống, dịch vụ được phục vụ và hóa đơn của chính mình; CUSTOMER/Người dùng không có quyền nội bộ nào khác.
+- Khách chưa đăng nhập trên public portal chỉ được xem DTO công khai của phòng, trạng thái phòng và các dịch vụ đang hoạt động. Không được xem PII, người đặt/đang ở, booking, invoice, payment, receipt, ghi chú hoặc dữ liệu nội bộ. CUSTOMER đã đăng nhập được phép tạo booking cho chính mình và nhận mã/hướng dẫn thanh toán tiền cọc; chỉ được xem tóm tắt booking và trạng thái thanh toán của chính mình, không được xem dữ liệu của khách khác hoặc giao diện quản trị.
 - Không ai tự đổi role, tự cấp quyền vượt ceiling hoặc tự khóa tài khoản.
 
 ## 12. Trạng thái thao tác và giao ca
@@ -139,18 +139,24 @@ Phải giữ các bộ đếm vi phạm cộng dồn; các lượt vi phạm kh�
 
 - Không duy trì runtime owner cũ, legacy alias, dual-read hoặc dual-write.
 - Không cho phép writer trực tiếp vào DB ngoài backend.
-- Mọi request phải gắn với actor đã xác thực; không tin `actor_id` do client tự khai báo.
+- Mọi request ghi dữ liệu hoặc đọc dữ liệu nội bộ phải gắn với actor đã xác thực; không tin `actor_id` do client tự khai báo. Endpoint public chỉ đọc được miễn xác thực nhưng bắt buộc trả DTO công khai theo allow-list.
 - Khi cần phê duyệt quản lý, requester và approver phải là hai vai trò/người tách biệt.
 - Phải kiểm tra state trước mọi chuyển trạng thái và tôn trọng ranh giới transaction.
 - Phải ghi audit event cho các thay đổi cần truy vết.
 - API, schema, tài liệu và test phải follow đúng tài liệu này; test không được tạo ra một hợp đồng hoặc nhánh tương thích riêng.
 
-## 14. Quyết định chưa chốt
+## 14. Quyết định đã chốt bổ sung
 
-Các điểm sau phải được chủ sở hữu quyết định trước khi triển khai hành vi tương ứng:
+Cập nhật ngày 12/09/2026:
 
-1. Cách tính lượt cho lưu trú một phần/các loại lưu trú khác trong điều kiện VIP.
-2. Mọi khoản phí hủy bổ sung ngoài tiền đặt cọc.
+1. Lượt VIP lấy theo thời lượng đặt trong booking (`expected_check_in` → `expected_check_out`). Dưới 24 giờ không tính; từ đủ 24 giờ trở lên tính đúng 1 lượt cho mỗi booking hoàn tất, không nhân theo số chu kỳ 24 giờ hoặc số phòng. Hủy và `NO_SHOW` không tính lượt.
+2. Đúng 48 giờ trước giờ nhận phòng được xem là hủy trong vòng 48 giờ và mất cọc. Không thu thêm phí hủy ngoài tiền đặt cọc.
+3. Phát hành đầu tiên tiếp tục là Hotel OS cho một khách sạn; chưa triển khai multi-hotel/multi-tenant.
+4. Public portal có hai lớp: anonymous chỉ xem phòng/chi tiết phòng/dịch vụ bằng DTO riêng; CUSTOMER phải đăng nhập đầy đủ mới được tạo booking cho chính mình và nhận mã/hướng dẫn thanh toán cọc. Customer không được xem dữ liệu khách khác hoặc giao diện quản trị.
+5. Tất cả dịch vụ đang hoạt động đều được public; dịch vụ ngừng phục vụ không public để tránh hiểu lầm.
+6. MANAGER phân công housekeeping; HOUSEKEEPING nhận và cập nhật tiến độ. TECHNICAL báo hoàn thành, MANAGER nghiệm thu, sau đó TECHNICAL mở khóa phòng.
+7. Ảnh phòng lưu local trong giai đoạn đầu, tối đa 10 ảnh/phòng, 5 MB/ảnh, hỗ trợ JPEG, PNG và WebP.
+8. Pet Agent chỉ tư vấn, giải thích, tra cứu/tóm tắt trong quyền actor và đề xuất thao tác. Mọi mutation cần người dùng xác nhận, backend kiểm tra quyền, approval khi cần và audit; agent không được ghi trực tiếp database.
 
 ## Tham chiếu nguồn
 

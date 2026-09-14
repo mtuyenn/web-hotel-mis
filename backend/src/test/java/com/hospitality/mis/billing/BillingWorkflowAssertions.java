@@ -24,14 +24,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
-/** HTTP -> real services -> real repositories. Runs against both H2 and MySQL. */
+/** HTTP -> dịch vụ thật -> repository thật. Chạy trên cả H2 và MySQL. */
 @Transactional
 @WithMockUser(username = "clerk", roles = "FRONT_DESK")
 public abstract class BillingWorkflowAssertions {
+    /** MockMvc đi qua controller, security và dịch vụ thật như một request production. */
     @Autowired MockMvc mvc;
+    /** EntityManager seed invoice/approval trực tiếp trong transaction của test. */
     @Autowired EntityManager em;
+    /** Invoice chung của mỗi test; roomTotal 1250500 kiểm tra quy tắc làm tròn 1251000. */
     private Invoice invoice;
 
+    /** Given nhân viên, khách và invoice sạch, When bắt đầu test, Then mọi workflow dùng cùng aggregate. */
     @BeforeEach void seedInvoice() {
         Employee employee = new Employee(); employee.setEmployeeId("clerk"); employee.setFullName("Clerk");
         employee.setPassword("test-hash"); employee.setPhone("0900000091"); employee.setRole(EmployeeRole.FRONT_DESK); em.persist(employee);
@@ -42,6 +46,7 @@ public abstract class BillingWorkflowAssertions {
         em.persist(invoice); em.flush();
     }
 
+    /** Given invoice 1250500, When thu, xuất receipt, refund lặp, Then ledger không nhân bản và payable đúng. */
     @Test void collectRoundedTotalIssueReceiptRefundAndReplayWithoutDuplicate() throws Exception {
         payment("1251000", "PAYMENT", "collect");
         mvc.perform(get("/api/invoices/reservation/{id}", invoice.getReservation().getId()))
@@ -59,6 +64,7 @@ public abstract class BillingWorkflowAssertions {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.payable").value(251000));
     }
 
+    /** Given invoice thuộc ca trước, When actor ca sau đọc, Then tài liệu tài chính vẫn được chia sẻ để vận hành liên tục. */
     @Test @WithMockUser(username = "other", roles = "FRONT_DESK")
     void nextShiftCanReadReservationFinancialDocuments() throws Exception {
         mvc.perform(get("/api/invoices/reservation/{id}", invoice.getReservation().getId())).andExpect(status().isOk());
@@ -66,12 +72,14 @@ public abstract class BillingWorkflowAssertions {
         mvc.perform(get("/api/invoices/{id}/receipts", invoice.getId())).andExpect(status().isOk());
     }
 
+    /** Given request thiếu idempotency key, When qua HTTP boundary, Then bị validation trước khi ghi tiền. */
     @Test void missingIdempotencyKeyIsRejectedAtHttpBoundary() throws Exception {
         mvc.perform(post("/api/invoices/{id}/payments", invoice.getId()).contentType(APPLICATION_JSON)
                 .content("{\"amount\":1000,\"method\":\"CASH\",\"type\":\"PAYMENT\"}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
+    /** Given amount vượt payable, When ghi payment, Then trả lỗi nghiệp vụ và không tạo ledger row. */
     @Test void overpaymentIsRejectedWithoutRecordingMoney() throws Exception {
         mvc.perform(post("/api/invoices/{id}/payments", invoice.getId()).contentType(APPLICATION_JSON)
                 .content(body("1252000", "PAYMENT", "overpay")))
@@ -79,11 +87,13 @@ public abstract class BillingWorkflowAssertions {
         mvc.perform(get("/api/invoices/{id}/payments", invoice.getId())).andExpect(jsonPath("$.length()").value(0));
     }
 
+    /** Gửi payment với amount/type/key để các test tập trung vào outcome của workflow. */
     private void payment(String amount, String type, String key) throws Exception {
         mvc.perform(post("/api/invoices/{id}/payments", invoice.getId()).contentType(APPLICATION_JSON)
                 .content(body(amount, type, key))).andExpect(status().isOk());
     }
 
+    /** Tạo approval hợp lệ cho refund; fingerprint và amount phải khớp binding khi consume. */
     private void approveRefund(String amount, String key) throws Exception {
         var request = new PaymentTransactionDtos.CreateRequest(new BigDecimal(amount), PaymentMethod.CASH,
                 PaymentTransaction.TransactionType.REFUND, "guest request", key);
@@ -95,6 +105,7 @@ public abstract class BillingWorkflowAssertions {
         mvc.perform(post("/api/governance/approvals/{id}/approve", approval.getId())
                 .with(user("director").roles("DIRECTOR"))).andExpect(status().isOk());
     }
+    /** Tạo JSON snake_case theo đúng wire contract, bao gồm idempotency key bắt buộc. */
     private String body(String amount, String type, String key) {
         return "{\"amount\":" + amount + ",\"method\":\"CASH\",\"type\":\"" + type
                 + "\",\"reference\":\"guest request\",\"idempotency_key\":\"" + key + "\"}";

@@ -8,11 +8,20 @@ import java.util.List;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** Kho sổ giao dịch thanh toán và các phép tổng hợp tiền mặt theo actor. */
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long> {
+    java.util.Optional<PaymentTransaction> findByExternalEventId(String externalEventId);
+    /** Lấy sổ giao dịch của hóa đơn theo thứ tự thời gian phát sinh để dựng lịch sử thanh toán. */
     List<PaymentTransaction> findByInvoiceIdOrderByOccurredAtAsc(Long invoiceId);
+
+    /** Lọc các giao dịch của hóa đơn theo trạng thái xử lý hiện tại. */
     List<PaymentTransaction> findByInvoiceIdAndStatus(Long invoiceId, TransactionStatus status);
+
+    /** Tìm giao dịch theo tiền tố khóa chống lặp, bản ghi mới hơn đứng trước. */
     @org.springframework.data.jpa.repository.Query("select p from PaymentTransaction p where p.idempotencyKey like concat(:prefix, '%') order by p.id desc")
     List<PaymentTransaction> findByIdempotencyKeyPrefix(@org.springframework.data.repository.query.Param("prefix") String prefix);
+
+    /** Tính tiền mặt thuần của nhân viên trong khoảng nửa kín (fromAt, toAt]. */
     @org.springframework.data.jpa.repository.Query(value = """
             select coalesce(sum(case when type = 'PAYMENT' then amount else -amount end), 0)
             from payment_transactions

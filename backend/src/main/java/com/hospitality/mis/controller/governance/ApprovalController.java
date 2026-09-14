@@ -13,14 +13,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Quản lý yêu cầu phê duyệt và các quyết định chấp thuận hoặc từ chối trong quy trình quản trị.
+ */
 @RestController
 @RequestMapping("/api/governance/approvals")
 class ApprovalController {
+    /** Dịch vụ tạo, truy vấn và chuyển trạng thái yêu cầu phê duyệt. */
     private final ApprovalService service;
 
     ApprovalController(ApprovalService service) {
@@ -28,6 +33,11 @@ class ApprovalController {
     }
 
 
+    /**
+     * Tạo yêu cầu phê duyệt qua POST /api/governance/approvals.
+     * Body gồm action, target, payload, amount, reason và idempotencyKey, được {@code @Valid} kiểm tra; trả 201 cùng yêu cầu.
+     * Chỉ APPROVAL_REQUEST được phép; khóa idempotency nằm trong DTO để dịch vụ chống tạo trùng, còn lỗi dữ liệu/trạng thái do dịch vụ báo.
+     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@departmentAccess.allows(authentication, 'APPROVAL_REQUEST')")
@@ -37,22 +47,43 @@ class ApprovalController {
     }
 
 
+    /**
+     * Phê duyệt yêu cầu qua POST /api/governance/approvals/{id}/approve; id là path parameter, không có body.
+     * Chỉ APPROVAL_APPROVE và người được {@code approvalAuthorization.canApprove} cho yêu cầu đó được phép; trả trạng thái mới.
+     * Không có header idempotency riêng, còn yêu cầu không tồn tại hoặc đã chuyển trạng thái tạo lỗi nghiệp vụ.
+     */
     @PostMapping("/{id}/approve")
 
     @PreAuthorize("@departmentAccess.allows(authentication, 'APPROVAL_APPROVE') and @approvalAuthorization.canApprove(#id, authentication.name)")
-    public ApprovalDtos.Response approve(@PathVariable Long id) {
-        return ApprovalDtos.Response.from(service.approve(id, SecurityActor.currentActor()));
+    public ApprovalDtos.Response approve(@PathVariable Long id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        String actor = SecurityActor.currentActor();
+        return ApprovalDtos.Response.from(key == null || key.isBlank()
+                ? service.approve(id, actor) : service.approve(id, actor, key));
     }
 
 
+    /**
+     * Từ chối yêu cầu qua POST /api/governance/approvals/{id}/reject; id là path parameter và không có body.
+     * Quyền là APPROVAL_APPROVE kết hợp kiểm tra canApprove theo yêu cầu; trả trạng thái mới, còn thao tác lặp/trạng thái sai
+     * được ApprovalService xử lý thành lỗi nghiệp vụ. Không có idempotency header.
+     */
     @PostMapping("/{id}/reject")
 
     @PreAuthorize("@departmentAccess.allows(authentication, 'APPROVAL_APPROVE') and @approvalAuthorization.canApprove(#id, authentication.name)")
-    public ApprovalDtos.Response reject(@PathVariable Long id) {
-        return ApprovalDtos.Response.from(service.reject(id, SecurityActor.currentActor()));
+    public ApprovalDtos.Response reject(@PathVariable Long id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        String actor = SecurityActor.currentActor();
+        return ApprovalDtos.Response.from(key == null || key.isBlank()
+                ? service.reject(id, actor) : service.reject(id, actor, key));
     }
 
 
+    /**
+     * Lọc danh sách yêu cầu qua GET /api/governance/approvals?status=...
+     * status là query parameter tùy chọn; trả danh sách response phê duyệt. Chỉ APPROVAL_APPROVE được phép.
+     * Giá trị status không hợp lệ hoặc lỗi truy vấn do dịch vụ báo; thao tác đọc không cần idempotency.
+     */
     @GetMapping
     @PreAuthorize("@departmentAccess.allows(authentication, 'APPROVAL_APPROVE')")
     public List<ApprovalDtos.Response> list(@RequestParam(required = false) String status) {

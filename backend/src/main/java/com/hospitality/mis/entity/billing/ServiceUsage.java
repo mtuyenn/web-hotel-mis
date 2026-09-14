@@ -1,3 +1,4 @@
+/* Entity này ghi lại dịch vụ đã sử dụng, cùng đơn giá tại thời điểm phát sinh. */
 package com.hospitality.mis.entity.billing;
 
 import com.hospitality.mis.entity.reservation.Reservation;
@@ -6,26 +7,33 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * One service usage line attached to a reservation.
+ * Một dòng ghi nhận dịch vụ đã sử dụng thuộc một đặt phòng.
  *
- * <p>The composite key consists of the reservation, service, and usage date.
- * The unit price is captured at usage time so invoice history remains stable
- * when the service catalog changes later.</p>
+ * <p>Khóa ghép gồm đặt phòng, dịch vụ và ngày sử dụng.
+ * Đơn giá được ghi nhận tại thời điểm sử dụng để lịch sử hóa đơn không thay đổi
+ * khi danh mục dịch vụ được cập nhật sau đó.</p>
  */
 @Entity
 @Table(name = "service_usages")
 @IdClass(ServiceUsageId.class)
 @Access(AccessType.FIELD)
 public class ServiceUsage {
+    /** Đặt phòng phát sinh dịch vụ; cùng với service và usedOn tạo khóa ghép. */
     @Id @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "reservation_id")
     private Reservation reservation;
+    /** Dịch vụ được sử dụng trong ngày; cùng một dịch vụ/ngày không lặp trong đặt phòng. */
     @Id @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "service_id")
     private Service service;
+    /** Ngày nghiệp vụ dùng để phân biệt các lần dùng dịch vụ. */
     @Id @Column(name = "used_on") private LocalDate usedOn;
+    /** Số lượng dùng, được tính với đơn giá chụp tại thời điểm tạo dòng. */
     @Column(name = "quantity", nullable = false) private Integer quantity = 0;
+    /** Đơn giá bất biến theo lịch sử hóa đơn, không tự đổi theo Service.price. */
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2) private BigDecimal unitPrice;
 
+    /** Constructor rỗng dành cho JPA. */
     public ServiceUsage() {}
+    /** Tạo dòng sử dụng và chụp đơn giá hiện thời của dịch vụ. */
     public ServiceUsage(Reservation reservation, Service service, LocalDate usedOn, Integer quantity) {
         this.reservation = reservation; this.service = service; this.usedOn = usedOn;
         this.quantity = quantity; this.unitPrice = service.getPrice();

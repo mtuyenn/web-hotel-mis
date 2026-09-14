@@ -13,6 +13,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 
 
@@ -23,17 +25,35 @@ import java.util.List;
 
 
 @Configuration
+/** Cấu hình CORS từ môi trường, chỉ cho phép các origin cụ thể đã được vận hành khai báo. */
+public class WebConfig implements WebMvcConfigurer {
 
-public class WebConfig {
+    private final String roomImagesDirectory;
+
+    public WebConfig(@Value("${hotel.media.room-images-dir:./data/room-images}") String roomImagesDirectory) {
+        this.roomImagesDirectory = roomImagesDirectory;
+    }
+
+    /** Public URL chỉ phục vụ file trong thư mục ảnh đã cấu hình; filename được server sinh. */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        String location = java.nio.file.Path.of(roomImagesDirectory).toAbsolutePath().normalize().toUri().toString();
+        registry.addResourceHandler("/media/rooms/**").addResourceLocations(location);
+    }
 
 
 
     @Bean
 
+    /**
+     * Chuyển dependency {@code CORS_ALLOWED_ORIGINS} thành policy dùng cho mọi đường dẫn.
+     * Origin rỗng hoặc wildcard bị từ chối lúc khởi động để không vô tình mở rộng biên trình duyệt.
+     */
     CorsConfigurationSource corsConfigurationSource(
 
             @Value("${CORS_ALLOWED_ORIGINS}") String configuredOrigins) {
 
+        // Chỉ giữ origin cụ thể sau khi trim; danh sách này là biên tin cậy cho trình duyệt.
         List<String> origins = Arrays.stream(configuredOrigins.split(","))
 
                 .map(String::trim)
@@ -50,6 +70,7 @@ public class WebConfig {
 
 
 
+        // Policy này không cho credential cross-origin và chỉ công khai các header cần thiết.
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(origins);

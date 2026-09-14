@@ -39,12 +39,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+/** Bảo vệ incident: actor, phòng thuộc reservation và compensation/audit. */
 class EquipmentIncidentCorrectnessTest {
+    /** Mock ports: incident là mutation target, reservation là aggregate lock, audit là side-effect assertion. */
     @Mock EquipmentIncidentRepository incidents;
     @Mock ReservationRepository reservations;
     @Mock AuditService audit;
 
     @BeforeEach
+    /** Đặt actor housekeeping hợp lệ cho các case mutation. */
     void authenticateHousekeeping() {
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken("housekeeping", "test",
@@ -53,11 +56,13 @@ class EquipmentIncidentCorrectnessTest {
     }
 
     @AfterEach
+    /** Dọn SecurityContext sau test. */
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
     }
 
     @Test
+    /** Given phòng occupied thuộc booking, When record, Then save compensation 150 và audit actor. */
     void allowedHousekeepingActorCanRecordIncidentForOccupiedRoomInReservation() {
         Reservation reservation = checkedInReservation("101");
         when(reservations.findForUpdate(9L)).thenReturn(Optional.of(reservation));
@@ -79,6 +84,7 @@ class EquipmentIncidentCorrectnessTest {
     }
 
     @Test
+    /** Given room ngoài booking, When record, Then fail trước save/audit với ROOM_NOT_IN_RESERVATION. */
     void foreignRoomIsRejectedBeforeIncidentMutation() {
         Reservation reservation = checkedInReservation("101");
         when(reservations.findForUpdate(9L)).thenReturn(Optional.of(reservation));
@@ -95,6 +101,7 @@ class EquipmentIncidentCorrectnessTest {
     }
 
     @Test
+    /** Given actor request khác authenticated, When record, Then fail trước cả reservation load. */
     void incidentRejectsClientActorThatDiffersFromAuthenticatedActorBeforeReservationLoad() {
         var service = new EquipmentIncidentService(incidents, reservations,
                 new PricingPolicy(3, 20, new BigDecimal("10")), audit);
@@ -108,6 +115,7 @@ class EquipmentIncidentCorrectnessTest {
         verifyNoInteractions(reservations, incidents, audit);
     }
 
+    /** Dựng reservation CHECKED_IN với một line OCCUPIED để kiểm tra membership của room. */
     private Reservation checkedInReservation(String roomId) {
         Reservation reservation = new Reservation();
         reservation.transitionTo(ReservationStatus.CONFIRMED);

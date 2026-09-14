@@ -3,20 +3,28 @@ package com.hospitality.mis.entity.reservation;
 
 
 public enum ReservationStatus {
+    /** Bản nháp chưa xác nhận. */
     DRAFT,
 
+    /** Đã thu tiền đặt cọc. */
     DEPOSIT_PAID,
 
+    /** Đặt phòng đã được xác nhận. */
     CONFIRMED,
 
+    /** Khách đã nhận phòng. */
     CHECKED_IN,
 
+    /** Khách đã trả phòng và kết thúc lưu trú. */
     CHECKED_OUT,
 
+    /** Đặt phòng đã bị hủy. */
     CANCELLED,
 
+    /** Khách không đến nhận phòng theo lịch. */
     NO_SHOW;
 
+    /** Kiểm tra trạng thái đích có hợp lệ trong vòng đời hiện tại hay không. */
     public boolean canTransitionTo(ReservationStatus next) {
         return switch (this) {
             case DRAFT -> next == CONFIRMED || next == DEPOSIT_PAID || next == CANCELLED;

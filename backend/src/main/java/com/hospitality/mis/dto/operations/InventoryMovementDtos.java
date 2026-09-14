@@ -8,12 +8,36 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 
+/** DTO nhật ký nhập, xuất hoặc điều chỉnh tồn kho dịch vụ. */
 public final class InventoryMovementDtos {
+    /** Namespace cho payload tồn kho. */
     private InventoryMovementDtos() {}
+    /** Request ghi nhận một biến động tồn kho. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record CreateRequest(@NotBlank String serviceId, @NotNull InventoryMovement.MovementType type,
-                                @Positive int quantity, String reason) {}
+    public record CreateRequest(
+                                /** Mã dịch vụ bị thay đổi tồn. */
+                                @NotBlank String serviceId,
+                                /** Loại biến động theo enum miền. */
+                                @NotNull InventoryMovement.MovementType type,
+                                /** Số lượng biến động phải dương. */
+                                @Positive int quantity,
+                                /** Lý do để đối soát. */
+                                String reason) {}
+    /** Biến động đã ghi nhận cùng tác nhân và thời điểm. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record Response(Long id, String serviceId, InventoryMovement.MovementType type, int quantity,
-                           String actorId, LocalDateTime occurredAt, String reason) {}
+    public record Response(
+                           /** Khóa bản ghi biến động. */
+                           Long id,
+                           /** Mã dịch vụ. */
+                           String serviceId,
+                           /** Loại biến động. */
+                           InventoryMovement.MovementType type,
+                           /** Số lượng. */
+                           int quantity,
+                           /** Tác nhân thực hiện. */
+                           String actorId,
+                           /** Thời điểm phát sinh. */
+                           LocalDateTime occurredAt,
+                           /** Lý do. */
+                           String reason) {}
 }

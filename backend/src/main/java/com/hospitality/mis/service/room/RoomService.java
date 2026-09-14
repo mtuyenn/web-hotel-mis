@@ -1,3 +1,4 @@
+/* Service này kiểm tra các chuyển trạng thái phòng trước khi ghi xuống database. */
 package com.hospitality.mis.service.room;
 
 import com.hospitality.mis.common.exception.DomainException;
@@ -18,14 +19,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.List;
 
 @Service
 public class RoomService {
+    /** Kho phòng, hỗ trợ tìm kiếm và khóa dòng khi đổi trạng thái. */
     private final RoomStore rooms;
+    /** Kiểm tra đặt phòng/lưu trú chồng lấn khi báo availability hoặc READY. */
     private final ReservationOverlapPort overlaps;
+    /** Ghi actor và trạng thái trước/sau khi đổi phòng. */
     private final AuditService audit;
+    /** Policy xác thực khoảng thời gian và tính phòng có sẵn. */
     private final RoomAvailabilityPolicy availabilityPolicy;
+    private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 
     @Autowired
     public RoomService(RoomStore rooms, ReservationOverlapPort overlaps, AuditService audit) {
@@ -40,11 +47,16 @@ public class RoomService {
         this.availabilityPolicy = availabilityPolicy;
     }
 
+    @Autowired
+    void setBusinessClock(Clock clock) { this.clock = clock; }
+
+    /** Tìm phòng theo loại và trạng thái, trả DTO không làm thay đổi dữ liệu. */
     @Transactional(readOnly = true)
     public List<RoomDtos.Response> search(String type, RoomStatus status) {
         return rooms.search(type, status).stream().map(this::toResponse).toList();
     }
 
+    /** Kiểm tra khoảng thời gian hợp lệ rồi tính availability theo overlap từng phòng. */
     @Transactional(readOnly = true)
     public List<RoomDtos.Availability> availability(LocalDateTime from, LocalDateTime to, String type) {
         try {
@@ -60,10 +72,11 @@ public class RoomService {
         }).toList();
     }
 
+    /** Khóa phòng, áp policy transition/quyền bảo trì và audit trạng thái mới. */
     @Transactional
     public RoomDtos.Response updateStatus(String id, RoomStatus status, String suppliedActor) {
         String actor = authenticatedActor(suppliedActor);
-        if (status == null) {
+        if (status == null || !status.isOperationalStatus()) {
             throw new DomainException("INVALID_ROOM_STATUS", "Trạng thái phòng không hợp lệ");
         }
         Room room = rooms.findForUpdate(id)
@@ -72,8 +85,8 @@ public class RoomService {
         if (before == status) return toResponse(room);
 
         requireSupportedTransition(id, before, status);
-        if (status == RoomStatus.READY
-                && overlaps.hasOverlap(id, LocalDateTime.now(), LocalDateTime.now().plusNanos(1))) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (status == RoomStatus.READY && overlaps.hasOverlap(id, now, now.plusNanos(1))) {
             throw new DomainException("ROOM_NOT_AVAILABLE", "Phòng đang có lượt đặt hoặc lưu trú hoạt động");
         }
 
@@ -83,6 +96,7 @@ public class RoomService {
         return toResponse(room);
     }
 
+    /** Chặn transition ngoài hợp đồng và yêu cầu role kỹ thuật/quản lý cho bảo trì. */
     private void requireSupportedTransition(String id, RoomStatus before, RoomStatus next) {
         if (before == RoomStatus.OCCUPIED && next == RoomStatus.READY) {
             throw new DomainException("INVALID_ROOM_TRANSITION",
@@ -100,6 +114,7 @@ public class RoomService {
                     "Room state transition is not supported by the current contract: " + before + " -> " + next);
     }
 
+    /** Kiểm tra principal có một trong các role được phép quản lý bảo trì. */
     private boolean hasMaintenanceRole() {
         return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
                 .map(authority -> authority.getAuthority())
@@ -109,6 +124,7 @@ public class RoomService {
                         || authority.equals("ROLE_TECHNICAL"));
     }
 
+    /** Ràng buộc actor với principal và chuyển lỗi Spring Security thành lỗi miền. */
     private String authenticatedActor(String supplied) {
         try {
             return SecurityActor.requireBoundActor(supplied);
@@ -119,6 +135,7 @@ public class RoomService {
         }
     }
 
+    /** Chuyển phòng và loại phòng thành DTO trả cho API. */
     public RoomDtos.Response toResponse(Room room) {
         RoomType roomType = room.getRoomType();
         return new RoomDtos.Response(room.getId(), room.getName(), roomType.getId(), roomType.getName(),

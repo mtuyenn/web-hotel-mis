@@ -1,6 +1,12 @@
+/* Enum này giới hạn vòng đời phiếu bảo trì vào các trạng thái hợp lệ. */
 package com.hospitality.mis.entity.operations;
 
-/** Valid lifecycle states for a room maintenance work order. */
+/** Các trạng thái hợp lệ trong vòng đời phiếu bảo trì phòng. */
 public enum MaintenanceStatus {
-    CHUA_XU_LY, DANG_BAO_TRI, DA_HOAN_THANH
+    /** Phiếu mới tạo, chưa bắt đầu xử lý. */
+    CHUA_XU_LY,
+    /** Công việc đang được kỹ thuật viên thực hiện. */
+    DANG_BAO_TRI,
+    /** Công việc đã hoàn tất. */
+    DA_HOAN_THANH
 }

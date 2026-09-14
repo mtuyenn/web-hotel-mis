@@ -9,8 +9,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Bảo vệ entity Room/RoomType và cột snake_case canonical. */
 class RoomDomainTest {
     @Test
+    /** Given hai model canonical, When soi JPA annotation, Then map đúng rooms và room_types. */
     void canonicalModelsAreTheSoleConcreteEntities() {
         assertThat(Room.class.isAnnotationPresent(Entity.class)).isTrue();
         assertThat(RoomType.class.isAnnotationPresent(Entity.class)).isTrue();
@@ -19,6 +21,7 @@ class RoomDomainTest {
     }
 
     @Test
+    /** Given field mapping, When đọc @Column, Then tên và length khớp schema v1. */
     void canonicalFieldsUseV1SnakeCaseColumns() throws Exception {
         assertColumn(Room.class, "id", "id", 10);
         assertColumn(Room.class, "name", "name", 100);
@@ -31,6 +34,7 @@ class RoomDomainTest {
         assertColumn(RoomType.class, "description", "description", 500);
     }
 
+    /** Helper kiểm tra column name và length khi length được quy định. */
     private void assertColumn(Class<?> type, String field, String name, int length) throws Exception {
         Column column = type.getDeclaredField(field).getAnnotation(Column.class);
         assertThat(column.name()).isEqualTo(name);

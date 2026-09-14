@@ -14,24 +14,30 @@ import java.time.LocalDateTime;
 
 
 
+/** Sự cố thiết bị trong phòng, kèm giá trị và khoản bồi thường phát sinh. */
 @Entity
 
 @Table(name = "equipment_incidents")
 public class EquipmentIncident {
 
+    /** ID sự cố do cơ sở dữ liệu sinh. */
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "reservation_id") private Reservation reservation;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "room_id") private Room room;
     @Column(name = "equipment_name", nullable = false, length = 100) private String equipmentName;
+    /** Giá trị gốc của thiết bị tại thời điểm ghi nhận sự cố. */
     @Column(name = "original_value", nullable = false, precision = 14, scale = 2) private BigDecimal originalValue;
     @Column(name = "purchased_on", nullable = false) private LocalDate purchasedAt;
     @Column(nullable = false) private int quantity;
 
+    /** Số tiền bồi thường được tính cho sự cố. */
     @Column(name = "compensation", nullable = false, precision = 14, scale = 2) private BigDecimal compensation;
     @Column(name = "created_at", nullable = false) private LocalDateTime createdAt = LocalDateTime.now();
+    /** Constructor rỗng dành cho JPA. */
     protected EquipmentIncident() {}
 
+    /** Tạo snapshot sự cố; giá trị thiết bị được chụp để lịch sử không phụ thuộc dữ liệu hiện tại. */
     public EquipmentIncident(Reservation reservation, Room room, String equipmentName, BigDecimal originalValue,
                              LocalDate purchasedAt, int quantity, BigDecimal compensation) {
 
@@ -43,5 +49,7 @@ public class EquipmentIncident {
     public Long getId() { return id; }
 
     public BigDecimal getCompensation() { return compensation; }
+
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
 }
