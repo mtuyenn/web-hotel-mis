@@ -227,6 +227,14 @@ Chỉ chuyển `READY` khi checklist bắt buộc hoàn tất, không còn block
 
 Manager là người phân công task; Housekeeping chỉ nhận task và cập nhật trạng thái.
 
+#### Trạng thái P1.3 — 14/09/2026
+
+Đã có migration V9 và task API housekeeping với các trạng thái
+`NEEDS_CLEANING`, `IN_PROGRESS`, `CLEANED`, `READY`, `WAITING_TECHNICAL`.
+Task lưu assignee, người giao, checklist, incident blocking và ghi audit; phòng
+đồng bộ `CLEANING`/`MAINTENANCE`/`READY`. Chuyển READY bị chặn nếu checklist
+chưa hoàn tất hoặc còn incident blocking.
+
 ### P1.4 — Technical và equipment
 
 - Equipment registry là nguồn giá trị/ngày mua; incident không tin giá trị do request tự nhập.

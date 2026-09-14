@@ -13,6 +13,7 @@ import com.hospitality.mis.service.guest.GuestService;
 import com.hospitality.mis.service.guest.MembershipHistoryService;
 import com.hospitality.mis.service.operations.EquipmentIncidentService;
 import com.hospitality.mis.service.operations.FrontDeskDashboardService;
+import com.hospitality.mis.service.operations.HousekeepingService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
@@ -82,9 +83,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean RoomMediaService mock19;
     @MockBean RoomTypeCatalogService mock20;
     @MockBean FrontDeskDashboardService mock21;
+    @MockBean HousekeepingService mock22;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -96,6 +98,7 @@ class DepartmentAuthorizationMatrixTest {
             new com.hospitality.mis.dto.operations.FrontDeskDashboardDtos.Response(
                 java.time.LocalDate.now(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), Map.of(), List.of(), 0, 20, 0, 0));
+        when(mock22.list(any(), any(), any())).thenReturn(List.of());
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -125,6 +128,9 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/room-types/STD", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("GET", "/api/room-types/STD/price-history", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("GET", "/api/front-desk/dashboard", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{}"),
+            new Endpoint("GET", "/api/operations/housekeeping/tasks", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{}"),
+            new Endpoint("POST", "/api/operations/housekeeping/tasks", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"room_id\":\"101\"}"),
+            new Endpoint("PATCH", "/api/operations/housekeeping/tasks/1", "ADMIN,DIRECTOR,MANAGER,HOUSEKEEPING", "{\"status\":\"CLEANED\"}"),
             new Endpoint("POST", "/api/room-types/STD/submit", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/room-types/STD/activate", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),
