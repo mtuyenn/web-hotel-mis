@@ -79,6 +79,32 @@ public class RoomTypeCatalogService {
                 });
     }
 
+    /** Tạo một bản draft mới từ loại phòng ACTIVE; bản đang phục vụ vẫn bất biến. */
+    @Transactional
+    public RoomTypeAdminDtos.Response createRevision(String sourceId, RoomTypeAdminDtos.Request request,
+                                                     String actor, String key) {
+        String principal = SecurityActor.requireBoundActor(actor);
+        String source = sourceId.trim();
+        if (!types.existsById(source)) throw error("ROOM_TYPE_NOT_FOUND", "Không tìm thấy loại phòng");
+        RoomType current = locked(source);
+        if (current.getCatalogStatus() != RoomTypeCatalogStatus.ACTIVE)
+            throw error("ROOM_TYPE_REVISION_SOURCE_INVALID", "Chỉ loại phòng ACTIVE mới được tạo revision");
+        if (request == null || request.id() == null || request.id().isBlank())
+            throw error("ROOM_TYPE_ID_REQUIRED", "Revision phải có mã loại phòng mới");
+        String revisionId = request.id().trim();
+        String hash = fingerprint("REVISION|" + source + "|" + canonical(request));
+        return durableIdempotency.execute("room-type-revision", key, principal, hash,
+                RoomTypeAdminDtos.Response.class, () -> {
+                    if (types.existsById(revisionId)) throw error("ROOM_TYPE_EXISTS", "Mã revision đã tồn tại");
+                    RoomType draft = new RoomType();
+                    apply(draft, request, principal, false);
+                    RoomType saved = types.saveAndFlush(draft);
+                    audit.record(principal, "ROOM_TYPE_REVISION_CREATED", "ROOM_TYPE", saved.getId(),
+                            source, saved.getCatalogStatus().name(), null);
+                    return RoomTypeAdminDtos.Response.from(saved);
+                });
+    }
+
     @Transactional
     public ApprovalDtos.Response submit(String id, String actor, String key) {
         String principal = SecurityActor.requireBoundActor(actor);

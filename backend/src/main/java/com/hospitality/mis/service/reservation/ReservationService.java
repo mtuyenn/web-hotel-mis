@@ -18,6 +18,7 @@ import com.hospitality.mis.dao.operations.InventoryMovementRepository;
 import com.hospitality.mis.entity.operations.InventoryMovement;
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.service.governance.AuditService;
+import com.hospitality.mis.dto.governance.AuditDtos;
 import com.hospitality.mis.service.governance.DurableIdempotencyService;
 import com.hospitality.mis.dao.guest.GuestStore;
 import com.hospitality.mis.dao.identity.EmployeeRepository;
@@ -303,12 +304,59 @@ public class ReservationService {
     @Transactional
     public ReservationDtos.Response confirm(Long id, String actor, String key) {
         String principal = authenticatedActor(actor);
-        Reservation r = locked(id);
-        requireState(r, ReservationStatus.DRAFT);
-        r.transitionTo(ReservationStatus.CONFIRMED);
-        r.getRooms().forEach(line -> { line.setStatus(RoomStatus.RESERVED); line.getRoom().setStatus(RoomStatus.RESERVED); });
-        audit.record(principal, "RESERVATION_CONFIRMED", "RESERVATION", id.toString(), ReservationStatus.DRAFT.name(), ReservationStatus.CONFIRMED.name(), null);
-        return toResponse(r);
+        return executeIdempotent("reservation-confirm", key, principal,
+                IdempotencySupport.fingerprint("CONFIRM|" + id), ReservationDtos.Response.class, () -> {
+                    Reservation r = locked(id);
+                    requireState(r, ReservationStatus.DRAFT);
+                    r.transitionTo(ReservationStatus.CONFIRMED);
+                    r.getRooms().forEach(line -> { line.setStatus(RoomStatus.RESERVED); line.getRoom().setStatus(RoomStatus.RESERVED); });
+                    audit.record(principal, "RESERVATION_CONFIRMED", "RESERVATION", id.toString(), ReservationStatus.DRAFT.name(), ReservationStatus.CONFIRMED.name(), null);
+                    return toResponse(r);
+                });
+    }
+
+    /** Cập nhật lịch/phòng của booking trước check-in với kiểm tra overlap dưới row lock. */
+    @Transactional
+    public ReservationDtos.Response update(Long id, ReservationDtos.UpdateRequest request,
+                                           String suppliedActor, String key) {
+        String actor = authenticatedActor(suppliedActor);
+        ReservationAccess.requireOperator(actor);
+        if (request == null || request.rooms() == null || request.rooms().isEmpty())
+            throw error("INVALID_RESERVATION", "Booking phải có ít nhất một phòng");
+        String canonical = request.rooms().stream().map(x -> x.roomId().trim() + "@" + x.expectedCheckIn() + "/" + x.expectedCheckOut())
+                .sorted().reduce((a, b) -> a + ";" + b).orElse("");
+        String fingerprint = IdempotencySupport.fingerprint("UPDATE|" + id + "|" + canonical + "|" + request.deposit());
+        return executeIdempotent("reservation-update", key, actor, fingerprint, ReservationDtos.Response.class, () -> {
+            Reservation reservation = locked(id);
+            requireState(reservation, ReservationStatus.DRAFT, ReservationStatus.CONFIRMED, ReservationStatus.DEPOSIT_PAID);
+            if (request.rooms().size() != reservation.getRooms().size())
+                throw error("ROOM_SET_IMMUTABLE", "Cập nhật booking phải giữ nguyên số phòng đã gán");
+            Map<String, ReservationDtos.RoomStay> requested = new HashMap<>();
+            for (ReservationDtos.RoomStay line : request.rooms()) {
+                if (requested.put(line.roomId().trim(), line) != null)
+                    throw error("DUPLICATE_ROOM", "Không được lặp phòng trong booking");
+                if (!line.expectedCheckOut().isAfter(line.expectedCheckIn()))
+                    throw error("INVALID_INTERVAL", "Giờ trả phải sau giờ nhận");
+            }
+            lockRooms(reservation.getRooms().stream().map(x -> x.getRoom().getId()).toList());
+            for (ReservationRoom line : reservation.getRooms()) {
+                ReservationDtos.RoomStay next = requested.get(line.getRoom().getId());
+                if (next == null) throw error("ROOM_SET_IMMUTABLE", "Không được đổi phòng trong thao tác cập nhật lịch");
+                if (reservations.hasOverlapExcludingReservation(id, line.getRoom().getId(), next.expectedCheckIn(), next.expectedCheckOut(), RoomStatus.CANCELLED, IGNORED))
+                    throw error("OVERBOOKING", "Phòng có lịch đặt giao nhau");
+                line.setCheckIn(next.expectedCheckIn());
+                line.setCheckOut(next.expectedCheckOut());
+            }
+            if (request.deposit() != null) reservation.setDepositAmount(request.deposit());
+            audit.record(actor, "RESERVATION_UPDATED", "RESERVATION", id.toString(), null, canonical, null);
+            return toResponse(reservation);
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditDtos.Response> timeline(Long id) {
+        if (!reservations.existsById(id)) throw error("RESERVATION_NOT_FOUND", "Không tìm thấy đặt phòng");
+        return audit.timeline("RESERVATION", id.toString()).stream().map(AuditDtos.Response::from).toList();
     }
 
     /**

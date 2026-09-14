@@ -63,6 +63,7 @@ client phải xử lý cả 401 và 403.
 | POST | `/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN |
 | POST | `/room-types` | Có `ROOM_CATALOG_WRITE`; tạo `DRAFT`, bắt buộc `Idempotency-Key` |
 | GET/PUT | `/room-types/{room_type_id}` | GET: có `ROOM_READ`; PUT: `ROOM_CATALOG_WRITE`, chỉ sửa `DRAFT`/`REJECTED`, bắt buộc `Idempotency-Key` |
+| POST | `/room-types/{room_type_id}/revision` | `ROOM_CATALOG_WRITE`; snapshot loại phòng ACTIVE thành mã draft mới, bắt buộc `Idempotency-Key` |
 | POST | `/room-types/{room_type_id}/submit` | `ROOM_CATALOG_WRITE`; tạo approval nội bộ, bắt buộc `Idempotency-Key` |
 | POST | `/room-types/{room_type_id}/activate` | `ROOM_CATALOG_WRITE`, chỉ requester sau khi approval exact payload, bắt buộc `Idempotency-Key` |
 | GET | `/room-types/{room_type_id}/price-history` | Có `ROOM_READ`; trả snapshot giá theo thời gian, approval và actor thay đổi |
@@ -72,6 +73,8 @@ client phải xử lý cả 401 và 403.
 | GET | `/reservations/{id}` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, TECHNICAL, STAFF |
 | POST | `/reservations/{id}/check-in` | MANAGER, FRONT_DESK |
 | POST | `/reservations/{id}/confirm` | MANAGER, FRONT_DESK; chuyển DRAFT → CONFIRMED và giữ phòng |
+| PATCH | `/reservations/{id}` | MANAGER, FRONT_DESK; cập nhật lịch các phòng đã gán trước check-in, bắt buộc `Idempotency-Key` và kiểm tra overlap |
+| GET | `/reservations/{id}/timeline` | Có `RESERVATION_READ`; audit timeline của booking trong phạm vi actor |
 | POST | `/reservations/{id}/check-out` | MANAGER, FRONT_DESK |
 | POST | `/reservations/{id}/cancel` | MANAGER, FRONT_DESK |
 | POST | `/reservations/{id}/no-show` | MANAGER, FRONT_DESK; chỉ sau khi hết giờ trả dự kiến, giữ tiền cọc |

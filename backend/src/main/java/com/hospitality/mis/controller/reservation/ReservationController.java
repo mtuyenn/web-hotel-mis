@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 
 
@@ -192,6 +193,23 @@ public class ReservationController {
     public ReservationDtos.Response confirm(@PathVariable Long id,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {
         return service.confirm(id, SecurityActor.currentActor(), idempotencyKey);
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_WRITE')")
+    public ReservationDtos.Response update(@PathVariable Long id,
+                                           @Valid @RequestBody ReservationDtos.UpdateRequest request,
+                                           @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        return service.update(id, request, SecurityActor.currentActor(), idempotencyKey);
+    }
+
+    @GetMapping("/{id}/timeline")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_READ')")
+    public List<com.hospitality.mis.dto.governance.AuditDtos.Response> timeline(@PathVariable Long id) {
+        ReservationDtos.Response response = service.get(id);
+        if (!SecurityActor.currentActor().equals(response.employeeId()) && !isGlobalReadRole())
+            throw new AccessDeniedException("Không được phép xem timeline ngoài phạm vi");
+        return service.timeline(id);
     }
 
     /**

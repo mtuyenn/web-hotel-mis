@@ -63,6 +63,11 @@ public class AuditService {
     }
 
     @Transactional(readOnly = true)
+    public List<AuditLog> timeline(String entityType, String entityId) {
+        return repository.findTop100ByEntityTypeAndEntityIdOrderByCreatedAtAscIdAsc(entityType, entityId);
+    }
+
+    @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<AuditLog> page(String actor, boolean global, String action, String entityType, int page, int size) {
         int safeSize = Math.max(1, Math.min(100, size));
         return repository.search(global ? null : actor, action, entityType,

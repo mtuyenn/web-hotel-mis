@@ -182,7 +182,8 @@ requester không thể tự duyệt. Public portal và customer booking chỉ nh
 phòng `ACTIVE`. V8 bổ sung bảng price history append-only và API đọc lịch sử;
 khi activate sẽ lưu snapshot giá gắn với approval/approver. Reject approval
 `ROOM_TYPE_ACTIVATE` cập nhật catalog về `REJECTED`. Phạm vi còn lại của P1.1
-là room CRUD quản trị và revision workflow cho loại phòng đã `ACTIVE`.
+Room CRUD quản trị và revision workflow cho loại phòng đã `ACTIVE` cũng đã có:
+revision tạo mã draft mới từ snapshot ACTIVE, không làm thay đổi bản đang bán.
 
 ### P1.2 — Front Desk daily operations
 
@@ -205,8 +206,9 @@ departures, current stays, cọc chưa thu, invoice còn số dư, trạng thái
 incident và room counts. Quyền riêng `FRONT_DESK_DASHBOARD` chỉ cấp cho
 Front Desk/Manager/Director/Admin.
 
-Reservation nội bộ đã có thao tác confirm `DRAFT → CONFIRMED`; room admin CRUD
-được kiểm soát bằng `ROOM_ADMIN_READ/WRITE` và chỉ nhận loại phòng `ACTIVE`.
+Reservation nội bộ đã có thao tác confirm `DRAFT → CONFIRMED`, cập nhật lịch
+trước check-in với overlap guard và timeline audit; room admin CRUD được kiểm
+soát bằng `ROOM_ADMIN_READ/WRITE` và chỉ nhận loại phòng `ACTIVE`.
 
 ### P1.3 — Housekeeping
 

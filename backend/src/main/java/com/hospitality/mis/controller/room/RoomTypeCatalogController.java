@@ -34,6 +34,15 @@ public class RoomTypeCatalogController {
         return service.update(id, request, SecurityActor.currentActor(), key);
     }
 
+    @PostMapping("/{id}/revision")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("@departmentAccess.allows(authentication, 'ROOM_CATALOG_WRITE')")
+    public RoomTypeAdminDtos.Response revision(@PathVariable String id,
+                                               @RequestBody @Valid RoomTypeAdminDtos.Request request,
+                                               @RequestHeader("Idempotency-Key") String key) {
+        return service.createRevision(id, request, SecurityActor.currentActor(), key);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("@departmentAccess.allows(authentication, 'ROOM_READ')")
     public RoomTypeAdminDtos.Response get(@PathVariable String id) { return service.get(id); }

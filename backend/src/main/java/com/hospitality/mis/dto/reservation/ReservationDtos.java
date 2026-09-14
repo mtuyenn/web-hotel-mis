@@ -101,6 +101,12 @@ public final class ReservationDtos {
     public record ExtendRequest(
                                 /** Mốc check-out mới, bắt buộc khác null. */
                                 @NotNull LocalDateTime newExpectedCheckOut) {}
+
+    /** Thay đổi lịch lưu trú trước khi khách nhận phòng; giữ nguyên tập phòng đã gán. */
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record UpdateRequest(
+            @NotEmpty @Valid List<RoomStay> rooms,
+            @PositiveOrZero BigDecimal deposit) {}
     /** Request thêm dịch vụ vào booking. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record AddServiceRequest(
