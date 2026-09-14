@@ -15,6 +15,7 @@ import com.hospitality.mis.service.operations.EquipmentIncidentService;
 import com.hospitality.mis.service.operations.FrontDeskDashboardService;
 import com.hospitality.mis.service.operations.HousekeepingService;
 import com.hospitality.mis.service.operations.TechnicalWorkOrderService;
+import com.hospitality.mis.service.identity.EmployeeService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
@@ -86,9 +87,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean FrontDeskDashboardService mock21;
     @MockBean HousekeepingService mock22;
     @MockBean TechnicalWorkOrderService mock23;
+    @MockBean EmployeeService mock24;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -102,6 +104,9 @@ class DepartmentAuthorizationMatrixTest {
                 List.of(), Map.of(), List.of(), 0, 20, 0, 0));
         when(mock22.list(any(), any(), any())).thenReturn(List.of());
         when(mock23.list(any(), any())).thenReturn(List.of());
+        when(mock24.canResetEmployee(any(), anyString())).thenReturn(true);
+        when(mock24.canManageRole(any(), any())).thenReturn(true);
+        when(mock24.list(anyBoolean())).thenReturn(List.of());
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -112,6 +117,9 @@ class DepartmentAuthorizationMatrixTest {
     /** Danh sách endpoint bảo vệ, là nguồn dữ liệu cho cả matrix và coverage check. */
     static List<Endpoint> endpoints() { return List.of(
             new Endpoint("POST", "/api/auth/employees", "ADMIN,DIRECTOR,MANAGER", "{\"employee_id\":\"new\",\"full_name\":\"New\",\"password\":\"valid-password\",\"role\":\"STAFF\",\"phone\":\"0900000000\"}"),
+            new Endpoint("GET", "/api/auth/employees", "ADMIN,DIRECTOR,MANAGER,HR,ACCOUNTING", "{}"),
+            new Endpoint("GET", "/api/auth/employees/emp", "ADMIN,DIRECTOR,MANAGER,HR,ACCOUNTING", "{}"),
+            new Endpoint("PATCH", "/api/auth/employees/emp/status", "ADMIN,DIRECTOR,MANAGER", "{\"enabled\":false}"),
             new Endpoint("POST", "/api/auth/employees/emp/password", "ADMIN,DIRECTOR,MANAGER", "{\"password\":\"valid-password\"}"),
             new Endpoint("GET", "/api/guests", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{}"),
             new Endpoint("GET", "/api/guests/1", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{}"),

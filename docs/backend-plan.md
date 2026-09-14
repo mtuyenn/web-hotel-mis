@@ -302,6 +302,12 @@ Admin:
 - Revoke session, xem security event và lịch sử đăng nhập.
 - Không ai tự đổi role hoặc tự nâng quyền.
 
+#### Trạng thái P1.7 — 14/09/2026
+
+HR/Admin đã có API list/detail nhân viên (lọc inactive), trả trạng thái khóa,
+login history và không lộ password; status enable/disable tuân thủ role ceiling
+và ghi audit. Provision/reset password vẫn dùng các policy hiện có.
+
 ### P1.8 — Approval, audit và thông báo
 
 - Approval queue lọc theo status/action/target/requester/date/risk.

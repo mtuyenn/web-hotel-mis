@@ -24,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import com.hospitality.mis.dto.auth.EmployeeAdminDtos;
 
 
 /** Các ca sử dụng của ứng dụng thuộc ranh giới danh tính. */
@@ -107,6 +109,29 @@ public class EmployeeService {
 
                 .orElseThrow(() -> new DomainException("EMPLOYEE_NOT_FOUND", "Không tìm thấy nhân viên"));
 
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeAdminDtos.Response> list(boolean includeInactive) {
+        return employees.findAll().stream().filter(x -> includeInactive || x.isEnabled()).map(this::toAdminResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeAdminDtos.Response detail(String employeeId) { return toAdminResponse(findRequired(employeeId)); }
+
+    @Transactional
+    public EmployeeAdminDtos.Response setEnabled(String employeeId, boolean enabled) {
+        Employee employee = findRequired(employeeId);
+        requireCurrentActorCanManage(employee.getRole());
+        employee.setEnabled(enabled);
+        audit.record(SecurityActor.currentActor(), enabled ? "EMPLOYEE_ENABLED" : "EMPLOYEE_DISABLED",
+                "EMPLOYEE", employeeId, String.valueOf(!enabled), String.valueOf(enabled), null);
+        return toAdminResponse(employees.save(employee));
+    }
+
+    private EmployeeAdminDtos.Response toAdminResponse(Employee e) {
+        return new EmployeeAdminDtos.Response(e.getEmployeeId(), e.getFullName(), e.getPhone(), e.getAddress(), e.getRole(),
+                e.isEnabled(), e.isAccountNonLocked(), e.getFailedLoginAttempts(), e.getLastLoginAt(), e.getLastFailedLoginAt());
     }
 
 

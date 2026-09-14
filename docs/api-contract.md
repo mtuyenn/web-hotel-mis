@@ -41,6 +41,8 @@ client phải xử lý cả 401 và 403.
 | POST | `/auth/logout` | Đã xác thực |
 | POST | `/auth/employees` | MANAGER |
 | POST | `/auth/employees/{employee_id}/password` | MANAGER |
+| GET | `/auth/employees?include_inactive=` / `/auth/employees/{employee_id}` | `EMPLOYEE_READ`; không trả password, có trạng thái account/login history |
+| PATCH | `/auth/employees/{employee_id}/status` | `EMPLOYEE_PROVISION` + role ceiling; bật/tắt tài khoản và audit |
 | GET | `/guests`, `/guests/{id}` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK |
 | POST | `/guests` | MANAGER, FRONT_DESK |
 | GET | `/rooms`, `/rooms/availability` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL, STAFF |
