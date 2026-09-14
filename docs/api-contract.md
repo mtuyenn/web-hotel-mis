@@ -88,6 +88,7 @@ client phải xử lý cả 401 và 403.
 | POST | `/governance/approvals` | MANAGER, ACCOUNTING, FRONT_DESK |
 | POST | `/governance/approvals/{id}/approve` | Có `APPROVAL_APPROVE`, khác requester; action refund bắt buộc role DIRECTOR |
 | GET | `/governance/approvals?status=PENDING` | Có `APPROVAL_APPROVE` |
+| GET | `/governance/approvals?status=&action=&target_id=&page=&size=` | Approval queue filter/pagination; không có query vẫn trả list tương thích |
 | POST | `/governance/approvals/{id}/reject` | Có `APPROVAL_APPROVE`, khác requester; action refund bắt buộc role DIRECTOR |
 | GET/POST | `/invoices/{invoice_id}/payments` | MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/invoices/{invoice_id}/receipts` | MANAGER, ACCOUNTING, FRONT_DESK |
@@ -100,6 +101,9 @@ client phải xử lý cả 401 và 403.
 | GET | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR |
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |
 | GET | `/governance/audit` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING; scoped by actor for accounting |
+| GET | `/governance/audit?action=&entity_type=&page=&size=` | Filter/pagination audit; trả `items`, `page`, `size`, `total_elements`, `total_pages` khi có query |
+| GET | `/governance/notifications/outbox?role=` | `NOTIFICATION_READ`; polling outbox pending theo recipient role |
+| POST | `/governance/notifications/outbox/{id}/delivered` | `NOTIFICATION_WRITE`; đánh dấu event đã giao |
 | POST | `/auth/customers/register` | Public |
 | POST | `/auth/customers/login` | Public |
 | GET | `/auth/customers/me` | CUSTOMER; only the authenticated guest |

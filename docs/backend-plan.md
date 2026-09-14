@@ -315,6 +315,13 @@ và ghi audit. Provision/reset password vẫn dùng các policy hiện có.
 - Thông báo sự cố dùng transactional outbox; giao diện nhận bằng polling trước, có thể nâng lên SSE/WebSocket sau.
 - Sự cố thường báo Front Desk và Technical; severity cao báo thêm Manager.
 
+#### Trạng thái P1.8 — 14/09/2026
+
+Approval queue và audit hỗ trợ filter/pagination; V12 bổ sung transactional
+notification outbox với dedupe key, polling và trạng thái delivered. Incident
+thiết bị phát event cho Front Desk và Technical; quyền notification giới hạn
+theo department.
+
 ## 5. Báo cáo điều hành P2
 
 Tạo read model/query service cho:

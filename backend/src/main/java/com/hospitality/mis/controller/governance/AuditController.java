@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 /**
  * Cung cấp nhật ký kiểm toán theo phạm vi mà actor và vai trò toàn cục được phép xem.
@@ -30,11 +33,19 @@ public class AuditController {
     @GetMapping
     
     @PreAuthorize("@departmentAccess.allows(authentication, 'AUDIT_READ')")
-    public List<AuditDtos.Response> list() {
+    public Object list(@RequestParam(required = false) String action,
+                       @RequestParam(name = "entity_type", required = false) String entityType,
+                       @RequestParam(required = false) Integer page,
+                       @RequestParam(required = false) Integer size) {
         boolean global = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_DIRECTOR") || a.getAuthority().equals("ROLE_MANAGER"));
-        return audit.list(SecurityActor.currentActor(), global).stream()
+        if (action == null && entityType == null && page == null && size == null) return audit.list(SecurityActor.currentActor(), global).stream()
                 .map(AuditDtos.Response::from)
                 .collect(Collectors.toList());
+        var result = audit.page(SecurityActor.currentActor(), global, action, entityType, page == null ? 0 : page, size == null ? 20 : size);
+        return new PageResponse(result.getContent().stream().map(AuditDtos.Response::from).toList(), result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PageResponse(List<AuditDtos.Response> items, int page, int size, long totalElements, int totalPages) {}
 }

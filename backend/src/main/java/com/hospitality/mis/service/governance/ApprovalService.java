@@ -152,6 +152,13 @@ public class ApprovalService {
         return approvals.findByStatusOrderByIdDesc(selected);
     }
 
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ApprovalRequest> page(String status, String action, String targetId, int page, int size) {
+        expirePending(Instant.now(clock));
+        String selected = status == null || status.isBlank() ? ApprovalRequest.PENDING : status.toUpperCase();
+        return approvals.search(selected, action, targetId, org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size))));
+    }
+
     /** Kiểm tra ràng buộc chính xác mà không tiêu thụ phê duyệt. */
     @Transactional
     public void requireApproved(String action, String targetId, String payload, BigDecimal amount, String actor) {

@@ -62,4 +62,11 @@ public class AuditService {
         return global ? repository.findTop100ByOrderByCreatedAtDesc() : repository.findTop100ByActorOrderByCreatedAtDesc(actor);
     }
 
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<AuditLog> page(String actor, boolean global, String action, String entityType, int page, int size) {
+        int safeSize = Math.max(1, Math.min(100, size));
+        return repository.search(global ? null : actor, action, entityType,
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), safeSize));
+    }
+
 }

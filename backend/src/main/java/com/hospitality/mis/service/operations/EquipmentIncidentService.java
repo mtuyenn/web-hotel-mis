@@ -11,6 +11,7 @@ import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.billing.PricingPolicy;
 import com.hospitality.mis.service.governance.AuditService;
 import com.hospitality.mis.service.governance.DurableIdempotencyService;
+import com.hospitality.mis.service.governance.NotificationOutboxService;
 import com.hospitality.mis.service.reservation.IdempotencySupport;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
@@ -34,6 +35,7 @@ public class EquipmentIncidentService {
     /** Cache kết quả hoàn tất trong instance để retry cùng actor/payload không ghi trùng. */
     private final IdempotencySupport idempotency = new IdempotencySupport();
     private DurableIdempotencyService durableIdempotency;
+    private NotificationOutboxService notifications;
     private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 
     public EquipmentIncidentService(EquipmentIncidentRepository incidents, ReservationRepository reservations,
@@ -49,6 +51,9 @@ public class EquipmentIncidentService {
 
     @org.springframework.beans.factory.annotation.Autowired
     void setBusinessClock(Clock clock) { this.clock = clock; }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setNotifications(NotificationOutboxService notifications) { this.notifications = notifications; }
 
     /** Khóa đặt phòng, xác nhận room occupied, tính bồi thường và ghi sự cố idempotent. */
     @Transactional
@@ -79,6 +84,12 @@ public class EquipmentIncidentService {
             var incident = incidents.save(incidentEntity);
             audit.record(actor, "EQUIPMENT_INCIDENT_RECORDED", "RESERVATION", reservationId.toString(), null,
                     amount.toPlainString(), null);
+            if (notifications != null) {
+                String payload = "{\"reservation_id\":" + reservationId + ",\"room_id\":\"" + request.roomId()
+                        + "\",\"compensation\":" + amount.toPlainString() + "}";
+                notifications.enqueue("EQUIPMENT_INCIDENT", "FRONT_DESK", payload, "equipment-incident-" + incident.getId());
+                notifications.enqueue("EQUIPMENT_INCIDENT", "TECHNICAL", payload, "equipment-incident-tech-" + incident.getId());
+            }
             return new EquipmentIncidentDtos.Response(incident.getId(), request.roomId(), request.equipmentName(), amount);
         });
     }

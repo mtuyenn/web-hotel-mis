@@ -14,6 +14,9 @@ import java.util.Optional;
 
 /** Kho yêu cầu phê duyệt, bao gồm ràng buộc binding payload và khóa tiêu thụ. */
 public interface ApprovalRepository extends JpaRepository<ApprovalRequest, Long> {
+    @Query("select a from ApprovalRequest a where (:status is null or a.status = :status) and (:action is null or a.action = :action) and (:targetId is null or a.targetId = :targetId) order by a.id desc")
+    org.springframework.data.domain.Page<ApprovalRequest> search(@Param("status") String status, @Param("action") String action,
+            @Param("targetId") String targetId, org.springframework.data.domain.Pageable pageable);
     /** Liệt kê yêu cầu phê duyệt theo trạng thái, bản ghi mới hơn đứng trước. */
     List<ApprovalRequest> findByStatusOrderByIdDesc(String status);
 

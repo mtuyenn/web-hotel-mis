@@ -16,6 +16,7 @@ import com.hospitality.mis.service.operations.FrontDeskDashboardService;
 import com.hospitality.mis.service.operations.HousekeepingService;
 import com.hospitality.mis.service.operations.TechnicalWorkOrderService;
 import com.hospitality.mis.service.identity.EmployeeService;
+import com.hospitality.mis.service.governance.NotificationOutboxService;
 import com.hospitality.mis.service.operations.InventoryMovementService;
 import com.hospitality.mis.service.operations.MaintenanceService;
 import com.hospitality.mis.service.operations.RoomTransferService;
@@ -88,9 +89,10 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean HousekeepingService mock22;
     @MockBean TechnicalWorkOrderService mock23;
     @MockBean EmployeeService mock24;
+    @MockBean NotificationOutboxService mock25;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -107,6 +109,7 @@ class DepartmentAuthorizationMatrixTest {
         when(mock24.canResetEmployee(any(), anyString())).thenReturn(true);
         when(mock24.canManageRole(any(), any())).thenReturn(true);
         when(mock24.list(anyBoolean())).thenReturn(List.of());
+        when(mock25.poll(any())).thenReturn(List.of());
         businessMocks().forEach(x -> clearInvocations(x));
     }
 
@@ -193,6 +196,8 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("POST", "/api/governance/approvals/1/approve", "ADMIN,DIRECTOR,MANAGER", "{}"),
             new Endpoint("POST", "/api/governance/approvals/1/reject", "ADMIN,DIRECTOR,MANAGER", "{}"),
             new Endpoint("GET", "/api/governance/audit", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{}"),
+            new Endpoint("GET", "/api/governance/notifications/outbox", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
+            new Endpoint("POST", "/api/governance/notifications/outbox/1/delivered", "ADMIN,DIRECTOR,MANAGER", "{}"),
             new Endpoint("GET", "/api/auth/customers/me", "CUSTOMER", "{}"),
             new Endpoint("POST", "/api/auth/customers/password", "CUSTOMER", "{\"password\":\"valid-password\"}"),
             new Endpoint("POST", "/api/customer/reservations", "CUSTOMER", "{\"rental_type\":\"PACKAGE\",\"rooms\":[{\"room_id\":\"101\",\"expected_check_in\":\"2026-10-01T12:00:00\",\"expected_check_out\":\"2026-10-02T12:00:00\"}],\"idempotency_key\":\"customer-key\"}"),
