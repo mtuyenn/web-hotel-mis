@@ -75,6 +75,7 @@ client phải xử lý cả 401 và 403.
 | POST | `/invoices/reservation/{reservation_id}/deposit/refund` | MANAGER, ACCOUNTING, FRONT_DESK; mọi lần hoàn cọc cần approval do DIRECTOR duyệt |
 | POST | `/invoices/{invoice_id}/adjust` | MANAGER, ACCOUNTING; bắt buộc `Idempotency-Key` và approval exact payload |
 | GET | `/services` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN |
+| GET | `/services/low-stock` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN; danh sách dưới safety threshold |
 | POST | `/services` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, KITCHEN |
 | POST | `/services/{id}/stock` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN |
 | GET | `/operations/maintenance/room/{room_id}` | ADMIN, DIRECTOR, MANAGER, FRONT_DESK, HOUSEKEEPING, TECHNICAL |
@@ -89,6 +90,9 @@ client phải xử lý cả 401 và 403.
 | GET/POST | `/invoices/{invoice_id}/payments` | MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/invoices/{invoice_id}/receipts` | MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/services/{service_id}/inventory-movements` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN |
+| POST | `/services/{service_id}/price/submit` | KITCHEN tạo approval exact payload; Manager/Admin/Director phê duyệt |
+| POST | `/services/{service_id}/price/activate` | Manager/Admin/Director consume approval và ghi price history append-only |
+| GET | `/services/{service_id}/price-history` | Có `SERVICE_READ`; lịch sử giá và actor/approval |
 | GET | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR |
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |
 | GET | `/governance/audit` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING; scoped by actor for accounting |

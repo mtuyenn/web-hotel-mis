@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -110,5 +111,28 @@ public class ServiceController {
         return service.restock(id, request, SecurityActor.currentActor());
 
     }
+
+    @GetMapping("/low-stock")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'INVENTORY_READ')")
+    public List<ServiceDtos.Response> lowStock() { return service.lowStock(); }
+
+    @PostMapping("/{id}/price/submit")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'SERVICE_PRICE_REQUEST')")
+    public com.hospitality.mis.dto.governance.ApprovalDtos.Response submitPrice(@PathVariable String id,
+            @Valid @RequestBody ServiceDtos.PriceChangeRequest request,
+            @RequestHeader("Idempotency-Key") String key) {
+        return service.requestPriceChange(id, request, SecurityActor.currentActor(), key);
+    }
+
+    @PostMapping("/{id}/price/activate")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'SERVICE_PRICE_ACTIVATE')")
+    public ServiceDtos.Response activatePrice(@PathVariable String id,
+            @Valid @RequestBody ServiceDtos.PriceChangeRequest request) {
+        return service.activatePriceChange(id, request, SecurityActor.currentActor());
+    }
+
+    @GetMapping("/{id}/price-history")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'SERVICE_READ')")
+    public List<ServiceDtos.PriceHistoryResponse> priceHistory(@PathVariable String id) { return service.priceHistory(id); }
 
 }

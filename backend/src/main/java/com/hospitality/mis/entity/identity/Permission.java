@@ -17,6 +17,7 @@ public enum Permission {
     BILLING_READ, BILLING_WRITE, PAYMENT_WRITE,
     /** Đọc/cập nhật dịch vụ và tồn kho. */
     SERVICE_READ, SERVICE_WRITE, INVENTORY_READ, INVENTORY_WRITE,
+    SERVICE_PRICE_REQUEST, SERVICE_PRICE_ACTIVATE,
     /** Đọc/cập nhật bảo trì và tài chính. */
     MAINTENANCE_READ, MAINTENANCE_WRITE, FINANCE_READ, FINANCE_WRITE,
     /** Yêu cầu/phê duyệt thay đổi và đọc nhật ký kiểm toán. */

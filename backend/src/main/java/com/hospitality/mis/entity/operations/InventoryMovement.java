@@ -25,7 +25,11 @@ public class InventoryMovement {
         /** Xuất dùng hoặc bán làm giảm tồn. */
         ISSUE,
         /** Điều chỉnh số tồn theo kiểm kê hoặc sửa sai. */
-        ADJUSTMENT
+        ADJUSTMENT,
+        /** Hủy hàng/hao hụt làm giảm tồn. */
+        WASTE,
+        /** Hoàn trả hàng vào kho làm tăng tồn. */
+        RETURN
     }
     public Long getId() { return id; } public Service getService() { return service; } public void setService(Service v) { service = v; }
     public MovementType getType() { return type; } public void setType(MovementType v) { type = v; }

@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 
 
@@ -42,6 +43,13 @@ public final class ServiceDtos {
     public record StockRequest(
                                /** Số lượng tồn/điều chỉnh được endpoint áp dụng. */
                                @NotNull @PositiveOrZero Integer quantity) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PriceChangeRequest(@NotNull @PositiveOrZero BigDecimal price, @NotBlank String reason) {}
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record PriceHistoryResponse(Long id, String serviceId, BigDecimal price, String changedBy,
+                                       Long approvalId, LocalDateTime effectiveAt) {}
 
     /** Trạng thái dịch vụ để hiển thị giá, tồn kho và cảnh báo tồn thấp. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

@@ -266,6 +266,13 @@ Tách rõ danh mục bán, giá bán và sổ kho:
 
 Mọi thay đổi giá do Kitchen tạo phải qua Manager approval trước khi active.
 
+#### Trạng thái P1.5 — 14/09/2026
+
+Inventory movement đã hỗ trợ `RECEIVE/ISSUE/ADJUSTMENT/WASTE/RETURN`, khóa
+dòng dịch vụ và từ chối tồn âm. Có endpoint low-stock và migration V11 cho
+price history append-only; thay đổi giá dịch vụ đi qua approval exact payload
+trước khi activate.
+
 ### P1.6 — Accounting và finance
 
 - Pagination/filter cho invoice, payment, receipt, expense và debt.

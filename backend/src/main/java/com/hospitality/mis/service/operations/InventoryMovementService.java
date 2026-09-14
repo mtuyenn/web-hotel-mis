@@ -50,7 +50,10 @@ public class InventoryMovementService {
     private InventoryMovementDtos.Response recordOnce(InventoryMovementDtos.CreateRequest request, String actor) {
         if (actor == null || actor.isBlank()) throw new DomainException("ACTOR_REQUIRED", "Thiếu actor cập nhật tồn kho");
         var service = services.findWithLockById(request.serviceId()).orElseThrow(() -> new DomainException("SERVICE_NOT_FOUND", "Không tìm thấy dịch vụ"));
-        int signed = request.type() == InventoryMovement.MovementType.ISSUE ? -request.quantity() : request.quantity();
+        int signed = switch (request.type()) {
+            case ISSUE, WASTE -> -request.quantity();
+            case RECEIPT, RETURN, ADJUSTMENT -> request.quantity();
+        };
         if (service.getStockQuantity() + signed < 0) throw new DomainException("INSUFFICIENT_STOCK", "Tồn kho không đủ");
         service.setStockQuantity(service.getStockQuantity() + signed);
         InventoryMovement m = new InventoryMovement(); m.setService(service); m.setType(request.type()); m.setQuantity(request.quantity()); m.setActorId(actor); m.setReason(request.reason()); m.setOccurredAt(LocalDateTime.now(clock));
