@@ -356,6 +356,52 @@ row lock, hỗ trợ lịch tối đa bảy ngày và báo thiếu người theo
 bộ lọc, lịch sử tất toán công nợ và finalized ledger append-only. Reservation
 timeline tổng hợp thêm audit của invoice, payment và receipt.
 
+#### Đánh giá lại P1 — 15/09/2026
+
+P1 **chưa được chấp nhận hoàn tất**. Clean suite hiện có 1.645 test, 0
+failure/0 error/0 skipped; các test MySQL migration, billing workflow, billing
+concurrency và security smoke đều pass. Tuy nhiên test hiện tại chưa bao phủ
+đầy đủ các đường vòng và yêu cầu vận hành sau:
+
+- Technical vẫn có thể gọi API trạng thái phòng chung để chuyển
+  `MAINTENANCE → READY`, bỏ qua nghiệm thu Manager và command release của work
+  order.
+- Housekeeping có thể tự đổi `assignee` khi PATCH task; chưa kiểm tra actor chỉ
+  được cập nhật task được giao cho mình.
+- Approval đổi giá dịch vụ không khớp workflow: Kitchen tạo approval nhưng
+  Manager/Admin/Director activate; consume hiện lại ràng buộc requester phải là
+  người activate.
+- Dashboard Front Desk tính biến `paged` nhưng không dùng trong response; các
+  danh sách vẫn trả toàn bộ dữ liệu và service tải toàn bộ reservation/incident
+  vào bộ nhớ.
+- Housekeeping task, checklist result và technical work order chưa có row lock
+  hoặc optimistic version cho state transition; chưa có MySQL concurrency proof
+  riêng cho các workflow này.
+- Finance ledger mới ghi expense, partner debt và settlement; chưa ghi đầy đủ
+  invoice revenue, payment, refund, receipt và variance giao ca. Invoice chưa
+  có filter; payment/receipt chỉ phân trang trong bộ nhớ theo từng invoice.
+- HR/Admin chưa có employment/leave status, hủy hoặc sửa ca, role reassignment
+  theo ceiling và login history đầy đủ; hiện chủ yếu là enabled flag, list và
+  refresh session.
+- Room, room type, amenity và equipment registry chưa có đầy đủ CRUD/lifecycle.
+  Revision room type tạo mã mới nhưng chưa liên kết/retire bản cũ hoặc cập nhật
+  các phòng đang dùng bản cũ.
+- Notification polling nhận `role` từ query client nên có nguy cơ đọc chéo
+  notification của department khác; outbox service còn dùng system clock trực
+  tiếp.
+- Inventory contract chưa đồng bộ: code dùng `RECEIPT/ADJUSTMENT` trong khi
+  contract yêu cầu `RECEIVE/ADJUST`; adjustment chỉ tăng tồn và low-stock dùng
+  điều kiện không nhất quán (`<` so với `<=`).
+- `docs/api-contract.md` chưa cập nhật các endpoint acceptance, shift coverage,
+  settlement history và finalized ledger; DTO incident vẫn giữ các field giá/
+  ngày mua compatibility dù backend đã chuyển nguồn dữ liệu sang registry.
+
+Thứ tự xử lý bắt buộc tiếp theo: khóa đường vòng release và sửa approval giá;
+đóng object authorization/locking cho housekeeping–technical; sửa dashboard
+pagination/query; hoàn thiện finance ledger/report/filter; hoàn thiện HR/Admin
+và catalog lifecycle; sau đó đồng bộ contract, bổ sung negative/concurrency
+test MySQL và chỉ đánh dấu P1 hoàn tất khi acceptance pass lại.
+
 ## 5. Báo cáo điều hành P2
 
 Tạo read model/query service cho:
