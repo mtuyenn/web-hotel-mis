@@ -52,7 +52,7 @@ public class InventoryMovementService {
         var service = services.findWithLockById(request.serviceId()).orElseThrow(() -> new DomainException("SERVICE_NOT_FOUND", "Không tìm thấy dịch vụ"));
         int signed = switch (request.type()) {
             case ISSUE, WASTE -> -request.quantity();
-            case RECEIPT, RETURN, ADJUSTMENT -> request.quantity();
+            case RECEIVE, RETURN, ADJUST -> request.quantity();
         };
         if (service.getStockQuantity() + signed < 0) throw new DomainException("INSUFFICIENT_STOCK", "Tồn kho không đủ");
         service.setStockQuantity(service.getStockQuantity() + signed);
@@ -73,11 +73,11 @@ public class InventoryMovementService {
         for (var movement : movements.findByServiceIdOrderByOccurredAtDesc(serviceId)) {
             if (movement.getOccurredAt() == null || movement.getOccurredAt().toLocalDate().isBefore(start) || movement.getOccurredAt().toLocalDate().isAfter(end)) continue;
             switch (movement.getType()) {
-                case RECEIPT -> received += movement.getQuantity();
+                case RECEIVE -> received += movement.getQuantity();
                 case ISSUE -> issued += movement.getQuantity();
                 case WASTE -> wasted += movement.getQuantity();
                 case RETURN -> returned += movement.getQuantity();
-                case ADJUSTMENT -> adjusted += movement.getQuantity();
+                case ADJUST -> adjusted += movement.getQuantity();
             }
         }
         return new InventoryMovementDtos.ReportResponse(serviceId, start.atStartOfDay(), end.plusDays(1).atStartOfDay(), received, issued, wasted, returned, adjusted, received + returned + adjusted - issued - wasted);

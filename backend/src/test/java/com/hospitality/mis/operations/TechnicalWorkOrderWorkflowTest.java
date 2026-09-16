@@ -49,7 +49,7 @@ class TechnicalWorkOrderWorkflowTest {
         room = new Room(); room.setId("101"); room.setStatus(RoomStatus.MAINTENANCE);
         order = new TechnicalWorkOrder(); ReflectionTestUtils.setField(order, "id", 5L); order.setRoom(room);
         order.setCreatedBy("technical"); order.setStatus(TechnicalWorkOrderStatus.WAITING_ACCEPTANCE);
-        when(orders.findById(5L)).thenReturn(Optional.of(order));
+        when(orders.findForUpdateById(5L)).thenReturn(Optional.of(order));
     }
 
     @Test

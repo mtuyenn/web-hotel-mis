@@ -20,6 +20,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.Clock;
 import java.util.List;
+import com.hospitality.mis.service.finance.FinancialLedgerService;
+import com.hospitality.mis.entity.finance.FinancialLedgerEntry;
 
 /** Phát hành và tra cứu biên lai dựa trên số tiền thanh toán chưa lập biên lai. */
 @Service
@@ -34,6 +36,7 @@ public class ReceiptService {
     private final AuditService audit;
     private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
     private DurableIdempotencyService durableIdempotency;
+    private FinancialLedgerService ledger;
 
     public ReceiptService(ReceiptRepository receipts, InvoiceRepository invoices,
                           PaymentTransactionRepository transactions, AuditService audit) {
@@ -42,6 +45,8 @@ public class ReceiptService {
 
     @org.springframework.beans.factory.annotation.Autowired
     void setBusinessClock(Clock clock) { this.clock = clock; }
+    @org.springframework.beans.factory.annotation.Autowired
+    void setFinancialLedger(FinancialLedgerService ledger) { this.ledger = ledger; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setDurableIdempotency(DurableIdempotencyService durableIdempotency) { this.durableIdempotency = durableIdempotency; }
@@ -90,6 +95,8 @@ public class ReceiptService {
         Receipt saved = receipts.save(receipt);
         audit.record(boundActor, "RECEIPT_ISSUED", "RECEIPT", String.valueOf(saved.getId()), null,
                 request.amount().toPlainString(), "TENDER:" + request.method().name());
+        if (ledger != null) ledger.record("RECEIPT_ISSUED", "RECEIPT", String.valueOf(saved.getId()),
+                FinancialLedgerEntry.Direction.DEBIT, saved.getAmount(), boundActor, saved.getIssuedAt(), saved.getMethod().name());
         return toResponse(saved);
     }
 

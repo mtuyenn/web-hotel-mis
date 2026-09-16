@@ -55,7 +55,7 @@ public class HousekeepingChecklistService {
     public HousekeepingChecklistDtos.ResultResponse addResult(Long taskId,
                                                                HousekeepingChecklistDtos.ResultRequest request,
                                                                String actor) {
-        var task = tasks.findById(taskId).orElseThrow(() ->
+        var task = tasks.findForUpdateById(taskId).orElseThrow(() ->
                 new DomainException("HOUSEKEEPING_TASK_NOT_FOUND", "Không tìm thấy task dọn phòng"));
         String item = request.item().trim();
         var activeTemplates = templates.findByActiveTrueOrderByNameAsc();

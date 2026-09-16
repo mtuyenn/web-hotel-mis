@@ -86,9 +86,17 @@ public class FrontDeskDashboardService {
                 .toList();
 
         int totalPages = (int) Math.ceil(items.size() / (double) safeSize);
-        return new FrontDeskDashboardDtos.Response(businessDate, arrivals, departures, current,
-                unpaidDeposits, balances, roomItems, roomCounts, incidentItems,
+        return new FrontDeskDashboardDtos.Response(businessDate,
+                pageList(arrivals, safePage, safeSize), pageList(departures, safePage, safeSize),
+                pageList(current, safePage, safeSize), pageList(unpaidDeposits, safePage, safeSize),
+                pageList(balances, safePage, safeSize), roomItems, roomCounts, incidentItems,
                 safePage, safeSize, items.size(), totalPages);
+    }
+
+    private <T> List<T> pageList(List<T> values, int page, int size) {
+        long from = (long) page * size;
+        if (from >= values.size()) return List.of();
+        return values.subList((int) from, Math.min(values.size(), (int) from + size));
     }
 
     private FrontDeskDashboardDtos.ReservationItem toItem(Reservation r) {

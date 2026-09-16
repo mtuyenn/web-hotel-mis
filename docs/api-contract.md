@@ -56,10 +56,13 @@ client phải xử lý cả 401 và 403.
 | GET | `/operations/housekeeping/tasks?room_id=&assignee=&status=` | `HOUSEKEEPING_TASK_READ`; danh sách task dọn phòng |
 | POST/PATCH | `/operations/housekeeping/tasks`, `/operations/housekeeping/tasks/{id}` | `HOUSEKEEPING_TASK_WRITE`; workflow NEEDS_CLEANING → IN_PROGRESS → CLEANED → READY hoặc WAITING_TECHNICAL; READY bắt buộc checklist hoàn tất và không có incident blocking |
 | GET/POST | `/operations/housekeeping/checklist-templates` | `HOUSEKEEPING_TASK_READ/WRITE`; template checklist đang hoạt động |
+| PATCH | `/operations/housekeeping/tasks/{id}` | `HOUSEKEEPING_TASK_WRITE`; chỉ assignee hoặc manager được cập nhật, không cho Housekeeping tự đổi assignee |
 | GET/POST | `/operations/housekeeping/tasks/{id}/checklist-results` | `HOUSEKEEPING_TASK_READ/WRITE`; kết quả checklist theo task, có audit |
 | GET/POST | `/hr/shifts?date=&employee_id=` | `SHIFT_READ/SHIFT_WRITE`; phân ca theo ngày/nhân viên, kiểm tra khoảng thời gian |
+| GET | `/hr/shifts/coverage?date=&shift_code=&minimum_staff=` | `SHIFT_READ`; báo thiếu người theo ca |
 | GET/POST/PATCH | `/operations/technical/work-orders`, `/operations/technical/work-orders/{id}` | `TECHNICAL_WORK_ORDER_READ/WRITE`; quản lý work order theo assignee, priority, SLA, vật tư và kết quả |
 | POST | `/operations/technical/work-orders/{id}/release` | `TECHNICAL_WORK_ORDER_RELEASE`; chỉ release sau COMPLETED, kiểm tra phòng không OCCUPIED và chuyển ROOM_RELEASED/READY |
+| POST | `/operations/technical/work-orders/{id}/accept` | `TECHNICAL_WORK_ORDER_ACCEPT`; Manager/Admin/Director nghiệm thu WAITING_ACCEPTANCE thành COMPLETED |
 | POST | `/rooms/{room_id}/images` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; multipart `file`, tối đa 10 ảnh/phòng, 5 MB/ảnh, JPEG/PNG/WebP |
 | DELETE | `/rooms/{room_id}/images/{image_id}` | TECHNICAL, MANAGER, DIRECTOR, ADMIN; soft-delete metadata và xóa file local |
 | POST | `/amenities` | TECHNICAL, MANAGER, DIRECTOR, ADMIN |
@@ -105,11 +108,12 @@ client phải xử lý cả 401 và 403.
 | GET/POST | `/invoices/{invoice_id}/payments?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/invoices/{invoice_id}/receipts?page=&size=` | GET hỗ trợ phân trang; MANAGER, ACCOUNTING, FRONT_DESK |
 | GET/POST | `/services/{service_id}/inventory-movements` | ADMIN, DIRECTOR, MANAGER, ACCOUNTING, FRONT_DESK, HOUSEKEEPING, KITCHEN |
-| GET | `/services/{service_id}/inventory-movements/inventory-report?from=&to=` | `INVENTORY_READ`; tổng hợp RECEIVE/ISSUE/WASTE/RETURN/ADJUSTMENT theo ngày |
+| GET | `/services/{service_id}/inventory-movements/inventory-report?from=&to=` | `INVENTORY_READ`; tổng hợp RECEIVE/ISSUE/WASTE/RETURN/ADJUST theo ngày |
 | POST | `/services/{service_id}/price/submit` | KITCHEN tạo approval exact payload; Manager/Admin/Director phê duyệt |
 | POST | `/services/{service_id}/price/activate` | Manager/Admin/Director consume approval và ghi price history append-only |
 | GET | `/services/{service_id}/price-history` | Có `SERVICE_READ`; lịch sử giá và actor/approval |
 | POST | `/finance/partner-debts/{id}/settle` | `FINANCE_WRITE`; tất toán một phần/toàn bộ, khóa dòng và không vượt dư nợ |
+| GET | `/finance/partner-debts/{id}/settlements`, `/finance/ledger` | `FINANCE_READ`; lịch sử tất toán và finalized ledger append-only có filter/pagination |
 | GET | `/finance/reconciliation?from=&to=` | `FINANCE_READ`; đối soát CASH/CARD/BANK_TRANSFER, payment/refund/net |
 | GET | `/finance/cash-handovers?page=&size=`, `/finance/expenses?page=&size=`, `/finance/partner-debts?page=&size=` | `FINANCE_READ`; truyền page/size trả `items` và metadata, không truyền giữ response list tương thích |
 | POST | `/finance/cash-handovers`, `/finance/expenses`, `/finance/partner-debts` | MANAGER, ACCOUNTING, DIRECTOR; actor giao ca lấy từ JWT |

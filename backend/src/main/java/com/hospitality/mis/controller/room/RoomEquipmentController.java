@@ -39,4 +39,10 @@ public class RoomEquipmentController {
         }
         return service.add(request, SecurityActor.currentActor(), idempotencyKey);
     }
+    @PutMapping("/{equipmentId}")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'EQUIPMENT_WRITE')")
+    public RoomEquipmentDtos.Response update(@PathVariable String roomId, @PathVariable Long equipmentId,
+                                             @Valid @RequestBody RoomEquipmentDtos.UpdateRequest request) {
+        return service.update(roomId, equipmentId, request, SecurityActor.currentActor());
+    }
 }

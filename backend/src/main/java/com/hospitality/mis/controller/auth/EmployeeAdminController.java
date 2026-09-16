@@ -36,4 +36,11 @@ public class EmployeeAdminController {
     public EmployeeAdminDtos.Response status(@PathVariable String employeeId, @Valid @RequestBody EmployeeAdminDtos.StatusRequest request) {
         return service.setEnabled(employeeId, request.enabled());
     }
+
+    @PatchMapping("/{employeeId}/role")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'EMPLOYEE_PROVISION') && @employeeService.canManageEmployeeRole(authentication, #employeeId, #request.role())")
+    public EmployeeAdminDtos.Response role(@PathVariable String employeeId,
+                                           @Valid @RequestBody EmployeeAdminDtos.RoleRequest request) {
+        return service.setRole(employeeId, request.role());
+    }
 }

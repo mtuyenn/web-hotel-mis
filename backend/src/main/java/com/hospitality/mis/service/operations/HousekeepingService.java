@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.List;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.hospitality.mis.entity.operations.IncidentHandoffStatus;
 import com.hospitality.mis.entity.operations.IncidentSeverity;
 
@@ -51,12 +52,18 @@ public class HousekeepingService {
 
     @Transactional
     public HousekeepingDtos.Response update(Long id, HousekeepingDtos.UpdateRequest request, String actor) {
-        var task = tasks.findById(id).orElseThrow(() -> new DomainException("HOUSEKEEPING_TASK_NOT_FOUND", "Không tìm thấy task dọn phòng"));
+        var task = tasks.findForUpdateById(id).orElseThrow(() -> new DomainException("HOUSEKEEPING_TASK_NOT_FOUND", "Không tìm thấy task dọn phòng"));
         HousekeepingTaskStatus next;
         try { next = HousekeepingTaskStatus.valueOf(request.status().trim().toUpperCase()); }
         catch (IllegalArgumentException ex) { throw new DomainException("INVALID_HOUSEKEEPING_STATUS", "Trạng thái dọn phòng không hợp lệ"); }
         if (!task.getStatus().canTransitionTo(next)) throw new DomainException("INVALID_HOUSEKEEPING_TRANSITION", "Chuyển trạng thái dọn phòng không hợp lệ");
-        if (request.assignee() != null) task.setAssignee(request.assignee());
+        if (!hasManagementRole() && !actor.equals(task.getAssignee()))
+            throw new DomainException("HOUSEKEEPING_TASK_SCOPE_FORBIDDEN", "Chỉ người được phân công mới được cập nhật task");
+        if (request.assignee() != null && !request.assignee().equals(task.getAssignee())) {
+            if (!hasManagementRole())
+                throw new DomainException("HOUSEKEEPING_ASSIGNMENT_FORBIDDEN", "Chỉ Manager mới được đổi người phụ trách task");
+            task.setAssignee(request.assignee());
+        }
         if (request.note() != null) task.setNote(request.note());
         var room = rooms.findForUpdate(task.getRoom().getId()).orElseThrow(() -> new DomainException("ROOM_NOT_FOUND", "Không tìm thấy phòng"));
         if (next == HousekeepingTaskStatus.READY) {
@@ -86,14 +93,23 @@ public class HousekeepingService {
 
     @Transactional(readOnly = true)
     public List<HousekeepingDtos.Response> list(String roomId, String assignee, HousekeepingTaskStatus status) {
-        List<HousekeepingTask> data = roomId != null ? tasks.findByRoomIdOrderByUpdatedAtDesc(roomId)
-                : assignee != null && status != null ? tasks.findByAssigneeAndStatusOrderByUpdatedAtDesc(assignee, status)
-                : tasks.findAll();
-        return data.stream().filter(x -> status == null || x.getStatus() == status).map(this::toResponse).toList();
+        return tasks.findAll().stream()
+                .filter(x -> roomId == null || roomId.equals(x.getRoom().getId()))
+                .filter(x -> assignee == null || assignee.equals(x.getAssignee()))
+                .filter(x -> status == null || x.getStatus() == status)
+                .sorted(java.util.Comparator.comparing(HousekeepingTask::getUpdatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .map(this::toResponse).toList();
     }
 
     private HousekeepingDtos.Response toResponse(HousekeepingTask t) {
         return new HousekeepingDtos.Response(t.getId(), t.getRoom().getId(), t.getAssignee(), t.getStatus().name(),
                 t.isChecklistComplete(), t.isBlockingIncident(), t.getNote(), t.getAssignedBy(), t.getUpdatedAt());
+    }
+
+    private boolean hasManagementRole() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_DIRECTOR") || a.getAuthority().equals("ROLE_MANAGER"));
     }
 }

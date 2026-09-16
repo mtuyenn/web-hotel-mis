@@ -76,7 +76,8 @@ public class ServiceCatalogService {
     @Transactional
     public ServiceDtos.Response activatePriceChange(String id, ServiceDtos.PriceChangeRequest request, String actor) {
         var service = services.findWithLockById(id).orElseThrow(() -> new DomainException("SERVICE_NOT_FOUND", "Không tìm thấy dịch vụ"));
-        var approval = approvals.consumeApproved("SERVICE_PRICE_CHANGE", id, request.price().toPlainString(), request.price(), actor);
+        var approval = approvals.consumeApprovedByApprover("SERVICE_PRICE_CHANGE", id,
+                request.price().toPlainString(), request.price(), actor);
         service.setPrice(request.price());
         priceHistory.save(new ServicePriceHistory(service, request.price(), approval.getApprover(), approval.getId(), LocalDateTime.now(clock)));
         audit.record(actor, "SERVICE_PRICE_CHANGED", "SERVICE", id, null, request.price().toPlainString(), request.reason());
@@ -97,5 +98,5 @@ public class ServiceCatalogService {
 
     /** Chuyển dịch vụ thành DTO và tính cờ tồn kho dưới ngưỡng an toàn. */
     /** Chuyển dịch vụ thành DTO và tính cờ cảnh báo dưới safety threshold. */
-    public ServiceDtos.Response toResponse(Service s) { return new ServiceDtos.Response(s.getId(), s.getName(), s.getPrice(), s.getUnit(), s.getStockQuantity(), s.getSafetyThreshold(), s.getStockQuantity() < s.getSafetyThreshold()); }
+    public ServiceDtos.Response toResponse(Service s) { return new ServiceDtos.Response(s.getId(), s.getName(), s.getPrice(), s.getUnit(), s.getStockQuantity(), s.getSafetyThreshold(), s.getStockQuantity() <= s.getSafetyThreshold()); }
 }

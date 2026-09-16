@@ -49,5 +49,19 @@ public class EmployeeShiftService {
         long shortage = Math.max(0, minimumStaff - assigned);
         return new EmployeeShiftDtos.CoverageResponse(selected, shiftCode, minimumStaff, assigned, shortage, shortage > 0);
     }
+    @Transactional
+    public EmployeeShiftDtos.Response status(Long id, String rawStatus, String actor) {
+        var shift = shifts.findById(id).orElseThrow(() -> new DomainException("SHIFT_NOT_FOUND", "Không tìm thấy ca làm việc"));
+        EmployeeShift.Status next;
+        try { next = EmployeeShift.Status.valueOf(rawStatus.trim().toUpperCase()); }
+        catch (IllegalArgumentException ex) { throw new DomainException("INVALID_SHIFT_STATUS", "Trạng thái ca không hợp lệ"); }
+        if (shift.getStatus() == EmployeeShift.Status.COMPLETED && next != EmployeeShift.Status.COMPLETED)
+            throw new DomainException("INVALID_SHIFT_STATUS_TRANSITION", "Ca đã hoàn tất không thể quay lại");
+        if (shift.getStatus() == EmployeeShift.Status.CANCELLED && next != EmployeeShift.Status.CANCELLED)
+            throw new DomainException("INVALID_SHIFT_STATUS_TRANSITION", "Ca đã hủy không thể khôi phục");
+        shift.setStatus(next);
+        audit.record(actor, "EMPLOYEE_SHIFT_STATUS_CHANGED", "EMPLOYEE_SHIFT", String.valueOf(id), null, next.name(), null);
+        return toResponse(shifts.save(shift));
+    }
     private EmployeeShiftDtos.Response toResponse(EmployeeShift x) { return new EmployeeShiftDtos.Response(x.getId(), x.getEmployee().getEmployeeId(), x.getShiftDate(), x.getShiftCode(), x.getStartsAt(), x.getEndsAt(), x.getStatus().name(), x.getCreatedBy()); }
 }

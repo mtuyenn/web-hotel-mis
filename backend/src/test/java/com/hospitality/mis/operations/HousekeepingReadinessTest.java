@@ -44,8 +44,9 @@ class HousekeepingReadinessTest {
                 Clock.fixed(Instant.parse("2026-09-14T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh")));
         room = new Room(); room.setId("101"); room.setStatus(RoomStatus.CLEANING);
         task = new HousekeepingTask(); ReflectionTestUtils.setField(task, "id", 7L); task.setRoom(room);
+        task.setAssignee("manager");
         task.setStatus(HousekeepingTaskStatus.CLEANED);
-        when(tasks.findById(7L)).thenReturn(Optional.of(task));
+        when(tasks.findForUpdateById(7L)).thenReturn(Optional.of(task));
         when(rooms.findForUpdate("101")).thenReturn(Optional.of(room));
     }
 

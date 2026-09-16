@@ -223,6 +223,27 @@ public class ApprovalService {
         return approval;
     }
 
+    @Transactional
+    public ApprovalRequest consumeApprovedByApprover(String action, String targetId, String payload,
+                                                     BigDecimal amount, String actor) {
+        String principal = SecurityActor.requireBoundActor(actor);
+        validateBinding(action, targetId, payload);
+        ApprovalRequest approval = approvals.findApprovedForActivationWithLock(action, targetId,
+                fingerprintFor(payload), amount)
+                .orElseThrow(() -> new DomainException("APPROVAL_REQUIRED", "Thao tác cần được phê duyệt trước: " + action));
+        if (approval.isExpired(Instant.now(clock))) {
+            expireAndAudit(approval, principal);
+            throw new DomainException("APPROVAL_EXPIRED", "Yêu cầu phê duyệt đã hết hạn");
+        }
+        if (principal.equals(approval.getRequester()))
+            throw new DomainException("SELF_APPROVAL_FORBIDDEN", "Requester không được tự kích hoạt thay đổi");
+        String before = approval.getStatus();
+        approval.consume(Instant.now(clock));
+        audit.record(principal, "APPROVAL_CONSUMED", "APPROVAL", String.valueOf(approval.getId()), before,
+                approval.getStatus(), approval.getReason(), approval.getCorrelationKey());
+        return approval;
+    }
+
     /** Các luồng gọi thao tác thay đổi hiện có phải cung cấp ràng buộc trước khi tiêu thụ phê duyệt. */
     @Transactional
     public void requireApproved(String action, String targetId, String actor) {

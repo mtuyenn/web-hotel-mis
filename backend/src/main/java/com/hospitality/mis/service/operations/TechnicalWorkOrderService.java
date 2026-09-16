@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.Clock;
 import java.util.List;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 public class TechnicalWorkOrderService {
@@ -47,7 +48,8 @@ public class TechnicalWorkOrderService {
     }
     @Transactional
     public TechnicalWorkOrderDtos.Response update(Long id, TechnicalWorkOrderDtos.UpdateRequest request, String actor) {
-        TechnicalWorkOrder order = orders.findById(id).orElseThrow(() -> new DomainException("TECHNICAL_WORK_ORDER_NOT_FOUND", "Không tìm thấy work order"));
+        TechnicalWorkOrder order = orders.findForUpdateById(id).orElseThrow(() -> new DomainException("TECHNICAL_WORK_ORDER_NOT_FOUND", "Không tìm thấy work order"));
+        requireAssigneeScope(order, actor);
         TechnicalWorkOrderStatus next;
         try { next = TechnicalWorkOrderStatus.valueOf(request.status().trim().toUpperCase()); }
         catch (IllegalArgumentException ex) { throw new DomainException("INVALID_TECHNICAL_STATUS", "Trạng thái work order không hợp lệ"); }
@@ -63,7 +65,7 @@ public class TechnicalWorkOrderService {
     }
     @Transactional
     public TechnicalWorkOrderDtos.Response accept(Long id, TechnicalWorkOrderDtos.AcceptanceRequest request, String actor) {
-        TechnicalWorkOrder order = orders.findById(id).orElseThrow(() -> new DomainException("TECHNICAL_WORK_ORDER_NOT_FOUND", "Không tìm thấy work order"));
+        TechnicalWorkOrder order = orders.findForUpdateById(id).orElseThrow(() -> new DomainException("TECHNICAL_WORK_ORDER_NOT_FOUND", "Không tìm thấy work order"));
         if (order.getStatus() != TechnicalWorkOrderStatus.WAITING_ACCEPTANCE)
             throw new DomainException("INVALID_TECHNICAL_TRANSITION", "Chỉ work order chờ nghiệm thu mới được duyệt");
         order.setAcceptanceNote(request.acceptanceNote().trim());
@@ -77,7 +79,8 @@ public class TechnicalWorkOrderService {
     }
     @Transactional
     public TechnicalWorkOrderDtos.Response release(Long id, String actor) {
-        TechnicalWorkOrder order = orders.findById(id).orElseThrow(() -> new DomainException("TECHNICAL_WORK_ORDER_NOT_FOUND", "Không tìm thấy work order"));
+        TechnicalWorkOrder order = orders.findForUpdateById(id).orElseThrow(() -> new DomainException("TECHNICAL_WORK_ORDER_NOT_FOUND", "Không tìm thấy work order"));
+        requireAssigneeScope(order, actor);
         if (order.getStatus() != TechnicalWorkOrderStatus.COMPLETED || order.getAcceptedBy() == null)
             throw new DomainException("TECHNICAL_ACCEPTANCE_REQUIRED", "Work order chưa được Manager nghiệm thu");
         var room = rooms.findForUpdate(order.getRoom().getId()).orElseThrow(() -> new DomainException("ROOM_NOT_FOUND", "Không tìm thấy phòng"));
@@ -115,5 +118,14 @@ public class TechnicalWorkOrderService {
         return new TechnicalWorkOrderDtos.Response(x.getId(), x.getRoom().getId(), x.getEquipment() == null ? null : x.getEquipment().getId(),
                 x.getAssignee(), x.getPriority(), x.getSlaDueAt(), x.getMaterials(), x.getResultNote(), x.getAcceptanceNote(),
                 x.getAcceptedBy(), x.getAcceptedAt(), x.getStatus().name(), x.getCreatedBy(), x.getCreatedAt(), x.getUpdatedAt());
+    }
+    private void requireAssigneeScope(TechnicalWorkOrder order, String actor) {
+        if (order.getAssignee() == null || actor.equals(order.getAssignee()) || hasManagementRole()) return;
+        throw new DomainException("TECHNICAL_WORK_ORDER_SCOPE_FORBIDDEN", "Chỉ kỹ thuật viên được phân công mới được cập nhật work order");
+    }
+    private boolean hasManagementRole() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_DIRECTOR") || a.getAuthority().equals("ROLE_MANAGER"));
     }
 }

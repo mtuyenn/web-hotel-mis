@@ -24,4 +24,8 @@ public class EmployeeShiftController {
     }
     @PostMapping @PreAuthorize("@departmentAccess.allows(authentication, 'SHIFT_WRITE')")
     public EmployeeShiftDtos.Response assign(@Valid @RequestBody EmployeeShiftDtos.Request request) { return service.assign(request, SecurityActor.currentActor()); }
+    @PatchMapping("/{id}/status") @PreAuthorize("@departmentAccess.allows(authentication, 'SHIFT_WRITE')")
+    public EmployeeShiftDtos.Response status(@PathVariable Long id, @Valid @RequestBody EmployeeShiftDtos.StatusRequest request) {
+        return service.status(id, request.status(), SecurityActor.currentActor());
+    }
 }

@@ -31,6 +31,8 @@ import java.time.LocalDateTime;
 import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
+import com.hospitality.mis.service.finance.FinancialLedgerService;
+import com.hospitality.mis.entity.finance.FinancialLedgerEntry;
 
 /**
  * Tính và đối soát hóa đơn từ lưu trú, dịch vụ, phụ phí và bồi thường.
@@ -58,6 +60,7 @@ public class BillingService {
     private final ReceiptRepository receipts;
     /** Lưu các điều chỉnh hóa đơn đã gắn actor và idempotency key. */
     private final InvoiceAdjustmentRepository adjustments;
+    private FinancialLedgerService ledger;
 
     @org.springframework.beans.factory.annotation.Autowired
     public BillingService(ReservationRepository reservations, InvoiceRepository invoices, PricingPolicy pricing,
@@ -71,6 +74,8 @@ public class BillingService {
 
     @org.springframework.beans.factory.annotation.Autowired
     void setBusinessClock(Clock clock) { this.clock = clock; }
+    @org.springframework.beans.factory.annotation.Autowired
+    void setFinancialLedger(FinancialLedgerService ledger) { this.ledger = ledger; }
 
     /** Hàm khởi tạo thuận tiện cho kiểm thử, dành cho các bên gọi không sử dụng chức năng điều chỉnh. */
     public BillingService(ReservationRepository reservations, InvoiceRepository invoices, PricingPolicy pricing,
@@ -136,6 +141,9 @@ public class BillingService {
         }
         audit.record(boundActor, "INVOICE_RECONCILED", "INVOICE", String.valueOf(invoice.getId()), null,
                 payable(invoice, subtotal.subtract(discount)).toPlainString(), null);
+        if (ledger != null) ledger.record("REVENUE_RECOGNIZED", "INVOICE", String.valueOf(invoice.getId()),
+                FinancialLedgerEntry.Direction.CREDIT, payable(invoice, subtotal.subtract(discount)), boundActor,
+                checkoutAt, "CHECKOUT");
         return toResponse(invoice);
     }
 
@@ -179,6 +187,8 @@ public class BillingService {
         payment.setIdempotencyKey(PaymentTransaction.storageIdempotencyKey("DEPOSIT:" + reservation.getId(), actor, deposit,
                 PaymentMethod.CASH, PaymentTransaction.TransactionType.PAYMENT, payment.getReference()));
         payment = transactions.saveAndFlush(payment);
+        if (ledger != null) ledger.record("PAYMENT_RECEIVED", "PAYMENT_TRANSACTION", String.valueOf(payment.getId()),
+                FinancialLedgerEntry.Direction.DEBIT, payment.getAmount(), actor, payment.getOccurredAt(), "DEPOSIT");
 
         com.hospitality.mis.entity.billing.Receipt receipt = new com.hospitality.mis.entity.billing.Receipt();
         receipt.setReceiptNumber("DEP-" + reservation.getId()); receipt.setInvoice(invoice); receipt.setAmount(deposit);
@@ -285,7 +295,10 @@ public class BillingService {
         refund.setReference("REFUND_OF:" + source.getId() + ":" + reference); refund.setOccurredAt(LocalDateTime.now(clock));
         refund.setActorId(actor); refund.setIdempotencyKey(PaymentTransaction.storageIdempotencyKey(idempotencyKey, actor,
                 amount, source.getMethod(), PaymentTransaction.TransactionType.REFUND, refund.getReference()));
-        return transactions.saveAndFlush(refund);
+        PaymentTransaction saved = transactions.saveAndFlush(refund);
+        if (ledger != null) ledger.record("REFUND_ISSUED", "PAYMENT_TRANSACTION", String.valueOf(saved.getId()),
+                FinancialLedgerEntry.Direction.CREDIT, saved.getAmount(), actor, saved.getOccurredAt(), reference);
+        return saved;
     }
 
     /** Tìm các khoản cọc còn số dư hoàn được theo thứ tự thời gian. */

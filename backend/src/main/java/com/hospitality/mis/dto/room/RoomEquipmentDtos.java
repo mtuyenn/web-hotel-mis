@@ -25,6 +25,9 @@ public final class RoomEquipmentDtos {
                                 @NotNull LocalDate purchasedOn,
                                 /** Số lượng thiết bị dương. */
                                 @Positive int quantity) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record UpdateRequest(@NotBlank String name, @NotNull @Positive BigDecimal originalValue,
+                                @NotNull LocalDate purchasedOn, @Positive int quantity, @NotNull Boolean active) {}
     /** Thiết bị đã ghi nhận cùng giá trị gốc, ngày mua, số lượng và cờ hoạt động. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record Response(

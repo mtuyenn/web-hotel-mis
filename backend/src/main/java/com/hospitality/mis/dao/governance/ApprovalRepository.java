@@ -60,6 +60,20 @@ public interface ApprovalRepository extends JpaRepository<ApprovalRequest, Long>
                                                               @Param("payloadFingerprint") String payloadFingerprint,
                                                               @Param("amount") BigDecimal amount);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select a from ApprovalRequest a
+            where a.action = :action and a.targetId = :targetId
+              and a.status = 'APPROVED' and a.consumedAt is null
+              and a.payloadFingerprint = :payloadFingerprint
+              and ((:amount is null and a.amount is null) or a.amount = :amount)
+            order by a.id desc
+            """)
+    Optional<ApprovalRequest> findApprovedForActivationWithLock(@Param("action") String action,
+                                                                  @Param("targetId") String targetId,
+                                                                  @Param("payloadFingerprint") String payloadFingerprint,
+                                                                  @Param("amount") BigDecimal amount);
+
     /** Lấy các yêu cầu ở trạng thái đã chỉ định và đã hết hạn tại thời điểm now. */
     List<ApprovalRequest> findByStatusAndExpiresAtLessThanEqual(String status, Instant now);
 

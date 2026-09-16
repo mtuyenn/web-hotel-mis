@@ -21,11 +21,11 @@ public class InventoryMovement {
     /** Nhập hàng làm tăng tồn kho. */
     public enum MovementType {
         /** Nhập hàng hoặc bổ sung làm tăng tồn. */
-        RECEIPT,
+        RECEIVE,
         /** Xuất dùng hoặc bán làm giảm tồn. */
         ISSUE,
         /** Điều chỉnh số tồn theo kiểm kê hoặc sửa sai. */
-        ADJUSTMENT,
+        ADJUST,
         /** Hủy hàng/hao hụt làm giảm tồn. */
         WASTE,
         /** Hoàn trả hàng vào kho làm tăng tồn. */

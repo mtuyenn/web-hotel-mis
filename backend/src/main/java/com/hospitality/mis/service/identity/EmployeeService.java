@@ -227,6 +227,23 @@ public class EmployeeService {
         return employee == null || canManageRole(authentication, employee.getRole());
     }
 
+    public boolean canManageEmployeeRole(Authentication authentication, String employeeId, EmployeeRole targetRole) {
+        Employee employee = employees.findById(employeeId).orElse(null);
+        return employee != null && canManageRole(authentication, employee.getRole()) && canManageRole(authentication, targetRole);
+    }
+
+    @Transactional
+    public EmployeeAdminDtos.Response setRole(String employeeId, EmployeeRole role) {
+        Employee employee = findRequired(employeeId);
+        requireCurrentActorCanManage(employee.getRole());
+        requireCurrentActorCanManage(role);
+        EmployeeRole before = employee.getRole();
+        employee.setRole(role);
+        audit.record(SecurityActor.currentActor(), "EMPLOYEE_ROLE_CHANGED", "EMPLOYEE", employeeId,
+                before.name(), role.name(), null);
+        return toAdminResponse(employees.save(employee));
+    }
+
     /** Bắt buộc actor đã xác thực có quyền quản lý chức vụ mục tiêu. */
     private void requireCurrentActorCanManage(EmployeeRole targetRole) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

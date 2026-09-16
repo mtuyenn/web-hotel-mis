@@ -102,12 +102,16 @@ public class RoomService {
             throw new DomainException("INVALID_ROOM_TRANSITION",
                     "Cannot move an occupied room to READY: " + id);
         }
-        if ((before == RoomStatus.READY && next == RoomStatus.MAINTENANCE)
-                || (before == RoomStatus.MAINTENANCE && next == RoomStatus.READY)) {
-            if (!hasMaintenanceRole()) {
-                throw new DomainException("ROOM_STATUS_FORBIDDEN",
-                    "Only TECHNICAL staff or managers may start or finish maintenance");
-            }
+        if (before == RoomStatus.READY && next == RoomStatus.MAINTENANCE) {
+            if (!hasRole("ROLE_TECHNICAL") && !hasManagementRole())
+                throw new DomainException("ROOM_STATUS_FORBIDDEN", "Only TECHNICAL staff or managers may start maintenance");
+            return;
+        }
+        if (before == RoomStatus.MAINTENANCE && next == RoomStatus.READY) {
+            if (hasRole("ROLE_TECHNICAL"))
+                throw new DomainException("ROOM_RELEASE_COMMAND_REQUIRED", "Technical phải dùng command release sau nghiệm thu");
+            if (!hasManagementRole())
+                throw new DomainException("ROOM_STATUS_FORBIDDEN", "Housekeeping không được tự mở khóa phòng");
             return;
         }
         throw new DomainException("INVALID_ROOM_TRANSITION",
@@ -115,13 +119,11 @@ public class RoomService {
     }
 
     /** Kiểm tra principal có một trong các role được phép quản lý bảo trì. */
-    private boolean hasMaintenanceRole() {
-        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .anyMatch(authority -> authority.equals("ROLE_ADMIN")
-                        || authority.equals("ROLE_DIRECTOR")
-                        || authority.equals("ROLE_MANAGER")
-                        || authority.equals("ROLE_TECHNICAL"));
+    private boolean hasManagementRole() { return hasRole("ROLE_ADMIN") || hasRole("ROLE_DIRECTOR") || hasRole("ROLE_MANAGER"); }
+    private boolean hasRole(String role) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals(role));
     }
 
     /** Ràng buộc actor với principal và chuyển lỗi Spring Security thành lỗi miền. */

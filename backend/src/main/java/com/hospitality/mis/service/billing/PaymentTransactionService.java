@@ -20,6 +20,8 @@ import java.time.LocalDateTime;
 import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
+import com.hospitality.mis.service.finance.FinancialLedgerService;
+import com.hospitality.mis.entity.finance.FinancialLedgerEntry;
 
 /** Ghi nhận và truy vấn giao dịch thu/hoàn tiền của một hóa đơn. */
 @Service
@@ -35,6 +37,7 @@ public class PaymentTransactionService {
     /** Làm tròn tổng hóa đơn theo chính sách tiền tệ của hệ thống. */
     private final PricingPolicy pricing;
     private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+    private FinancialLedgerService ledger;
 
     public PaymentTransactionService(PaymentTransactionRepository transactions, InvoiceRepository invoices,
                                      ApprovalService approvals, AuditService audit, PricingPolicy pricing) {
@@ -44,6 +47,8 @@ public class PaymentTransactionService {
 
     @org.springframework.beans.factory.annotation.Autowired
     void setBusinessClock(Clock clock) { this.clock = clock; }
+    @org.springframework.beans.factory.annotation.Autowired
+    void setFinancialLedger(FinancialLedgerService ledger) { this.ledger = ledger; }
 
     /** Ghi một khoản thu hoặc hoàn tiền, kiểm tra phạm vi, số dư, phê duyệt và idempotency. */
     @Transactional
@@ -103,6 +108,10 @@ public class PaymentTransactionService {
         audit.record(boundActor, request.type() == PaymentTransaction.TransactionType.PAYMENT
                         ? "PAYMENT_RECORDED" : "PAYMENT_REFUNDED", "PAYMENT_TRANSACTION", String.valueOf(saved.getId()),
                 null, request.amount().toPlainString(), saved.getReference());
+        if (ledger != null) ledger.record(request.type() == PaymentTransaction.TransactionType.PAYMENT ? "PAYMENT_RECEIVED" : "REFUND_ISSUED",
+                "PAYMENT_TRANSACTION", String.valueOf(saved.getId()),
+                request.type() == PaymentTransaction.TransactionType.PAYMENT ? FinancialLedgerEntry.Direction.DEBIT : FinancialLedgerEntry.Direction.CREDIT,
+                saved.getAmount(), boundActor, saved.getOccurredAt(), saved.getMethod().name());
         return toResponse(saved);
     }
 

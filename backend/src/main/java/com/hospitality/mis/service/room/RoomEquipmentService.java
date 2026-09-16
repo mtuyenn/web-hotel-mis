@@ -84,6 +84,17 @@ public class RoomEquipmentService {
         return equipment.findByRoomIdAndActiveTrueOrderByNameAsc(roomId).stream().map(this::toResponse).toList();
     }
 
+    @Transactional
+    public RoomEquipmentDtos.Response update(String roomId, Long equipmentId, RoomEquipmentDtos.UpdateRequest request, String actor) {
+        String boundActor = authenticatedActor(actor);
+        RoomEquipment item = equipment.findByIdAndRoomIdAndActiveTrue(equipmentId, roomId)
+                .orElseThrow(() -> new DomainException("EQUIPMENT_NOT_FOUND", "Không tìm thấy thiết bị active trong phòng"));
+        item.setName(request.name().trim()); item.setOriginalValue(request.originalValue());
+        item.setPurchasedOn(request.purchasedOn()); item.setQuantity(request.quantity()); item.setActive(request.active());
+        if (audit != null) audit.record(boundActor, "ROOM_EQUIPMENT_UPDATED", "ROOM_EQUIPMENT", String.valueOf(equipmentId), null, roomId, null);
+        return toResponse(equipment.save(item));
+    }
+
     /** Lấy actor hiện tại từ security context. */
     private String currentActor() {
         return SecurityActor.currentActor();

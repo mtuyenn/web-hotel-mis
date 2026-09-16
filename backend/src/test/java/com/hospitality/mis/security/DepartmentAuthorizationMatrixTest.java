@@ -116,6 +116,7 @@ class DepartmentAuthorizationMatrixTest {
         when(mock23.list(any(), any())).thenReturn(List.of());
         when(mock24.canResetEmployee(any(), anyString())).thenReturn(true);
         when(mock24.canManageRole(any(), any())).thenReturn(true);
+        when(mock24.canManageEmployeeRole(any(), anyString(), any())).thenReturn(true);
         when(mock24.list(anyBoolean())).thenReturn(List.of());
         when(mock25.poll(any())).thenReturn(List.of());
         when(mock26.list()).thenReturn(List.of());
@@ -137,6 +138,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/auth/employees/emp", "ADMIN,DIRECTOR,MANAGER,HR,ACCOUNTING", "{}"),
             new Endpoint("GET", "/api/auth/employees/emp/sessions", "ADMIN,DIRECTOR,MANAGER,HR,ACCOUNTING", "{}"),
             new Endpoint("PATCH", "/api/auth/employees/emp/status", "ADMIN,DIRECTOR,MANAGER", "{\"enabled\":false}"),
+            new Endpoint("PATCH", "/api/auth/employees/emp/role", "ADMIN,DIRECTOR,MANAGER", "{\"role\":\"FRONT_DESK\"}"),
             new Endpoint("DELETE", "/api/auth/employees/emp/sessions/1", "ADMIN,DIRECTOR,MANAGER", "{}"),
             new Endpoint("POST", "/api/auth/employees/emp/password", "ADMIN,DIRECTOR,MANAGER", "{\"password\":\"valid-password\"}"),
             new Endpoint("GET", "/api/guests", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{}"),
@@ -152,6 +154,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/rooms/101/equipment", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
             new Endpoint("GET", "/api/rooms/101/media", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL,STAFF", "{}"),
             new Endpoint("POST", "/api/rooms/101/equipment", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"room_id\":\"101\",\"name\":\"TV\",\"original_value\":100,\"purchased_on\":\"2026-01-01\",\"quantity\":1}"),
+            new Endpoint("PUT", "/api/rooms/101/equipment/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"name\":\"TV\",\"original_value\":100,\"purchased_on\":\"2026-01-01\",\"quantity\":1,\"active\":true}"),
             new Endpoint("POST", "/api/rooms/101/images", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", ""),
             new Endpoint("DELETE", "/api/rooms/101/images/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"name\":\"Wi-Fi\"}"),
@@ -178,6 +181,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/hr/shifts", "ADMIN,DIRECTOR,MANAGER,HR,FRONT_DESK", "{}"),
             new Endpoint("GET", "/api/hr/shifts/coverage?shiftCode=AM", "ADMIN,DIRECTOR,MANAGER,HR,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/hr/shifts", "ADMIN,DIRECTOR,MANAGER,HR", "{\"employee_id\":\"emp\",\"shift_date\":\"2026-10-01\",\"shift_code\":\"AM\",\"starts_at\":\"2026-10-01T08:00:00\",\"ends_at\":\"2026-10-01T16:00:00\"}"),
+            new Endpoint("PATCH", "/api/hr/shifts/1/status", "ADMIN,DIRECTOR,MANAGER,HR", "{\"status\":\"CANCELLED\"}"),
             new Endpoint("POST", "/api/room-types/STD/submit", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("POST", "/api/room-types/STD/activate", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
             new Endpoint("PUT", "/api/room-types/STD/amenities", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"amenity_ids\":[]}"),
@@ -211,7 +215,7 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("GET", "/api/services/low-stock", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{}"),
             new Endpoint("GET", "/api/services/S1/inventory-movements", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{}"),
             new Endpoint("GET", "/api/services/S1/inventory-movements/inventory-report", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{}"),
-            new Endpoint("POST", "/api/services/S1/inventory-movements", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{\"service_id\":\"S1\",\"type\":\"RECEIPT\",\"quantity\":1}"),
+            new Endpoint("POST", "/api/services/S1/inventory-movements", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{\"service_id\":\"S1\",\"type\":\"RECEIVE\",\"quantity\":1}"),
             new Endpoint("POST", "/api/services/S1/price/submit", "ADMIN,DIRECTOR,MANAGER,KITCHEN", "{\"price\":120,\"reason\":\"Cost update\"}"),
             new Endpoint("POST", "/api/services/S1/price/activate", "ADMIN,DIRECTOR,MANAGER", "{\"price\":120,\"reason\":\"Cost update\"}"),
             new Endpoint("GET", "/api/services/S1/price-history", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{}"),

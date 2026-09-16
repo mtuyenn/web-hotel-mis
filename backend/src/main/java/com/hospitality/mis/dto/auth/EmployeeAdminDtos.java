@@ -16,5 +16,7 @@ public final class EmployeeAdminDtos {
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record StatusRequest(@NotNull Boolean enabled) {}
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record RoleRequest(@NotNull EmployeeRole role) {}
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record SessionResponse(Long id, String employeeId, Instant issuedAt, Instant expiresAt, Instant revokedAt, String familyId) {}
 }
