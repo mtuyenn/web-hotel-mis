@@ -1,5 +1,7 @@
 package com.hospitality.mis.service.reservation;
 
+import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
+
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.reservation.ReservationDatabase;
 import com.hospitality.mis.dto.billing.InvoiceDtos;
@@ -122,7 +124,7 @@ public class ReservationService {
             if(Set.of("BREAKFAST","LNDRYSTD","MAMREST","POOL").contains(request.serviceId()) || database.resourceService(request.serviceId())){
                 var booking=get(id);if(booking.status()!=ReservationStatus.CHECKED_IN)throw error("INVALID_STATE","Chỉ booking đang ở mới được dùng dịch vụ");
                 String room=request.roomId()==null?booking.rooms().get(0).roomId():request.roomId();
-                serviceBookings.recordAtFrontDesk(new HotelServiceBookingService.Request(id,room,request.serviceId(),
+                serviceBookings.recordAtFrontDesk(new HotelServiceBookingDtos.Request(id,room,request.serviceId(),
                     request.usedAt()==null?LocalDateTime.now(clock):request.usedAt(),request.quantity(),request.mealPeriod(),null),key,bound);
             }else command("service",id,null,null,request.usedAt(),null,null,null,request.serviceId(),request.quantity(),bound);
             return get(id);

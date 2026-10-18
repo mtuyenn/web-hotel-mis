@@ -1,7 +1,7 @@
 package com.hospitality.mis.operations;
 
-import com.hospitality.mis.dto.operations.EnterpriseDtos;
-import com.hospitality.mis.service.operations.EnterpriseExtensionService;
+import com.hospitality.mis.dto.operations.BackofficeDtos;
+import com.hospitality.mis.service.operations.BackofficeService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ class SqlServerAttendanceImportConcurrencyTest {
     private static final LocalDate WORK_DATE = LocalDate.of(2032, 2, 3);
 
     @Autowired JdbcTemplate jdbc;
-    @Autowired EnterpriseExtensionService enterprise;
+    @Autowired BackofficeService enterprise;
 
     @BeforeEach
     void seed() {
@@ -68,10 +68,10 @@ class SqlServerAttendanceImportConcurrencyTest {
     private String importWhenReleased(String suffix, CountDownLatch ready, CountDownLatch start) throws Exception {
         ready.countDown();
         assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
-        var row = new EnterpriseDtos.AttendanceInput(
+        var row = new BackofficeDtos.AttendanceInput(
                 EMPLOYEE, WORK_DATE, WORK_DATE.atTime(8, 0), WORK_DATE.atTime(17, 0),
                 "PRESENT", "MANUAL", "sql-attendance-" + suffix, "concurrent import " + suffix);
-        enterprise.importAttendance(new EnterpriseDtos.AttendanceImportRequest(List.of(row)), EMPLOYEE);
+        enterprise.importAttendance(new BackofficeDtos.AttendanceImportRequest(List.of(row)), EMPLOYEE);
         return "SUCCESS";
     }
 }

@@ -1,18 +1,20 @@
 import ShiftRosterPanel from "./ShiftRosterPanel";
 import { useEffect, useState, useMemo } from "react";
 import { hrGovernanceApi } from "../../shared/api/hrGovernance";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { hrApi } from "../../shared/api/hr";
 import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
 import { frontDeskApi } from "../../shared/api/frontDesk";
-import { kitchenAccountingApi } from "../../shared/api/kitchenAccounting";
+import { approvalsApi } from "../../shared/api/approvals";
+import { financeApi } from "../../shared/api/finance";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
 import { authApi } from "../../shared/api/auth";
 import { apiErrorMessage } from "../../shared/api/client";
 import { EmployeeProfileDropdown } from "../../shared/components/EmployeeProfileDropdown";
 import type { Approval as ApiApproval, EmployeeAdmin } from "../../shared/types/hrGovernance";
-import type { LeaveRequest } from "../../shared/types/enterprise";
+import type { LeaveRequest } from "../../shared/types/backoffice";
 import type { EquipmentIncident, HousekeepingTask, Room as ApiRoom, TechnicalWorkOrder } from "../../shared/types/housekeepingTechnical";
 import type { Invoice as ApiInvoice } from "../../shared/types/frontDesk";
-import type { Expense, Approval as KitchenApproval } from "../../shared/types/kitchenAccounting";
+import type { Expense, Approval as WarehouseApproval } from "../../shared/types/hotelOperations";
 import { useManagementFinance, type ManagementFinance } from "./managementFinance";
 import { PersonnelWorkspace, OnboardingReviewDialog } from "../hr/PersonnelWorkspace";
 import { personnelApi, type OnboardingRequest, type OnboardingDecision } from "../../shared/api/personnel";
@@ -30,7 +32,7 @@ import {
 
 import { ServicePriceReviewContext, useServicePriceReview } from "./ServicePriceReviewContext";
 import { proposedPrice, priceReviewDetails } from "./servicePriceReview";
-import type { Service } from "../../shared/types/kitchenAccounting";
+import type { Service } from "../../shared/types/hotelOperations";
 
 /* ══════════════════════════════════════════════════════════
    TYPES & DATA
@@ -380,9 +382,9 @@ function ApprovalsScreen({
   role: ManagerRole;
   approvalsData?: Approval[];
   onDecision?: (id: string, action: ApprovalDecision) => Promise<boolean>;
-  approvedPriceProposals?: KitchenApproval[];
+  approvedPriceProposals?: WarehouseApproval[];
   activatingPriceId?: number | null;
-  onActivatePrice?: (approval: KitchenApproval) => Promise<void>;
+  onActivatePrice?: (approval: WarehouseApproval) => Promise<void>;
 }) {
   const {services:priceCatalog,employees:priceEmployees,managerId} = useServicePriceReview();
   const [approvals, setApprovals] = useState<Record<string,ApprovalStatus>>({});
@@ -754,7 +756,7 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
   const [priceCatalog, setPriceCatalog] = useState<Service[]>([]);
   const [priceNotice, setPriceNotice] = useState<string | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
-  const [approvedPriceProposals, setApprovedPriceProposals] = useState<KitchenApproval[]>([]);
+  const [approvedPriceProposals, setApprovedPriceProposals] = useState<WarehouseApproval[]>([]);
   const [activatingPriceId, setActivatingPriceId] = useState<number | null>(null);
   const [refreshApprovalsCount, setRefreshApprovalsCount] = useState(0);
 
@@ -812,18 +814,18 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
       })
       .catch(err => { console.warn("Backend approval queue unavailable:", err); if (active) setLiveApprovals([]); });
 
-    kitchenAccountingApi.approvals("APPROVED")
+    approvalsApi.approvals("APPROVED")
       .then(value => {
         if (!active) return;
         const source = Array.isArray(value) ? value : value.items;
-        const unconsumed = source.filter((a: KitchenApproval) =>
+        const unconsumed = source.filter((a: WarehouseApproval) =>
           (a.action === "SERVICE_PRICE_CHANGE" || a.action === "Thay đổi giá dịch vụ") && !a.consumed_at
         );
         setApprovedPriceProposals(unconsumed);
       })
       .catch(() => { if (active) { setApprovedPriceProposals([]); setPriceError("Không tải được đề xuất đã duyệt chờ áp dụng. Vui lòng tải lại."); } });
 
-    enterpriseApi.leaves("PENDING")
+    hrApi.leaves("PENDING")
       .then(rows => { if (active) setLiveLeaveRequests(rows); })
       .catch(err => { console.warn("Backend leave approval queue unavailable:", err); if (active) setLiveLeaveRequests([]); });
 
@@ -867,11 +869,11 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
         }
       });
 
-    kitchenAccountingApi.expenses()
+    financeApi.expenses()
       .then(expenses => { if (active) setLiveExpenses(expenses); })
       .catch(err => { console.warn("Backend manager expenses unavailable:", err); if (active) setLiveExpenses([]); });
 
-    kitchenAccountingApi.services().then(rows => { if (active) setPriceCatalog(rows); })
+    warehouseServicesApi.services().then(rows => { if (active) setPriceCatalog(rows); })
       .catch(() => { if (active) { setPriceCatalog([]); setPriceError("Không tải được bảng giá hiện tại. Vui lòng tải lại trước khi đối chiếu giá."); } });
 
     return () => { active = false; };
@@ -1033,8 +1035,8 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
       const leaveId = Number(id.slice("leave-".length));
       if (!Number.isSafeInteger(leaveId)) return false;
       try {
-        if (action === "approved") await enterpriseApi.approveLeave(leaveId);
-        else await enterpriseApi.rejectLeave(leaveId);
+        if (action === "approved") await hrApi.approveLeave(leaveId);
+        else await hrApi.rejectLeave(leaveId);
         setLiveLeaveRequests(previous => previous.filter(request => request.id !== leaveId));
         return true;
       } catch (err) {
@@ -1094,7 +1096,7 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
     }
   };
 
-  const handleActivateApprovedPrice = async (approval: KitchenApproval) => {
+  const handleActivateApprovedPrice = async (approval: WarehouseApproval) => {
     if (activatingPriceId !== null) return;
     setActivatingPriceId(approval.id);
     setPriceError(null);
@@ -1102,7 +1104,7 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
     try {
       const newPrice = proposedPrice(approval);
       if (newPrice === null) throw new Error("Giá dịch vụ không hợp lệ");
-      await kitchenAccountingApi.activatePrice(approval.target_id, {
+      await warehouseServicesApi.activatePrice(approval.target_id, {
         price: newPrice,
         reason: approval.reason || "Quản lý kích hoạt giá đã duyệt",
       }, `act-mgr-${approval.id}`);

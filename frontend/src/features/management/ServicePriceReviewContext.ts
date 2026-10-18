@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { Service } from "../../shared/types/kitchenAccounting";
+import type { Service } from "../../shared/types/hotelOperations";
 import type { EmployeeAdmin } from "../../shared/types/hrGovernance";
 
 // Only price-review cards consume this data; other approval workflows keep their props.

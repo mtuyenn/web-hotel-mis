@@ -1,5 +1,7 @@
 package com.hospitality.mis.service.reservation;
 
+import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
+
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.auth.CustomerAccountDatabase;
 import com.hospitality.mis.dao.reservation.ReservationDatabase;
@@ -89,7 +91,7 @@ public class CustomerReservationService {
         var payment=new CustomerReservationDtos.PaymentInstruction(snapshot.paymentCode(),snapshot.pendingType()==null?r.deposit():snapshot.additionalDeposit(),status,snapshot.expiresAt(),instruction);
         var bookings=services.reservationServices(r.id());
         BigDecimal total=snapshot.customerRooms().stream().map(CustomerReservationDtos.RoomLine::totalPrice).reduce(BigDecimal.ZERO,BigDecimal::add)
-            .add(bookings.stream().filter(b->!"CANCELLED".equals(b.status())).map(HotelServiceBookingService.Response::amountDue).reduce(BigDecimal.ZERO,BigDecimal::add));
+            .add(bookings.stream().filter(b->!"CANCELLED".equals(b.status())).map(HotelServiceBookingDtos.Response::amountDue).reduce(BigDecimal.ZERO,BigDecimal::add));
         var pending=snapshot.pendingType()==null?null:new CustomerReservationDtos.PendingChange(CustomerReservationDtos.ChangeType.EXTEND,
             snapshot.previousCheckIn(),snapshot.previousCheckOut(),r.rooms().get(0).expectedCheckIn(),r.rooms().get(0).expectedCheckOut(),snapshot.additionalDeposit(),snapshot.expiresAt());
         return new CustomerReservationDtos.Response(r.id(),r.status(),r.rentalType(),r.bookingSource(),r.deposit(),total,r.bookedAt(),snapshot.customerRooms(),payment,bookings,r.cancellationReason(),r.cancellationOutcome(),pending);

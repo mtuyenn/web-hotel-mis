@@ -1,5 +1,7 @@
 package com.hospitality.mis.reservation;
 
+import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
+
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.reservation.HotelServiceBookingDatabase;
 import com.hospitality.mis.service.billing.VnpayPaymentService;
@@ -116,7 +118,7 @@ class SqlServerServiceCapacityPaymentTest {
   assertThat(book("CP-EXP",1,start.plusHours(3)).endsAt()).isEqualTo(start.plusHours(6));
   assertThatThrownBy(()->db.preparePayment(first.id(),owner+999,now)).isInstanceOf(DomainException.class);
  }
- private HotelServiceBookingService.Response book(String id,int qty,LocalDateTime at){return bookings.bookForCustomer(new HotelServiceBookingService.Request(reservation,"CP-ROOM",id,at,qty,null,null),UUID.randomUUID().toString());}
+ private HotelServiceBookingDtos.Response book(String id,int qty,LocalDateTime at){return bookings.bookForCustomer(new HotelServiceBookingDtos.Request(reservation,"CP-ROOM",id,at,qty,null,null),UUID.randomUUID().toString());}
  private static LocalDateTime businessNow(){return LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));}
  private long available(LocalDateTime at){return jdbc.queryForObject("SELECT conLai FROM fnKhaDungDichVu(?,?) WHERE maDichVu='CP-EXP'",Long.class,at,at.plusMinutes(1));}
  private void customer(){var jwt=Jwt.withTokenValue("capacity-test").header("alg","none").subject(""+owner).claim("principal_type","CUSTOMER").claim("principal_id",""+owner).build();SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER")),""+owner));}

@@ -1,8 +1,7 @@
 package com.hospitality.mis.controller.auth;
 
-import com.hospitality.mis.common.exception.DomainException;
-import com.hospitality.mis.dao.auth.CustomerAccountDatabase;
 import com.hospitality.mis.dto.auth.CustomerAccountDtos;
+import com.hospitality.mis.service.auth.CustomerOtpService;
 import com.hospitality.mis.service.auth.EmailService;
 import com.hospitality.mis.service.auth.OtpPurpose;
 import com.hospitality.mis.service.auth.OtpService;
@@ -21,12 +20,12 @@ public class OtpController {
 
     private final OtpService otpService;
     private final EmailService emailService;
-    private final CustomerAccountDatabase customerAccounts;
+    private final CustomerOtpService customerOtp;
 
-    public OtpController(OtpService otpService, EmailService emailService, CustomerAccountDatabase customerAccounts) {
+    public OtpController(OtpService otpService, EmailService emailService, CustomerOtpService customerOtp) {
         this.otpService = otpService;
         this.emailService = emailService;
-        this.customerAccounts = customerAccounts;
+        this.customerOtp = customerOtp;
     }
 
     /**
@@ -37,10 +36,7 @@ public class OtpController {
     public ResponseEntity<Map<String, String>> sendRegisterOtp(@Valid @RequestBody CustomerAccountDtos.OtpSendRequest request) {
         String email = request.email().trim().toLowerCase();
 
-        // Kiểm tra email đã có tài khoản khách hàng đăng ký trước đó chưa
-        if (customerAccounts.email(email).isPresent()) {
-            throw new DomainException("EMAIL_ALREADY_IN_USE", "Địa chỉ email này đã được sử dụng cho một tài khoản khác.");
-        }
+        customerOtp.requireEmailAvailable(email);
 
         String otp = otpService.generateOtp(email, OtpPurpose.REGISTER);
         emailService.sendRegisterOtp(email, otp);
@@ -55,10 +51,7 @@ public class OtpController {
     public ResponseEntity<Map<String, String>> sendForgotPasswordOtp(@Valid @RequestBody CustomerAccountDtos.OtpSendRequest request) {
         String email = request.email().trim().toLowerCase();
 
-        // Kiểm tra email có liên kết với tài khoản khách hàng nào không
-        if (!customerAccounts.email(email).isPresent()) {
-            throw new DomainException("ACCOUNT_NOT_FOUND", "Không tìm thấy tài khoản khách hàng nào liên kết với email này.");
-        }
+        customerOtp.requireAccountEmail(email);
 
         String otp = otpService.generateOtp(email, OtpPurpose.FORGOT_PASSWORD);
         emailService.sendForgotPasswordOtp(email, otp);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { kitchenAccountingApi } from "../../shared/api/kitchenAccounting";
+import { financeApi } from "../../shared/api/finance";
 import { apiErrorMessage } from "../../shared/api/client";
-import type { LedgerEntry, Reconciliation } from "../../shared/types/kitchenAccounting";
+import type { LedgerEntry, Reconciliation } from "../../shared/types/hotelOperations";
 import { businessDateValue } from "../accounting/accountingLogic";
 
 export function revenueDates(today = businessDateValue()) {
@@ -25,14 +25,14 @@ export function useManagementFinance() {
     async function loadLedger() {
       const entries: LedgerEntry[] = [];
       for (let page = 0; ; page++) {
-        const result = await kitchenAccountingApi.ledger({ entry_type: "REVENUE_RECOGNIZED", from: dates[0], to: today, page, size: 100 });
+        const result = await financeApi.ledger({ entry_type: "REVENUE_RECOGNIZED", from: dates[0], to: today, page, size: 100 });
         entries.push(...result.items);
         if (!active || page + 1 >= result.totalPages) return entries;
       }
     }
     Promise.all([
-      kitchenAccountingApi.reconciliation({ from: today, to: today }),
-      kitchenAccountingApi.reconciliation({ from: `${today.slice(0, 7)}-01`, to: today }),
+      financeApi.reconciliation({ from: today, to: today }),
+      financeApi.reconciliation({ from: `${today.slice(0, 7)}-01`, to: today }),
       loadLedger(),
     ]).then(([day, month, entries]) => {
       if (active) { setDaily(day); setMonthly(month); setLedger(entries); setError(null); }

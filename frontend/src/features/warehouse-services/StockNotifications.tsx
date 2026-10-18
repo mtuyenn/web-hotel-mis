@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, Bell, Package, RotateCcw, SlidersHorizontal, Trash2, X } from "lucide-react";
-import type { MovementType } from "../../shared/types/kitchenAccounting";
+import type { MovementType } from "../../shared/types/hotelOperations";
 import "./stockNotifications.css";
 
 export interface StockActivity {

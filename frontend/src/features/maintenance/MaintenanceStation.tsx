@@ -1,14 +1,14 @@
 import { useEffect, useState, useMemo } from "react";
 import { housekeepingTechnicalApi, housekeepingTechnicalMutationKey } from "../../shared/api/housekeepingTechnical";
 import { apiErrorMessage } from "../../shared/api/client";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { technicalAssetsApi } from "../../shared/api/technicalAssets";
 import { authApi } from "../../shared/api/auth";
 import { normalizeVietnameseText } from "../../shared/utils/encoding";
 import { employeeRoleLabel } from "../../shared/types/api";
 import { EmployeeProfileDropdown } from "../../shared/components/EmployeeProfileDropdown";
 import type { Equipment, Room, TechnicalWorkOrder, TechnicalWorkOrderStatus } from "../../shared/types/housekeepingTechnical";
 import type { EmployeeAdmin } from "../../shared/types/hrGovernance";
-import type { TechnicalAsset } from "../../shared/types/enterprise";
+import type { TechnicalAsset } from "../../shared/types/backoffice";
 import {
   LayoutDashboard, CalendarDays,
   Wrench, Package,
@@ -412,7 +412,7 @@ function TechnicalCatalogPanel() {
   const [newCycle, setNewCycle]           = useState("3 tháng/lần");
 
   const loadAssets = () => {
-    enterpriseApi.assets()
+    technicalAssetsApi.assets()
       .then(rows => {
         const mapped: Asset[] = rows.map(item => ({
           id: item.id,
@@ -461,7 +461,7 @@ function TechnicalCatalogPanel() {
     e.preventDefault();
     try {
       const newId = `AST-${Date.now()}`;
-      await enterpriseApi.createAsset({
+      await technicalAssetsApi.createAsset({
         id: newId,
         name: newName,
         category: newCat,
@@ -484,7 +484,7 @@ function TechnicalCatalogPanel() {
   const handleAssetStatus = async (item: Asset) => {
     try {
       const nextStatus = item.status === "good" ? "MAINTENANCE_NEEDED" : "GOOD";
-      await enterpriseApi.updateAssetStatus(item.id, nextStatus);
+      await technicalAssetsApi.updateAssetStatus(item.id, nextStatus);
       setAssets(rows => rows.map(row => row.id === item.id ? { ...row, status: nextStatus === "GOOD" ? "good" : "maintenance-needed" } : row));
     } catch (error) {
       window.alert("Không thể cập nhật trạng thái tài sản. Vui lòng thử lại.");

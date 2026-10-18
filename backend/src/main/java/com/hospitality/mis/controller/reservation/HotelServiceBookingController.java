@@ -1,5 +1,7 @@
 package com.hospitality.mis.controller.reservation;
 
+import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
+
 import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.reservation.HotelServiceBookingService;
 import org.springframework.http.HttpStatus;
@@ -20,7 +22,7 @@ public class HotelServiceBookingController {
     @PostMapping("/api/customer/service-bookings")
     @PreAuthorize("hasRole('CUSTOMER')")
     @ResponseStatus(HttpStatus.CREATED)
-    public HotelServiceBookingService.Response book(@RequestBody HotelServiceBookingService.Request request,
+    public HotelServiceBookingDtos.Response book(@RequestBody HotelServiceBookingDtos.Request request,
                                                      @RequestHeader("Idempotency-Key") String key) {
         return service.bookForCustomer(request, key);
     }
@@ -28,23 +30,23 @@ public class HotelServiceBookingController {
     @PostMapping("/api/customer/service-bookings/{id}/payment") @PreAuthorize("hasRole('CUSTOMER')")
     public com.hospitality.mis.dto.billing.VnpayPaymentDtos.CheckoutResponse checkout(@PathVariable long id,jakarta.servlet.http.HttpServletRequest request){return payments.createServiceCheckout(id,request.getRemoteAddr());}
     @GetMapping("/api/customer/service-bookings/{id}/payment") @PreAuthorize("hasRole('CUSTOMER')")
-    public HotelServiceBookingService.Response payment(@PathVariable long id){return payments.servicePayment(id);}
+    public HotelServiceBookingDtos.Response payment(@PathVariable long id){return payments.servicePayment(id);}
 
     @GetMapping("/api/customer/service-bookings")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public List<HotelServiceBookingService.Response> list(@RequestParam("reservation_id") long reservationId) {
+    public List<HotelServiceBookingDtos.Response> list(@RequestParam("reservation_id") long reservationId) {
         return service.customerBookings(reservationId);
     }
 
     @GetMapping("/api/reservations/{reservationId}/service-bookings")
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_SERVICE_WRITE')")
-    public List<HotelServiceBookingService.Response> staffList(@PathVariable long reservationId) {
+    public List<HotelServiceBookingDtos.Response> staffList(@PathVariable long reservationId) {
         return service.staffBookings(reservationId);
     }
 
     @GetMapping("/api/operations/restaurant/service-bookings")
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESTAURANT_ORDER_READ')")
-    public List<HotelServiceBookingService.Response> coordinatedBookings(
+    public List<HotelServiceBookingDtos.Response> coordinatedBookings(
             @RequestParam(name = "date", required = false) LocalDate date,
             @RequestParam(name = "status", required = false) String status) {
         return service.coordinatedBookings(date, status);
@@ -52,19 +54,19 @@ public class HotelServiceBookingController {
 
     @PostMapping("/api/operations/restaurant/service-bookings/{id}/use")
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESTAURANT_ORDER_WRITE')")
-    public HotelServiceBookingService.Response useRestaurantBooking(@PathVariable long id) {
+    public HotelServiceBookingDtos.Response useRestaurantBooking(@PathVariable long id) {
         return service.markCoordinatedServiceUsed(id, SecurityActor.currentActor());
     }
 
     @PostMapping("/api/customer/service-bookings/{id}/cancel")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public HotelServiceBookingService.Response cancel(@PathVariable long id) {
+    public HotelServiceBookingDtos.Response cancel(@PathVariable long id) {
         return service.cancelForCustomer(id);
     }
 
     @PostMapping("/api/reservations/{reservationId}/service-bookings/{id}/use")
     @PreAuthorize("@departmentAccess.allows(authentication, 'RESERVATION_SERVICE_WRITE')")
-    public HotelServiceBookingService.Response use(@PathVariable long reservationId, @PathVariable long id) {
+    public HotelServiceBookingDtos.Response use(@PathVariable long reservationId, @PathVariable long id) {
         return service.markUsed(reservationId, id, SecurityActor.currentActor());
     }
 }

@@ -16,6 +16,7 @@ dist/
 .idea/
 *.iml
 .vscode/
+/.github/modernize/
 .DS_Store
 
 # Secrets and local configuration

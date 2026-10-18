@@ -5,8 +5,10 @@ import { authApi } from "../../shared/api/auth";
 import { hrGovernanceApi } from "../../shared/api/hrGovernance";
 import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
 import { frontDeskApi } from "../../shared/api/frontDesk";
-import { kitchenAccountingApi } from "../../shared/api/kitchenAccounting";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { approvalsApi } from "../../shared/api/approvals";
+import { financeApi } from "../../shared/api/finance";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
+import { hrApi } from "../../shared/api/hr";
 import { ApiError } from "../../shared/api/client";
 
 describe("Service price approval workflow", () => {
@@ -50,12 +52,12 @@ describe("Service price approval workflow", () => {
     });
 
     // Mock expenses
-    vi.spyOn(kitchenAccountingApi, "expenses").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "approvals").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "services").mockResolvedValue([]);
-    vi.spyOn(enterpriseApi, "leaves").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "ledger").mockResolvedValue({items: [], page: 0, size: 100, totalElements: 0, totalPages: 0});
-    vi.spyOn(kitchenAccountingApi, "reconciliation").mockResolvedValue({recognized_revenue: 0, net_total: 0, total_payments: 0, total_refunds: 0} as any);
+    vi.spyOn(financeApi, "expenses").mockResolvedValue([]);
+    vi.spyOn(approvalsApi, "approvals").mockResolvedValue([]);
+    vi.spyOn(warehouseServicesApi, "services").mockResolvedValue([]);
+    vi.spyOn(hrApi, "leaves").mockResolvedValue([]);
+    vi.spyOn(financeApi, "ledger").mockResolvedValue({items: [], page: 0, size: 100, totalElements: 0, totalPages: 0});
+    vi.spyOn(financeApi, "reconciliation").mockResolvedValue({recognized_revenue: 0, net_total: 0, total_payments: 0, total_refunds: 0} as any);
 
     // Mock work orders
     vi.spyOn(housekeepingTechnicalApi, "workOrders").mockResolvedValue([]);
@@ -66,9 +68,9 @@ describe("Service price approval workflow", () => {
     let approved=false;
     vi.mocked(hrGovernanceApi.approvals).mockImplementation(async () => approved ? [] : [proposal]);
     vi.spyOn(hrGovernanceApi,"approve").mockImplementation(async () => { approved=true; return {...proposal,status:"APPROVED",approver:"EMP_MGR"}; });
-    vi.mocked(kitchenAccountingApi.approvals).mockImplementation(async () => approved ? [{...proposal,status:"APPROVED",approver:"EMP_MGR"}] : []);
-    vi.mocked(kitchenAccountingApi.services).mockResolvedValue([{id:"COURT",name:"Cầu lông",price:150000,unit:"giờ",stock:10,safety_threshold:0,low_stock:false}]);
-    const activate=vi.spyOn(kitchenAccountingApi,"activatePrice").mockRejectedValue(new ApiError(503,{code:"BUSY",message:"Máy chủ bận"}));
+    vi.mocked(approvalsApi.approvals).mockImplementation(async () => approved ? [{...proposal,status:"APPROVED",approver:"EMP_MGR"}] : []);
+    vi.mocked(warehouseServicesApi.services).mockResolvedValue([{id:"COURT",name:"Cầu lông",price:150000,unit:"giờ",stock:10,safety_threshold:0,low_stock:false}]);
+    const activate=vi.spyOn(warehouseServicesApi,"activatePrice").mockRejectedValue(new ApiError(503,{code:"BUSY",message:"Máy chủ bận"}));
     render(<ManagerDashboard role="manager" onBack={onBack} />);
     await screen.findByText("Cầu lông (COURT)");
     fireEvent.click(screen.getByRole("button",{name:/Trung tâm Phê duyệt/i}));

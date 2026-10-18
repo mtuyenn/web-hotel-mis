@@ -362,7 +362,7 @@ class DepartmentAuthorizationMatrixTest {
         List<String> coverageErrors = new ArrayList<>();
         for (var entry : requestMappingHandlerMapping.getHandlerMethods().entrySet()) {
             Class<?> beanType = entry.getValue().getBeanType();
-            if (beanType.getSimpleName().startsWith("EnterpriseExtension") || beanType.getSimpleName().startsWith("CommercialPartner")) continue;
+            if (beanType.getSimpleName().startsWith("Backoffice") || beanType.getSimpleName().startsWith("CommercialPartner")) continue;
             for (String pattern : entry.getKey().getPatternValues()) {
                 if (!pattern.startsWith("/api/") || pattern.startsWith("/api/public/")
                         || pattern.startsWith("/api/auth/otp/") || publicPaths.contains(pattern)) continue;

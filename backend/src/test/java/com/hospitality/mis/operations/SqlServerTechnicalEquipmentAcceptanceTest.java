@@ -52,7 +52,7 @@ class SqlServerTechnicalEquipmentAcceptanceTest {
     @Autowired EquipmentIncidentService equipmentIncidents;
     @Autowired HousekeepingService housekeeping;
     @Autowired HousekeepingChecklistService checklists;
-    @Autowired com.hospitality.mis.service.operations.EnterpriseExtensionService enterprise;
+    @Autowired com.hospitality.mis.service.operations.BackofficeService enterprise;
 
     @BeforeEach
     void seed() {
@@ -250,7 +250,7 @@ class SqlServerTechnicalEquipmentAcceptanceTest {
     @Test
     void technicalAssetsPersistAndReflectStatusChanges() {
         jdbc.update("delete from TaiSanKyThuat where maTaiSanKyThuat = 'AST-1401'");
-        var created = enterprise.createAsset(new com.hospitality.mis.dto.operations.EnterpriseDtos.TechnicalAssetRequest(
+        var created = enterprise.createAsset(new com.hospitality.mis.dto.operations.BackofficeDtos.TechnicalAssetRequest(
                 "AST-1401", "Chiller R1401", "HVAC", "ROOM", ROOM, 1, "R1401", "Daikin",
                 java.time.LocalDate.of(2024, 1, 1), java.time.LocalDate.of(2026, 12, 31),
                 "GOOD", BigDecimal.valueOf(50000000), "Asset test"

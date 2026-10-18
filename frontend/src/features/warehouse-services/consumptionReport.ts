@@ -1,5 +1,5 @@
 import type { ServiceConsumption } from "../../shared/api/serviceConsumption";
-import type { MovementType } from "../../shared/types/kitchenAccounting";
+import type { MovementType } from "../../shared/types/hotelOperations";
 import { localDateValue, parseApiDate } from "../../shared/utils/localDate";
 
 export interface ReportItem {

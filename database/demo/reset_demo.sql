@@ -63,6 +63,7 @@ DELETE FROM HinhAnhPhong;
 DELETE FROM LoaiPhongTienNghi;
 DELETE FROM TienNghi;
 DELETE FROM YeuCauKho;
+DELETE FROM TonKhoBuongPhong;
 DELETE FROM BienDongKhoDichVu;
 DELETE FROM LichSuGiaDichVu;
 UPDATE DichVu SET maNguonTaiNguyen=NULL;

@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import HRStation from "./HRStation";
 import { authApi } from "../../shared/api/auth";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { hrApi } from "../../shared/api/hr";
+import { employeeProvisioningApi } from "../../shared/api/employeeProvisioning";
 import { hrGovernanceApi } from "../../shared/api/hrGovernance";
 import { localDateValue } from "../../shared/utils/localDate";
 import { personnelApi } from "../../shared/api/personnel";
@@ -40,7 +41,7 @@ describe("HRStation weekly shift schedule", () => {
   });
 
   it("lets HR prepare an onboarding request without directly provisioning an account", async () => {
-    const provision = vi.spyOn(enterpriseApi, "autoProvisionEmployee");
+    const provision = vi.spyOn(employeeProvisioningApi, "autoProvisionEmployee");
     render(<HRStation onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", {name: /Hồ sơ nhân sự/}));
     await waitFor(() => expect(screen.getByRole("button", {name: "Lập đề nghị tiếp nhận"})).toHaveProperty("disabled", false));
@@ -67,8 +68,8 @@ describe("HRStation weekly shift schedule", () => {
     vi.spyOn(hrGovernanceApi, "approvals").mockResolvedValue({
       items: [], page: 0, size: 20, total_elements: 0, total_pages: 0,
     });
-    vi.spyOn(enterpriseApi, "attendance").mockResolvedValue([]);
-    vi.spyOn(enterpriseApi, "leaves").mockResolvedValue([]);
+    vi.spyOn(hrApi, "attendance").mockResolvedValue([]);
+    vi.spyOn(hrApi, "leaves").mockResolvedValue([]);
   });
 
   it("keeps the displayed week, column dates, and shift query aligned while navigating", async () => {
@@ -113,7 +114,7 @@ describe("HRStation weekly shift schedule", () => {
   it("shows and exports approved leave even when the employee has no attendance punches", async () => {
     const month = localDateValue().slice(0, 7);
     vi.mocked(hrGovernanceApi.employees).mockResolvedValue([{ employee_id: "FD1", full_name: "Nhân viên nghỉ ốm", role: "FRONT_DESK", phone: "0901111111", enabled: true, account_non_locked: true, failed_login_attempts: 0, employment_status: "WORKING" }]);
-    vi.mocked(enterpriseApi.leaves).mockResolvedValue([{ id: 12, employee_id: "FD1", leave_type: "SICK", start_date: `${month}-13`, end_date: `${month}-14`, status: "APPROVED", reason: "Nghỉ ốm", shift_swap_with: null, requested_by: "HR", approver: "MANAGER", decided_at: null, created_at: `${month}-12` }]);
+    vi.mocked(hrApi.leaves).mockResolvedValue([{ id: 12, employee_id: "FD1", leave_type: "SICK", start_date: `${month}-13`, end_date: `${month}-14`, status: "APPROVED", reason: "Nghỉ ốm", shift_swap_with: null, requested_by: "HR", approver: "MANAGER", decided_at: null, created_at: `${month}-12` }]);
     render(<HRStation onBack={vi.fn()} />);
     await screen.findByText("Nhân viên nghỉ ốm", { exact: true });
     fireEvent.click(screen.getByRole("button", { name: "Chấm công" }));

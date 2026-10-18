@@ -1,4 +1,4 @@
-import type { AttendanceRecord, LeaveRequest } from "../../shared/types/enterprise";
+import type { AttendanceRecord, LeaveRequest } from "../../shared/types/backoffice";
 
 /** Inclusive calendar days, clipped to the requested month and deduplicated. */
 export function approvedLeaveDays(employeeId: string, month: string, leaves: LeaveRequest[]) {

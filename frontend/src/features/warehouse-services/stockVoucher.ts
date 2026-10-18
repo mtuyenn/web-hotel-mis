@@ -1,4 +1,4 @@
-import type { MovementType } from "../../shared/types/kitchenAccounting";
+import type { MovementType } from "../../shared/types/hotelOperations";
 
 export interface VoucherMovement {
   id:string;serviceId:string;itemName:string;unit:string;unitPrice:number;

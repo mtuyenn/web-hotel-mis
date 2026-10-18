@@ -90,7 +90,7 @@ public final class CustomerReservationDtos {
             LocalDateTime bookedAt,
             List<RoomLine> rooms,
             PaymentInstruction depositPayment,
-            List<com.hospitality.mis.service.reservation.HotelServiceBookingService.Response> services,
+            List<com.hospitality.mis.dto.reservation.HotelServiceBookingDtos.Response> services,
             String cancellationReason,
             com.hospitality.mis.entity.reservation.CancellationOutcome cancellationOutcome,
             PendingChange pendingChange) {

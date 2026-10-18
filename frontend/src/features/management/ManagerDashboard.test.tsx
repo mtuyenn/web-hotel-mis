@@ -5,8 +5,10 @@ import { authApi } from "../../shared/api/auth";
 import { hrGovernanceApi } from "../../shared/api/hrGovernance";
 import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
 import { frontDeskApi } from "../../shared/api/frontDesk";
-import { kitchenAccountingApi } from "../../shared/api/kitchenAccounting";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { approvalsApi } from "../../shared/api/approvals";
+import { financeApi } from "../../shared/api/finance";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
+import { hrApi } from "../../shared/api/hr";
 import { personnelApi } from "../../shared/api/personnel";
 
 describe("ManagerDashboard Interface and Acceptance Workflow", () => {
@@ -72,12 +74,12 @@ describe("ManagerDashboard Interface and Acceptance Workflow", () => {
     });
 
     // Mock expenses
-    vi.spyOn(kitchenAccountingApi, "expenses").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "approvals").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "services").mockResolvedValue([]);
-    vi.spyOn(enterpriseApi, "leaves").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "ledger").mockResolvedValue({items: [], page: 0, size: 100, totalElements: 0, totalPages: 0});
-    vi.spyOn(kitchenAccountingApi, "reconciliation").mockResolvedValue({recognized_revenue: 0, net_total: 0, total_payments: 0, total_refunds: 0} as any);
+    vi.spyOn(financeApi, "expenses").mockResolvedValue([]);
+    vi.spyOn(approvalsApi, "approvals").mockResolvedValue([]);
+    vi.spyOn(warehouseServicesApi, "services").mockResolvedValue([]);
+    vi.spyOn(hrApi, "leaves").mockResolvedValue([]);
+    vi.spyOn(financeApi, "ledger").mockResolvedValue({items: [], page: 0, size: 100, totalElements: 0, totalPages: 0});
+    vi.spyOn(financeApi, "reconciliation").mockResolvedValue({recognized_revenue: 0, net_total: 0, total_payments: 0, total_refunds: 0} as any);
 
     // Mock work orders
     vi.spyOn(housekeepingTechnicalApi, "workOrders").mockResolvedValue([]);

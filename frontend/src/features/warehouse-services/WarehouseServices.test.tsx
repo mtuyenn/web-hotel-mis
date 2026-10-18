@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import KitchenInventory from "./KitchenInventory";
-import { kitchenAccountingApi } from "../../shared/api/kitchenAccounting";
+import WarehouseServices from "./WarehouseServices";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
 import { authApi } from "../../shared/api/auth";
 import { serviceAvailabilityApi } from "../../shared/api/serviceAvailability";
 import { catalogProposalsApi } from "../../shared/api/catalogProposals";
 
-describe("Kitchen & restaurant operations", () => {
+describe("Warehouse and hotel services operations", () => {
   const booking = {
     id: 71, reservation_id: 7, room_id: "802", service_id: "MAMREST", service_name: "MaM Restaurant",
     scheduled_at: new Date(Date.now() - 60_000).toISOString(), quantity: 1, free_quantity: 0,
@@ -28,33 +28,33 @@ describe("Kitchen & restaurant operations", () => {
       {service_id:"INROOMQA",unit:"suất",capacity:20,booked:20,available:0,duration_minutes:120},
     ]);
     vi.spyOn(authApi, "employeeProfile").mockResolvedValue({ employee_id:"KITCHEN", full_name:"Võ Minh Bếp", role:"KITCHEN", permissions:["INVENTORY_WRITE","RESTAURANT_ORDER_WRITE","SERVICE_PRICE_REQUEST"] });
-    vi.spyOn(kitchenAccountingApi, "services").mockResolvedValue([service, spaService, outOfStockService]);
-    vi.spyOn(kitchenAccountingApi, "inventoryMovements").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "priceRequests").mockResolvedValue([]);
-    vi.spyOn(kitchenAccountingApi, "coordinatedBookings").mockResolvedValue([booking]);
-    vi.spyOn(kitchenAccountingApi, "markServiceBookingUsed").mockResolvedValue({ ...booking, status:"USED" });
-    vi.spyOn(kitchenAccountingApi, "recordInventoryMovement").mockResolvedValue({
+    vi.spyOn(warehouseServicesApi, "services").mockResolvedValue([service, spaService, outOfStockService]);
+    vi.spyOn(warehouseServicesApi, "inventoryMovements").mockResolvedValue([]);
+    vi.spyOn(warehouseServicesApi, "priceRequests").mockResolvedValue([]);
+    vi.spyOn(warehouseServicesApi, "coordinatedBookings").mockResolvedValue([booking]);
+    vi.spyOn(warehouseServicesApi, "markServiceBookingUsed").mockResolvedValue({ ...booking, status:"USED" });
+    vi.spyOn(warehouseServicesApi, "recordInventoryMovement").mockResolvedValue({
       id: 901, service_id:"MAMREST", type:"RECEIVE", quantity:4, actor_id:"KITCHEN", occurred_at:new Date().toISOString(), reason:"Nhập thử" });
-    vi.spyOn(kitchenAccountingApi, "submitPrice").mockResolvedValue({
+    vi.spyOn(warehouseServicesApi, "submitPrice").mockResolvedValue({
       id: 902, requester:"KITCHEN", action:"SERVICE_PRICE_CHANGE", target_id:"MAMREST", payload:"{\"price\":300000}",
       amount:null, reason:"Giá đầu vào thay đổi", risk:"MEDIUM", status:"PENDING", approver:null, decided_at:null,
       expires_at:null, consumed_at:null, requested_at:new Date().toISOString(), idempotency_key:"price-test" });
   });
 
   it("loads restaurant orders and confirms service through the backend", async () => {
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     expect(await screen.findByText("MaM Restaurant")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name:"Xác nhận sử dụng" }));
-    await waitFor(() => expect(kitchenAccountingApi.markServiceBookingUsed).toHaveBeenCalledWith(71));
+    await waitFor(() => expect(warehouseServicesApi.markServiceBookingUsed).toHaveBeenCalledWith(71));
     expect((await screen.findAllByText("Đã sử dụng")).length).toBeGreaterThanOrEqual(2);
   });
 
   it("labels unpaid and expired orders without allowing use", async () => {
-    vi.mocked(kitchenAccountingApi.coordinatedBookings).mockResolvedValue([
+    vi.mocked(warehouseServicesApi.coordinatedBookings).mockResolvedValue([
       { ...booking, id:72, status:"PENDING_PAYMENT", note:"Awaiting payment" },
       { ...booking, id:73, status:"EXPIRED", note:"Payment expired" },
     ]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     const pendingRow = await screen.findByRole("row", { name:/Awaiting payment/ });
     const expiredRow = screen.getByRole("row", { name:/Payment expired/ });
     expect(within(pendingRow).getByText("Chờ thanh toán")).toBeTruthy();
@@ -67,8 +67,8 @@ describe("Kitchen & restaurant operations", () => {
     const food = { ...service, id:"FOODPHO", name:"Phở bò", category:"food", active:false };
     const drink = { ...service, id:"DRNKTEA", name:"Trà đào", category:"beverage", active:false };
     const household = { ...service, id:"HHKETTLE", name:"Ấm đun nước", category:"room-amenity", active:false };
-    vi.mocked(kitchenAccountingApi.services).mockResolvedValue([service, spaService, food, drink, household]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    vi.mocked(warehouseServicesApi.services).mockResolvedValue([service, spaService, food, drink, household]);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Kho" }));
     expect(await screen.findByText("SKU: FOODPHO")).toBeTruthy();
     expect(screen.getByText("SKU: DRNKTEA")).toBeTruthy();
@@ -97,8 +97,8 @@ describe("Kitchen & restaurant operations", () => {
     const minibarSnack = { ...service, id:"MININUTS", name:"Minibar · Hạt điều", category:"food", active:false };
     const kitchenFood = { ...service, id:"FOODRICE", name:"Cơm chiên", category:"food", active:false };
     const household = { ...service, id:"HHGLASS", name:"Ly thủy tinh", category:"room-amenity", active:false };
-    vi.mocked(kitchenAccountingApi.services).mockResolvedValue([service, minibarDrink, minibarSnack, kitchenFood, household]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    vi.mocked(warehouseServicesApi.services).mockResolvedValue([service, minibarDrink, minibarSnack, kitchenFood, household]);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Kho" }));
     await screen.findByText("SKU: MINICOLA");
     fireEvent.click(screen.getByRole("button", { name:"Minibar" }));
@@ -112,7 +112,7 @@ describe("Kitchen & restaurant operations", () => {
   });
 
   it("refreshes real-time availability with resource units while keeping billing units and stock prices", async () => {
-    vi.mocked(kitchenAccountingApi.services).mockResolvedValue([
+    vi.mocked(warehouseServicesApi.services).mockResolvedValue([
       {...service,id:"BADMINTON",name:"Cầu lông",category:"recreation",unit:"giờ",stock:16},
       {...service,id:"BOARDROOM",name:"Phòng họp",category:"business",unit:"ngày",stock:4},
       {...service,id:"HHGLASS",name:"Ly thủy tinh",category:"room-amenity",unit:"cái",price:25000,active:false},
@@ -121,7 +121,7 @@ describe("Kitchen & restaurant operations", () => {
       {service_id:"BADMINTON",unit:"sân",capacity:2,booked:1,available:1,duration_minutes:120},
       {service_id:"BOARDROOM",unit:"phòng",capacity:1,booked:0,available:1,duration_minutes:120},
     ]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button",{name:"Dịch vụ"}));
     expect(await screen.findByText("1 sân")).toBeTruthy();
     expect(screen.getAllByText("1 phòng")).toHaveLength(2);
@@ -134,14 +134,15 @@ describe("Kitchen & restaurant operations", () => {
     expect(serviceAvailabilityApi.list).toHaveBeenLastCalledWith();
     fireEvent.click(screen.getByRole("button",{name:"Kho"}));
     const stockRow=screen.getByText("SKU: HHGLASS").closest("tr")!;
-    expect(within(stockRow).getByText("25.000")).toBeTruthy();
+    expect(within(stockRow).getByText("—")).toBeTruthy();
+    expect(within(stockRow).getByText("Không bán cho khách")).toBeTruthy();
     expect(within(stockRow).getByText("cái")).toBeTruthy();
     expect(screen.queryByLabelText("Từ thời điểm")).toBeNull();
   });
 
   it("does not show stale or fake zero availability when the schedule request fails", async()=>{
     vi.mocked(serviceAvailabilityApi.list).mockRejectedValue(new Error("Lỗi tải lịch"));
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button",{name:"Dịch vụ"}));
     await screen.findByRole("alert");
     expect((await screen.findAllByText("Chưa tải được lịch")).length).toBeGreaterThan(0);
@@ -149,10 +150,10 @@ describe("Kitchen & restaurant operations", () => {
   });
 
   it("opens stock activity from the header bell, dismisses it and opens the full history", async () => {
-    vi.mocked(kitchenAccountingApi.inventoryMovements).mockImplementation(async id=>id==="MAMREST" ? [{
+    vi.mocked(warehouseServicesApi.inventoryMovements).mockImplementation(async id=>id==="MAMREST" ? [{
       id:909, service_id:"MAMREST", type:"RECEIVE", quantity:4, actor_id:"KITCHEN", occurred_at:new Date().toISOString(), reason:"Nhập kiểm thử thông báo",
     }] : []);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Dịch vụ" }));
     await screen.findByText("SKU: MAMREST");
     expect(screen.queryByText("Biến động tồn kho gần đây")).toBeNull();
@@ -180,8 +181,8 @@ describe("Kitchen & restaurant operations", () => {
   });
 
   it("records stock intake from the inventory screen with an auditable reason", async () => {
-    vi.mocked(kitchenAccountingApi.services).mockResolvedValue([{...service,id:"HHGLASS",name:"Ly thủy tinh",category:"room-amenity",active:false}]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    vi.mocked(warehouseServicesApi.services).mockResolvedValue([{...service,id:"HHGLASS",name:"Ly thủy tinh",category:"room-amenity",active:false}]);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Kho" }));
     expect(await screen.findByText("SKU: HHGLASS")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name:"Điều chỉnh" })[0]);
@@ -189,14 +190,14 @@ describe("Kitchen & restaurant operations", () => {
     fireEvent.change(screen.getByRole("spinbutton"), { target:{ value:"4" } });
     fireEvent.change(screen.getByPlaceholderText("Ví dụ: Cấp cho buồng phòng – phòng 502"), { target:{ value:"Nhập thử cho kho bếp" } });
     fireEvent.click(screen.getByRole("button", { name:"Lưu phiếu" }));
-    await waitFor(() => expect(kitchenAccountingApi.recordInventoryMovement).toHaveBeenCalledWith(
+    await waitFor(() => expect(warehouseServicesApi.recordInventoryMovement).toHaveBeenCalledWith(
       { service_id:"HHGLASS", type:"RECEIVE", quantity:4, reason:"Nhập thử cho kho bếp" }, expect.any(String)));
     expect((await screen.findByRole("status")).textContent).toContain("đã được ghi nhận");
   });
 
   it("only offers receiving, issuing and wastage, and asks for a room only for issuing", async () => {
-    vi.mocked(kitchenAccountingApi.services).mockResolvedValue([{...service,id:"HHGLASS",name:"Ly thủy tinh",category:"room-amenity",active:false}]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    vi.mocked(warehouseServicesApi.services).mockResolvedValue([{...service,id:"HHGLASS",name:"Ly thủy tinh",category:"room-amenity",active:false}]);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Kho" }));
     await screen.findByText("SKU: HHGLASS");
     fireEvent.click(screen.getAllByRole("button", { name:"Điều chỉnh" })[0]);
@@ -211,12 +212,12 @@ describe("Kitchen & restaurant operations", () => {
     expect(screen.queryByLabelText("Chọn phòng nhận (tùy chọn)")).toBeNull();
     fireEvent.change(screen.getByPlaceholderText("Ví dụ: Cấp cho buồng phòng – phòng 502"),{target:{value:"Hàng hỏng"}});
     fireEvent.click(screen.getByRole("button", { name:"Lưu phiếu" }));
-    await waitFor(()=>expect(kitchenAccountingApi.recordInventoryMovement).toHaveBeenCalledWith(
+    await waitFor(()=>expect(warehouseServicesApi.recordInventoryMovement).toHaveBeenCalledWith(
       {service_id:"HHGLASS",type:"WASTE",quantity:1,reason:"Hàng hỏng"},expect.any(String)));
   });
 
   it("creates price requests for a selected backend service, not free-form labels", async () => {
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Dịch vụ" }));
     expect(await screen.findByText("SKU: MAMREST")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name:"Đề xuất" }));
@@ -225,13 +226,13 @@ describe("Kitchen & restaurant operations", () => {
     fireEvent.change(screen.getByRole("spinbutton"), { target:{ value:"300000" } });
     fireEvent.change(screen.getByPlaceholderText("Nêu rõ lý do thay đổi"), { target:{ value:"Giá đầu vào thay đổi" } });
     fireEvent.click(screen.getByRole("button", { name:"Gửi quản lý phê duyệt" }));
-    await waitFor(() => expect(kitchenAccountingApi.submitPrice).toHaveBeenCalledWith(
+    await waitFor(() => expect(warehouseServicesApi.submitPrice).toHaveBeenCalledWith(
       "MAMREST", { price:300000, reason:"Giá đầu vào thay đổi" }, expect.any(String)));
   });
 
   it("opens the catalog proposal popup without a product choice and submits warehouse details", async () => {
     vi.spyOn(catalogProposalsApi,"submit").mockResolvedValue({id:910} as never);
-    render(<KitchenInventory onBack={vi.fn()}/>);
+    render(<WarehouseServices onBack={vi.fn()}/>);
     fireEvent.click(screen.getByRole("button",{name:"Dịch vụ"}));
     await screen.findByText("SKU: MAMREST");
     fireEvent.click(screen.getByRole("button",{name:"Đề xuất"}));
@@ -254,7 +255,7 @@ describe("Kitchen & restaurant operations", () => {
 
   it("shows pending additions before the SKU exists and supports zero-price proposals", async () => {
     vi.mocked(catalogProposalsApi.list).mockResolvedValue([{id:911,requester:"KITCHEN",action:"SERVICE_CATALOG_CREATE",target_id:"NEWTOWEL",payload:JSON.stringify({kind:"WAREHOUSE",id:"NEWTOWEL",name:"Khăn mới miễn phí",price:0}),amount:0,reason:"Bổ sung",status:"PENDING",requested_at:new Date().toISOString()} as never]);
-    render(<KitchenInventory onBack={vi.fn()}/>);
+    render(<WarehouseServices onBack={vi.fn()}/>);
     fireEvent.click(screen.getByRole("button",{name:"Đề xuất"}));
     expect(await screen.findByText("Khăn mới miễn phí")).toBeTruthy();
     expect(screen.getByText("Thêm mới")).toBeTruthy();
@@ -262,7 +263,7 @@ describe("Kitchen & restaurant operations", () => {
   });
 
   it("filters by actual backend categories and handles the out-of-stock status", async () => {
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Dịch vụ" }));
     expect(await screen.findByText("SKU: MAMREST")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name:"Nhà hàng" }));
@@ -277,7 +278,7 @@ describe("Kitchen & restaurant operations", () => {
   });
 
   it("renders both canonical numeric and legacy object price-request payloads", async () => {
-    vi.mocked(kitchenAccountingApi.priceRequests).mockResolvedValue([
+    vi.mocked(warehouseServicesApi.priceRequests).mockResolvedValue([
       {
         id:903, requester:"KITCHEN", action:"SERVICE_PRICE_CHANGE", target_id:"MAMREST", payload:"251000",
         amount:251000, reason:"Yêu cầu định dạng số thuần", risk:"MEDIUM", status:"PENDING", approver:null,
@@ -290,7 +291,7 @@ describe("Kitchen & restaurant operations", () => {
         expires_at:null, consumed_at:null, requested_at:new Date().toISOString(), idempotency_key:"legacy-price",
       },
     ]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Đề xuất" }));
     expect(await screen.findByText("Yêu cầu định dạng số thuần")).toBeTruthy();
     expect(screen.getByText("251.000")).toBeTruthy();
@@ -299,22 +300,22 @@ describe("Kitchen & restaurant operations", () => {
   });
 
   it("opens result modal and allows activating approved price proposals", async () => {
-    vi.spyOn(kitchenAccountingApi, "activatePrice").mockResolvedValue(service);
-    vi.mocked(kitchenAccountingApi.priceRequests).mockResolvedValue([
+    vi.spyOn(warehouseServicesApi, "activatePrice").mockResolvedValue(service);
+    vi.mocked(warehouseServicesApi.priceRequests).mockResolvedValue([
       {
         id:905, requester:"KITCHEN", action:"SERVICE_PRICE_CHANGE", target_id:"MAMREST", payload:"320000",
         amount:320000, reason:"Đã duyệt tăng giá", risk:"MEDIUM", status:"APPROVED", approver:"Quản lý Demo",
         decided_at:new Date().toISOString(), expires_at:null, consumed_at:null, requested_at:new Date().toISOString(), idempotency_key:"appr-1",
       },
     ]);
-    render(<KitchenInventory onBack={vi.fn()} />);
+    render(<WarehouseServices onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name:"Đề xuất" }));
     expect(await screen.findByText("Đã duyệt tăng giá")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name:"Xem kết quả" }));
     expect(await screen.findByText("Tiến trình & Kết quả đề xuất")).toBeTruthy();
     expect(screen.getByText("Quản lý Demo")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name:"Kích hoạt giá ngay" }));
-    await waitFor(() => expect(kitchenAccountingApi.activatePrice).toHaveBeenCalledWith(
+    await waitFor(() => expect(warehouseServicesApi.activatePrice).toHaveBeenCalledWith(
       "MAMREST", { price:320000, reason:"Đã duyệt tăng giá" }, expect.any(String)));
     expect(await screen.findByText("Kích hoạt giá thành công! Dịch vụ đã cập nhật mức giá mới.")).toBeTruthy();
   });

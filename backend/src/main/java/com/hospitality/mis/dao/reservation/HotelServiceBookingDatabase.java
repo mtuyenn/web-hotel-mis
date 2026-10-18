@@ -1,7 +1,7 @@
 package com.hospitality.mis.dao.reservation;
 
 import com.hospitality.mis.common.exception.DomainException;
-import com.hospitality.mis.service.reservation.HotelServiceBookingService;
+import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -20,33 +20,33 @@ public class HotelServiceBookingDatabase {
 
     public HotelServiceBookingDatabase(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
-    public List<HotelServiceBookingService.Response> list(long reservationId, Long customerId) {
+    public List<HotelServiceBookingDtos.Response> list(long reservationId, Long customerId) {
         Integer owned = jdbc.queryForObject("SELECT COUNT(*) FROM dbo.vwChuSoHuuDatPhong WHERE maPhieuDatPhong=? AND (? IS NULL OR maTaiKhoanKhachHang=?)",
                 Integer.class, reservationId, customerId, customerId);
         if (owned == null || owned == 0) throw new DomainException("RESERVATION_NOT_FOUND", "Không tìm thấy đặt phòng");
         return reservationServices(reservationId);
     }
 
-    public List<HotelServiceBookingService.Response> reservationServices(long reservationId) {
+    public List<HotelServiceBookingDtos.Response> reservationServices(long reservationId) {
         return jdbc.query(READ+" WHERE maPhieuDatPhong=? ORDER BY thoiDiemDuKien,maDatDichVuKhachSan",
-                (rs, n) -> HotelServiceBookingService.response(rs), reservationId);
+                (rs, n) -> HotelServiceBookingDtos.fromResultSet(rs), reservationId);
     }
 
-    public List<HotelServiceBookingService.Response> coordinatedBookings(LocalDate date, String status) {
+    public List<HotelServiceBookingDtos.Response> coordinatedBookings(LocalDate date, String status) {
         return jdbc.query(READ+"""
                  WHERE CAST(thoiDiemDuKien AS DATE)=?
                 AND (? IS NULL OR trangThai=?) ORDER BY thoiDiemDuKien,maPhong,maDatDichVuKhachSan
-                """, (rs, n) -> HotelServiceBookingService.response(rs), date, status, status);
+                """, (rs, n) -> HotelServiceBookingDtos.fromResultSet(rs), date, status, status);
     }
 
-    public HotelServiceBookingService.Response find(long id) {
+    public HotelServiceBookingDtos.Response find(long id) {
         var rows = jdbc.query(READ+" WHERE maDatDichVuKhachSan=?",
-                (rs, n) -> HotelServiceBookingService.response(rs), id);
+                (rs, n) -> HotelServiceBookingDtos.fromResultSet(rs), id);
         if (rows.isEmpty()) throw new DomainException("SERVICE_BOOKING_NOT_FOUND", "Không tìm thấy dịch vụ");
         return rows.get(0);
     }
 
-    public HotelServiceBookingService.Response book(HotelServiceBookingService.Request request, String meal, String key,
+    public HotelServiceBookingDtos.Response book(HotelServiceBookingDtos.Request request, String meal, String key,
             String fingerprint, String actor, Long customerId, boolean atDesk, LocalDateTime now) {
         try {
             Long id = jdbc.queryForObject("EXEC dbo.uspDatDichVuKhachSan ?,?,?,?,?,?,?,?,?,?,?,?,?", Long.class,
@@ -56,14 +56,14 @@ public class HotelServiceBookingDatabase {
         } catch (DataAccessException error) { throw translate(error); }
     }
 
-    public HotelServiceBookingService.Response use(long reservationId, long id, String actor, LocalDateTime now) {
+    public HotelServiceBookingDtos.Response use(long reservationId, long id, String actor, LocalDateTime now) {
         try {
             jdbc.update("EXEC dbo.uspXacNhanSuDungDichVu ?,?,?,?", id, actor, now, reservationId);
             return find(id);
         } catch (DataAccessException error) { throw translate(error); }
     }
 
-    public HotelServiceBookingService.Response cancel(long id, String actor, long customerId) {
+    public HotelServiceBookingDtos.Response cancel(long id, String actor, long customerId) {
         try {
             jdbc.update("EXEC dbo.uspHuyDatDichVu ?,?,?", id, actor, customerId);
             return find(id);
@@ -79,8 +79,8 @@ public class HotelServiceBookingDatabase {
     }
 
     public void preparePayment(long id,long customer,LocalDateTime now){try{jdbc.update("EXEC dbo.uspThanhToanDichVu ?,?,NULL,NULL,NULL,NULL,0,?",id,customer,now);}catch(DataAccessException e){throw translate(e);}}
-    public HotelServiceBookingService.Response paymentBooking(long id,long customer){var b=find(id);list(b.reservationId(),customer);return b;}
-    public HotelServiceBookingService.Response completePayment(long id,String merchant,BigDecimal amount,String transaction,String response,boolean paid,LocalDateTime now){
+    public HotelServiceBookingDtos.Response paymentBooking(long id,long customer){var b=find(id);list(b.reservationId(),customer);return b;}
+    public HotelServiceBookingDtos.Response completePayment(long id,String merchant,BigDecimal amount,String transaction,String response,boolean paid,LocalDateTime now){
         try{jdbc.update("EXEC dbo.uspThanhToanDichVu ?,NULL,?,?,?,?,?,?",id,merchant,amount,transaction,response,paid,now);return find(id);}catch(DataAccessException e){throw translate(e);}
     }
     private RuntimeException translate(DataAccessException error) {

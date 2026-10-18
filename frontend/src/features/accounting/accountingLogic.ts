@@ -1,4 +1,4 @@
-import type { Invoice, CashDenomination, Payment } from "../../shared/types/kitchenAccounting";
+import type { Invoice, CashDenomination, Payment } from "../../shared/types/hotelOperations";
 import { ApiError, apiErrorMessage } from "../../shared/api/client";
 
 /** Preserve local accounting validation messages while keeping API errors structured. */

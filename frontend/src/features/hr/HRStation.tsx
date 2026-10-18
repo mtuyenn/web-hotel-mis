@@ -1,10 +1,10 @@
 import { Fragment, useEffect, useState, useMemo } from "react";
 import type { ChangeEvent } from "react";
 import { hrGovernanceApi } from "../../shared/api/hrGovernance";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { hrApi } from "../../shared/api/hr";
 import { authApi } from "../../shared/api/auth";
 import { EmployeeProfileDropdown } from "../../shared/components/EmployeeProfileDropdown";
-import type { AttendanceRecord as ApiAttendanceRecord, LeaveRequest as ApiLeaveRequest } from "../../shared/types/enterprise";
+import type { AttendanceRecord as ApiAttendanceRecord, LeaveRequest as ApiLeaveRequest } from "../../shared/types/backoffice";
 import type { EmployeeAdmin, Shift } from "../../shared/types/hrGovernance";
 import { employeeRoleLabel } from "../../shared/types/api";
 import type { EmployeeProfileDto } from "../../shared/types/api";
@@ -243,7 +243,7 @@ export default function HRStation({ onBack }: Props) {
     let active = true;
     const departmentFor = (role: string) => ({
       FRONT_DESK: ["Bộ phận Lễ tân", "reception"], HOUSEKEEPING: ["Bộ phận Buồng phòng", "housekeeping"],
-      KITCHEN: ["Bộ phận Bếp & Nhà hàng", "fnb"], TECHNICAL: ["Bộ phận Kỹ thuật", "technical"],
+      KITCHEN: ["Bộ phận Kho và Dịch vụ", "warehouse"], TECHNICAL: ["Bộ phận Kỹ thuật", "technical"],
       ACCOUNTING: ["Bộ phận Kế toán", "accounting"], HR: ["Bộ phận Nhân sự", "hr"],
       MANAGER: ["Ban quản lý", "management"], DIRECTOR: ["Ban giám đốc", "director"], ADMIN: ["Bộ phận CNTT", "admin"],
     }[role] ?? ["Bộ phận Vận hành", "operations"]);
@@ -269,7 +269,7 @@ export default function HRStation({ onBack }: Props) {
     const groupMeta = (departmentId: string, name: string): Omit<DepartmentGroup, "employees"> => ({
       id: departmentId,
       name,
-      icon: departmentId === "reception" ? ConciergeBell : departmentId === "housekeeping" ? Sparkles : departmentId === "fnb" ? Utensils : departmentId === "technical" ? Wrench : Users,
+      icon: departmentId === "reception" ? ConciergeBell : departmentId === "housekeeping" ? Sparkles : departmentId === "warehouse" ? Utensils : departmentId === "technical" ? Wrench : Users,
       colorClass: "text-emerald-700 bg-emerald-50 border-emerald-200",
       badgeBg: "#EAF8F0",
       badgeText: "#008A4B",
@@ -278,8 +278,8 @@ export default function HRStation({ onBack }: Props) {
     Promise.all([
       hrGovernanceApi.employees(true),
       hrGovernanceApi.shifts({ date: dateKey(dates[0]), to: dateKey(dates[6]) }),
-      enterpriseApi.attendance(),
-      enterpriseApi.leaves(),
+      hrApi.attendance(),
+      hrApi.leaves(),
       hrGovernanceApi.shifts({ date: dateKey(today), to: dateKey(today) }),
     ]).then(([employeeRows, shifts, attendanceRows, leaveRows, currentShifts]) => {
       if (!active) return;
@@ -476,7 +476,7 @@ export default function HRStation({ onBack }: Props) {
   const handleSyncBiometrics = async () => {
     setIsSyncingBiometrics(true);
     try {
-      const rows = await enterpriseApi.attendance();
+      const rows = await hrApi.attendance();
       setAllAttendance(rows);
       setAttendanceRecords(rows.filter(row => row.work_date === attendanceDate).map(row => {
         const employee = employees.find(item => item.id === row.employee_id);
@@ -518,7 +518,7 @@ export default function HRStation({ onBack }: Props) {
         note: record.note || `Nhập từ ${file.name}`,
       })).filter(record => Boolean(record.employee_id));
       if (imported.length === 0) throw new Error("File chưa có dòng chấm công hợp lệ.");
-      const rows = await enterpriseApi.importAttendance(imported);
+      const rows = await hrApi.importAttendance(imported);
       const employeeById = new Map(employees.map(employee => [employee.id, employee]));
       setAllAttendance(rows);
       setAttendanceRecords(rows.filter(row => row.work_date === attendanceDate).map(row => {
@@ -541,7 +541,7 @@ export default function HRStation({ onBack }: Props) {
     }
     setIsSavingAttendanceEdit(true);
     try {
-      const rows = await enterpriseApi.importAttendance([{
+      const rows = await hrApi.importAttendance([{
         employee_id: editingAttendance.employeeId,
         work_date: attendanceDate,
         clock_in: attendanceEditClockIn ? `${attendanceEditClockIn}:00` : null,
@@ -598,7 +598,7 @@ export default function HRStation({ onBack }: Props) {
     const totalDays = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
     const typeMap: Record<string, string> = { "Nghỉ phép năm": "ANNUAL", "Nghỉ ốm": "SICK", "Đổi ca trực": "SHIFT_CHANGE", "Việc riêng": "UNPAID" };
     try {
-      const row = await enterpriseApi.createLeave({ employee_id: employee.id, leave_type: typeMap[newLeaveForm.type] ?? "UNPAID", start_date: newLeaveForm.startDate, end_date: newLeaveForm.endDate, reason: newLeaveForm.reason.trim(), shift_swap_with: newLeaveForm.type === "Đổi ca trực" ? newLeaveForm.swapEmployeeId : undefined });
+      const row = await hrApi.createLeave({ employee_id: employee.id, leave_type: typeMap[newLeaveForm.type] ?? "UNPAID", start_date: newLeaveForm.startDate, end_date: newLeaveForm.endDate, reason: newLeaveForm.reason.trim(), shift_swap_with: newLeaveForm.type === "Đổi ca trực" ? newLeaveForm.swapEmployeeId : undefined });
       setLeaveRequests(prev => [{ id: String(row.id), employeeName: employee.name, avatar: employee.avatar, department: employee.department, type: newLeaveForm.type, dateRange: `${row.start_date} – ${row.end_date}`, totalDays: `${totalDays} ngày`, reason: row.reason, submittedAt: row.created_at, status: "pending" }, ...prev]);
       setIsCreateLeaveModalOpen(false); showToast("Đã gửi đơn nghỉ, chờ quản lý duyệt.");
     } catch (error) { showToast(apiErrorMessage(error, "Không thể tạo đơn nghỉ. Vui lòng thử lại.")); }

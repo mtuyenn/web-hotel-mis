@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AccountingStation from "./AccountingStation";
-import { kitchenAccountingApi as api } from "../../shared/api/kitchenAccounting";
-import { enterpriseApi } from "../../shared/api/enterprise";
+import { financeApi as api } from "../../shared/api/finance";
+import { financeBackofficeApi } from "../../shared/api/financeBackoffice";
 import { authApi } from "../../shared/api/auth";
-import type { LedgerPayment, PaymentPage } from "../../shared/types/kitchenAccounting";
+import type { LedgerPayment, PaymentPage } from "../../shared/types/hotelOperations";
 
 const payment=(id:number):LedgerPayment=>({id,invoice_id:id,reservation_id:1000+id,service_total:0,amount:100000,method:"CASH",type:"PAYMENT",status:"COMPLETED",reference:`REF-${id}`,occurred_at:"2026-10-09T10:00:00",actor_id:"ACCOUNTING"});
 const result=(page:number,total=150,size=10):PaymentPage=>({items:Array.from({length:Math.max(0,Math.min(size,total-page*size))},(_,i)=>payment(page*size+i+1)),page,size,totalElements:total,totalPages:Math.ceil(total/size),methodCounts:{CASH:total}});
@@ -17,7 +17,7 @@ describe("Accounting server pagination",()=>{
     vi.spyOn(api,"cashRecipients").mockResolvedValue([]);vi.spyOn(api,"refundRequests").mockResolvedValue([]);
     vi.spyOn(authApi,"employeeProfile").mockResolvedValue({employee_id:"ACCOUNTING",full_name:"Kế toán kiểm thử",role:"ACCOUNTING",permissions:[]});
     vi.spyOn(api,"partnerDebts").mockResolvedValue([]); vi.spyOn(api,"cashHandovers").mockResolvedValue([]);
-    vi.spyOn(enterpriseApi,"ota").mockResolvedValue([]); vi.spyOn(enterpriseApi,"vatInvoices").mockResolvedValue([]);
+    vi.spyOn(financeBackofficeApi,"ota").mockResolvedValue([]); vi.spyOn(financeBackofficeApi,"vatInvoices").mockResolvedValue([]);
     vi.spyOn(api,"reconciliation").mockResolvedValue({from_date:"2026-10-09",to_date:"2026-10-09",totals_by_method:{CASH:15000000},total_payments:15000000,total_refunds:0,net_total:15000000,recognized_revenue:15000000,outstanding_partner_debt:0,cash_variance:0,completed_transactions:150,outstanding_bank_transfer_balances:0});
   });
   it("fetches only the selected page, shows records after 100 and keeps whole-day KPIs",async()=>{
@@ -82,5 +82,25 @@ describe("Accounting server pagination",()=>{
     expect((await screen.findByRole("alert")).textContent).toContain("trả thiếu");
     expect(download).not.toHaveBeenCalled(); expect(screen.getByText("PAY-1")).toBeTruthy();
     expect(screen.getByText("Hiển thị 1–10 trên 150 giao dịch")).toBeTruthy();
+  });
+  it("keeps the search when changing date and exports that date in both query and filename",async()=>{
+    const payments=vi.spyOn(api,"payments").mockImplementation(async(q)=>result(q?.page??0,1,q?.size??10));
+    vi.spyOn(URL,"createObjectURL").mockReturnValue("blob:test");
+    let filename="";
+    vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(function(this:HTMLAnchorElement){filename=this.download;});
+    mount();await screen.findByText("Hiển thị 1–1 trên 1 giao dịch");
+    fireEvent.change(screen.getByPlaceholderText("Tìm mã giao dịch, hóa đơn hoặc đặt phòng..."),{target:{value:"PAY-1"}});
+    fireEvent.change(screen.getByLabelText("Ngày đối soát"),{target:{value:"2026-10-07"}});
+    await waitFor(()=>expect(payments).toHaveBeenLastCalledWith(expect.objectContaining({from:"2026-10-07",to:"2026-10-07",search:"PAY-1"})));
+    fireEvent.click(screen.getByRole("button",{name:"Xuất giao dịch CSV"}));
+    await waitFor(()=>expect(filename).toBe("payments-2026-10-07.csv"));
+    expect(payments).toHaveBeenLastCalledWith(expect.objectContaining({from:"2026-10-07",to:"2026-10-07",search:"PAY-1",size:100}));
+  });
+  it("shows and filters a MoMo payment under its own method rather than bank transfer",async()=>{
+    const payments=vi.spyOn(api,"payments").mockResolvedValue({...result(0,1),items:[{...payment(1),method:"MOMO"}],methodCounts:{MOMO:1}});
+    mount();await screen.findByText("PAY-1");
+    expect(screen.getByRole("button",{name:"Ví MoMo 1"})).toBeTruthy();
+    fireEvent.click(screen.getByRole("button",{name:"Ví MoMo 1"}));
+    await waitFor(()=>expect(payments).toHaveBeenLastCalledWith(expect.objectContaining({method:"MOMO"})));
   });
 });

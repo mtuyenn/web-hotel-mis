@@ -1,5 +1,7 @@
 package com.hospitality.mis.reservation;
 
+import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
+
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.reservation.HotelServiceBookingDatabase;
 import com.hospitality.mis.service.reservation.HotelServiceBookingService;
@@ -62,8 +64,8 @@ class SqlServerHotelServiceBookingTest {
         staff();service.markUsed(reservation,breakfast.id(),"KITCHEN");
         var laundry=book("LNDRYSTD",1,null,"queue-3",now.plusHours(1));
         jdbc.update("UPDATE DichVu SET danhMuc=N'Giặt ủi' WHERE maDichVu=N'LNDRYSTD'");
-        assertThat(service.coordinatedBookings(now.toLocalDate(),null)).extracting(HotelServiceBookingService.Response::id).containsExactly(lunch.id(),breakfast.id(),laundry.id());
-        assertThat(service.coordinatedBookings(now.toLocalDate()," confirmed ")).extracting(HotelServiceBookingService.Response::id).containsExactly(lunch.id(),laundry.id());
+        assertThat(service.coordinatedBookings(now.toLocalDate(),null)).extracting(HotelServiceBookingDtos.Response::id).containsExactly(lunch.id(),breakfast.id(),laundry.id());
+        assertThat(service.coordinatedBookings(now.toLocalDate()," confirmed ")).extracting(HotelServiceBookingDtos.Response::id).containsExactly(lunch.id(),laundry.id());
     }
 
     @Test void markingRestaurantOrderUsedPersistsStatusStockMovementAndAudit() {
@@ -110,10 +112,10 @@ class SqlServerHotelServiceBookingTest {
     }
 
     @Test void frontDeskBookingAndConsumptionAreOneAtomicCommand() {
-        assertThat(service.recordAtFrontDesk(new HotelServiceBookingService.Request(reservation,"SB-ROOM","BREAKFAST",null,2,null,null),"desk-1","KITCHEN").status()).isEqualTo("USED");
+        assertThat(service.recordAtFrontDesk(new HotelServiceBookingDtos.Request(reservation,"SB-ROOM","BREAKFAST",null,2,null,null),"desk-1","KITCHEN").status()).isEqualTo("USED");
         assertThat(service.usedTotal(reservation)).isEqualByComparingTo("0");
         service=new HotelServiceBookingService(database,Clock.fixed(now.plusMinutes(5).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant(),ZoneId.of("Asia/Ho_Chi_Minh")));
-        assertThat(service.recordAtFrontDesk(new HotelServiceBookingService.Request(reservation,"SB-ROOM","BREAKFAST",null,2,null,null),"desk-1","KITCHEN").status()).isEqualTo("USED");
+        assertThat(service.recordAtFrontDesk(new HotelServiceBookingDtos.Request(reservation,"SB-ROOM","BREAKFAST",null,2,null,null),"desk-1","KITCHEN").status()).isEqualTo("USED");
         assertThat(stock("BREAKFAST")).isEqualTo(8);
         assertThat(count("DatDichVuKhachSan")).isEqualTo(1);
     }
@@ -122,10 +124,10 @@ class SqlServerHotelServiceBookingTest {
         book("BREAKFAST",2,null,"total-free",now);
         book("BREAKFAST",1,null,"total-cancel",now);
         staff();
-        service.recordAtFrontDesk(new HotelServiceBookingService.Request(reservation,"SB-ROOM","BREAKFAST",null,1,null,null),"total-desk","KITCHEN");
+        service.recordAtFrontDesk(new HotelServiceBookingDtos.Request(reservation,"SB-ROOM","BREAKFAST",null,1,null,null),"total-desk","KITCHEN");
         service.cancelForReservation(reservation,"KITCHEN");
         assertThat(service.usedTotal(reservation)).isEqualByComparingTo("150000");
-        assertThat(database.list(reservation,null)).extracting(HotelServiceBookingService.Response::status).containsExactly("CANCELLED","CANCELLED","USED");
+        assertThat(database.list(reservation,null)).extracting(HotelServiceBookingDtos.Response::status).containsExactly("CANCELLED","CANCELLED","USED");
     }
 
     @Test void concurrentRequestsDoNotAllocateFreeAllowanceTwice() throws Exception {
@@ -170,9 +172,9 @@ class SqlServerHotelServiceBookingTest {
         assertThat(database.find(booked.id()).status()).isEqualTo("CONFIRMED");
     }
 
-    private HotelServiceBookingService.Response book(String id,int quantity,String meal,String key,LocalDateTime at) {
+    private HotelServiceBookingDtos.Response book(String id,int quantity,String meal,String key,LocalDateTime at) {
         customer(owner);
-        return service.bookForCustomer(new HotelServiceBookingService.Request(reservation,"SB-ROOM",id,at,quantity,meal,null),key);
+        return service.bookForCustomer(new HotelServiceBookingDtos.Request(reservation,"SB-ROOM",id,at,quantity,meal,null),key);
     }
     private void staff(){SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("KITCHEN","", "ROLE_KITCHEN"));}
     private void customer(long id){

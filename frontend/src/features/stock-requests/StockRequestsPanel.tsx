@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { stockRequestsApi, type StockRequest } from "../../shared/api/stockRequests";
-import type { Service } from "../../shared/types/kitchenAccounting";
+import type { Service } from "../../shared/types/hotelOperations";
 import { apiErrorMessage } from "../../shared/api/client";
-import { newKitchenIdempotencyKey } from "../../shared/api/kitchenAccounting";
+import { newWarehouseIdempotencyKey } from "../../shared/api/warehouseServices";
 import "./stockRequests.css";
 
 const statusLabels={PENDING:"Chờ duyệt",APPROVED:"Đã duyệt",REJECTED:"Từ chối"};
@@ -28,7 +28,7 @@ export default function StockRequestsPanel({ warehouse=false, onChanged }: { war
     if(!serviceId||!Number.isSafeInteger(number)||number<1||!reason.trim()){setError("Chọn mặt hàng, nhập số lượng nguyên dương và lý do trả hàng.");return;}
     const body={kind:"RETURN" as const,service_id:serviceId,quantity:number,room_id:room.trim()||null,reason:reason.trim()};
     const signature=JSON.stringify(body);
-    if(retry.current?.signature!==signature)retry.current={signature,key:newKitchenIdempotencyKey()};
+    if(retry.current?.signature!==signature)retry.current={signature,key:newWarehouseIdempotencyKey()};
     setBusy(true);
     try{
       const result=await stockRequestsApi.create(body,retry.current.key);
@@ -46,7 +46,7 @@ export default function StockRequestsPanel({ warehouse=false, onChanged }: { war
   };
   const visible=rows.filter(row=>filter==="ALL"||row.status===filter);
   return <section className="stock-requests">
-    <header><div><h2>{warehouse?"Yêu cầu cấp/trả & báo hỏng":"Trả hàng về Kho"}</h2><p>{warehouse?"Tiếp nhận yêu cầu buồng phòng; cấp/trả hàng ghi tồn đúng một lần, báo hỏng chỉ ghi thông báo.":"Gửi các mặt hàng còn dùng được về Kho. Yêu cầu cần được Kho duyệt trước khi nhập lại tồn."}</p></div>
+    <header><div><h2>{warehouse?"Yêu cầu cấp/trả & báo hỏng":"Trả hàng về Kho"}</h2><p>{warehouse?"Duyệt cấp/trả để chuyển hàng giữa kho tổng và kho Buồng phòng. Xác nhận hỏng chỉ trừ kho Buồng phòng.":"Gửi hàng còn dùng được từ kho Buồng phòng về kho tổng. Hai kho được cập nhật khi Kho duyệt."}</p></div>
       <button type="button" disabled={loading||busy} onClick={()=>setRefresh(value=>value+1)}>Tải lại</button></header>
     {error&&<p role="alert" className="stock-requests-error">{error}</p>}
     {notice&&<p role="status" className="stock-requests-notice">{notice}</p>}
@@ -78,7 +78,7 @@ function ReturnDecisionDialog({value,busy,onClose,onConfirm}:{value:{row:StockRe
     <form onSubmit={async event=>{event.preventDefault();try{await onConfirm(reason.trim());}catch(cause){setError(apiErrorMessage(cause,"Không thể lưu quyết định."));}}}>
       <h3>{value.approve?"Xác nhận xử lý yêu cầu":"Từ chối yêu cầu trả hàng"}</h3>
       <p>{value.row.service_name} · <strong>{value.row.quantity} {value.row.unit}</strong></p>
-      <p>{value.approve?(value.row.kind==="ISSUE"?"Kho xuất số hàng đã cấp cho buồng phòng.":value.row.kind==="RETURN"?"Kho nhận lại hàng còn sử dụng được.":"Ghi nhận thông báo; không cộng hàng hỏng vào tồn."):"Tồn kho sẽ được giữ nguyên khi từ chối."}</p>
+      <p>{value.approve?(value.row.kind==="ISSUE"?"Trừ kho tổng và cộng số hàng được cấp vào kho Buồng phòng.":value.row.kind==="RETURN"?"Trừ kho Buồng phòng và nhập lại hàng còn sử dụng được vào kho tổng.":"Trừ hàng hỏng khỏi kho Buồng phòng; không nhập vào kho tổng."):"Tồn kho sẽ được giữ nguyên khi từ chối."}</p>
       <label>{value.approve?"Ghi chú kiểm đếm (tùy chọn)":"Lý do từ chối"}<textarea required={!value.approve} maxLength={255} disabled={busy} value={reason} onChange={event=>setReason(event.target.value)}/></label>
       {error&&<p role="alert">{error}</p>}
       <footer><button type="button" disabled={busy} onClick={onClose}>Hủy</button><button type="submit" disabled={busy}>{busy?"Đang lưu…":value.approve?"Xác nhận duyệt":"Xác nhận từ chối"}</button></footer>

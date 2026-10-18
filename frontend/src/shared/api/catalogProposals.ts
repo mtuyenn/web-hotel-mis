@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { Approval } from "../types/kitchenAccounting";
+import type { Approval } from "../types/hotelOperations";
 
 export interface CatalogProposal {
   kind: "SERVICE" | "WAREHOUSE";

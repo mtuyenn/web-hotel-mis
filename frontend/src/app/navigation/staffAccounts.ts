@@ -5,7 +5,7 @@ export type View =
   | "customer"
   | "frontdesk"
   | "housekeeping"
-  | "kitchen"
+  | "warehouse"
   | "maintenance"
   | "accounting"
   | "manager"
@@ -25,7 +25,7 @@ export const staffAccounts: Record<string, StaffAccount> = {
   housekeep: { employeeId: "HOUSEKEEP", role: "housekeeping", view: "housekeeping", label: "Buồng phòng" },
   technical: { employeeId: "TECHNICAL", role: "maintenance", view: "maintenance", label: "Kỹ thuật" },
   accounting: { employeeId: "ACCOUNTING", role: "accounting", view: "accounting", label: "Kế toán" },
-  kitchen: { employeeId: "KITCHEN", role: "fnb", view: "kitchen", label: "Bếp & Nhà hàng" },
+  kho: { employeeId: "KITCHEN", role: "warehouse", view: "warehouse", label: "Kho và Dịch vụ" },
   manager: { employeeId: "MANAGER", role: "manager", view: "manager", label: "Quản lý" },
   director: { employeeId: "DIRECTOR", role: "director", view: "manager", label: "Giám đốc" },
   admin: { employeeId: "ADMIN", role: "admin", view: "admin", label: "Quản trị hệ thống" },
@@ -35,7 +35,7 @@ export const staffAccounts: Record<string, StaffAccount> = {
   "housekeeping@hotel.com": { employeeId: "HOUSEKEEP", role: "housekeeping", view: "housekeeping", label: "Buồng phòng" },
   "technical@hotel.com": { employeeId: "TECHNICAL", role: "maintenance", view: "maintenance", label: "Kỹ thuật" },
   "accounting@hotel.com": { employeeId: "ACCOUNTING", role: "accounting", view: "accounting", label: "Kế toán" },
-  "kitchen@hotel.com": { employeeId: "KITCHEN", role: "fnb", view: "kitchen", label: "Bếp & Nhà hàng" },
+  "kho@hotel.com": { employeeId: "KITCHEN", role: "warehouse", view: "warehouse", label: "Kho và Dịch vụ" },
   "manager@hotel.com": { employeeId: "MANAGER", role: "manager", view: "manager", label: "Quản lý" },
   "director@hotel.com": { employeeId: "DIRECTOR", role: "director", view: "manager", label: "Giám đốc" },
   "admin@hotel.com": { employeeId: "ADMIN", role: "admin", view: "admin", label: "Quản trị hệ thống" },
@@ -46,7 +46,7 @@ const employeeRoleDestinations: Record<string, Pick<StaffAccount, "role" | "view
   FRONT_DESK: { role: "reception", view: "frontdesk" },
   HOUSEKEEPING: { role: "housekeeping", view: "housekeeping" },
   TECHNICAL: { role: "maintenance", view: "maintenance" },
-  KITCHEN: { role: "fnb", view: "kitchen" },
+  KITCHEN: { role: "warehouse", view: "warehouse" },
   ACCOUNTING: { role: "accounting", view: "accounting" },
   MANAGER: { role: "manager", view: "manager" },
   DIRECTOR: { role: "director", view: "manager" },

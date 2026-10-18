@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /** DTO cho các contract mở rộng đã chốt: OTA, VAT, nhân sự, kho vải và tài sản. */
-public final class EnterpriseDtos {
-    private EnterpriseDtos() {}
+public final class BackofficeDtos {
+    private BackofficeDtos() {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record OtaReconciliationResponse(Long reservationId, String guestName, String roomId,

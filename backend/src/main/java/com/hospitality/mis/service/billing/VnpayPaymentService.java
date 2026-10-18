@@ -140,14 +140,14 @@ public class VnpayPaymentService {
             booking.amountDue(),VnpayPaymentStatus.PENDING,now,booking.paymentExpiresAt(),null,null,null,null,null,0);
         return checkoutResponse(attempt,buildCheckoutUrl(attempt,normalizeIp(clientIp)));
     }
-    public com.hospitality.mis.service.reservation.HotelServiceBookingService.Response servicePayment(long id){
+    public com.hospitality.mis.dto.reservation.HotelServiceBookingDtos.Response servicePayment(long id){
         var principal=SecurityActor.currentPrincipal();
         if(!principal.isCustomer())throw error("CUSTOMER_REQUIRED","Chỉ khách hàng được xem thanh toán");
         return serviceBookings.paymentBooking(id,Long.parseLong(principal.id()));
     }
     private CallbackOutcome processServiceCallback(Map<String,String> query,String merchant){
         long id;try{id=Long.parseLong(merchant.substring(4));}catch(RuntimeException e){return new CallbackOutcome("01","Order not found",null,false,null);}
-        com.hospitality.mis.service.reservation.HotelServiceBookingService.Response booking;
+        com.hospitality.mis.dto.reservation.HotelServiceBookingDtos.Response booking;
         try{booking=serviceBookings.find(id);}catch(DomainException missing){return new CallbackOutcome("01","Order not found",null,false,null,id);}
         if(!amountMatches(booking.amountDue(),query.get("vnp_Amount")))
             return new CallbackOutcome("04","Invalid amount",booking.reservationId(),false,null,id);

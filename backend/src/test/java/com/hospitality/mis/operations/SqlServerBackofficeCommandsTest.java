@@ -1,8 +1,8 @@
 package com.hospitality.mis.operations;
 
 import com.hospitality.mis.common.exception.DomainException;
-import com.hospitality.mis.dto.operations.EnterpriseDtos;
-import com.hospitality.mis.service.operations.EnterpriseExtensionService;
+import com.hospitality.mis.dto.operations.BackofficeDtos;
+import com.hospitality.mis.service.operations.BackofficeService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,9 +19,9 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties={"spring.datasource.url=${MIGRATION_TEST_DB_URL}",
         "spring.datasource.username=${MIGRATION_TEST_DB_USERNAME}","spring.datasource.password=${MIGRATION_TEST_DB_PASSWORD}",
         "spring.flyway.enabled=true","spring.jpa.hibernate.ddl-auto=validate"})
-class SqlServerEnterpriseCommandsTest {
+class SqlServerBackofficeCommandsTest {
     @Autowired JdbcTemplate jdbc;
-    @Autowired EnterpriseExtensionService service;
+    @Autowired BackofficeService service;
     @Autowired com.hospitality.mis.service.operations.InventoryMovementService inventory;
     long guest,reservation,invoice;
     LocalDate day=LocalDate.of(2036,3,2);
@@ -80,20 +80,20 @@ class SqlServerEnterpriseCommandsTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM HoaDonGiaTriGiaTang WHERE maHoaDon=?",Integer.class,invoice)).isEqualTo(1);
     }
     @Test void attendanceBatchRollsBackEarlierRowsIfLaterEmployeeIsMissing() {
-        assertThatThrownBy(()->service.importAttendance(new EnterpriseDtos.AttendanceImportRequest(List.of(attendance("ENT01"),attendance("MISSING"))),"ENT01")).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(()->service.importAttendance(new BackofficeDtos.AttendanceImportRequest(List.of(attendance("ENT01"),attendance("MISSING"))),"ENT01")).isInstanceOf(org.springframework.dao.DataAccessException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ChamCong WHERE maNhanVien=N'ENT01'",Integer.class)).isZero();
     }
     @Test void attendanceUpsertRetainsIdentityAndInputOrderForDuplicates() {
-        service.importAttendance(new EnterpriseDtos.AttendanceImportRequest(List.of(attendance("ENT01"))),"ENT01");
+        service.importAttendance(new BackofficeDtos.AttendanceImportRequest(List.of(attendance("ENT01"))),"ENT01");
         long id=service.attendance(day).stream().filter(r->r.employeeId().equals("ENT01")).findFirst().orElseThrow().id();
-        var second=new EnterpriseDtos.AttendanceInput("ENT01",day,day.atTime(9,0),day.atTime(17,0),"LATE","BIOMETRIC_IMPORT","event-2","updated");
-        service.importAttendance(new EnterpriseDtos.AttendanceImportRequest(List.of(attendance("ENT01"),second)),"ENT01");
+        var second=new BackofficeDtos.AttendanceInput("ENT01",day,day.atTime(9,0),day.atTime(17,0),"LATE","BIOMETRIC_IMPORT","event-2","updated");
+        service.importAttendance(new BackofficeDtos.AttendanceImportRequest(List.of(attendance("ENT01"),second)),"ENT01");
         var result=service.attendance(day).stream().filter(r->r.employeeId().equals("ENT01")).findFirst().orElseThrow();
         assertThat(result.id()).isEqualTo(id); assertThat(result.status()).isEqualTo("LATE");
         assertThat(result.deviceEventId()).isEqualTo("event-2");
     }
     @Test void leaveDecisionOnlyConsumesPendingOnce() throws Exception {
-        var leave=service.createLeave(new EnterpriseDtos.LeaveRequest("ENT01","ANNUAL",day,day.plusDays(1),"Annual leave",null),"ENT01");
+        var leave=service.createLeave(new BackofficeDtos.LeaveRequest("ENT01","ANNUAL",day,day.plusDays(1),"Annual leave",null),"ENT01");
         assertThat(race(()-> {service.decideLeave(leave.id(),true,"ENT01");return "SUCCESS";})).containsExactlyInAnyOrder("SUCCESS","LEAVE_NOT_PENDING");
         var result=service.leaves("APPROVED").stream().filter(r->r.id().equals(leave.id())).findFirst().orElseThrow();
         assertThat(result.approver()).isEqualTo("ENT01"); assertThat(result.decidedAt()).isNotNull();
@@ -109,13 +109,13 @@ class SqlServerEnterpriseCommandsTest {
         assertThat(jdbc.queryForObject("SELECT soLuongTonKho FROM DichVu WHERE maDichVu=N'ENT-STOCK'",Integer.class)).isEqualTo(3);
     }
     @Test void assetCommandsPersistValuesAndNotFoundContract() {
-        var asset=service.createAsset(new EnterpriseDtos.TechnicalAssetRequest("ENT-ASSET","Pump","Pump","BUILDING",null,1,"Lobby","Brand",day,day.plusMonths(1),null,new BigDecimal("120000"),"note"));
+        var asset=service.createAsset(new BackofficeDtos.TechnicalAssetRequest("ENT-ASSET","Pump","Pump","BUILDING",null,1,"Lobby","Brand",day,day.plusMonths(1),null,new BigDecimal("120000"),"note"));
         assertThat(asset.status()).isEqualTo("GOOD");assertThat(asset.originalValue()).isEqualByComparingTo("120000");
         assertThat(service.updateAssetStatus(asset.id(),"MAINTENANCE_NEEDED").status()).isEqualTo("MAINTENANCE_NEEDED");
         code(()->service.updateAssetStatus("missing","GOOD"),"ASSET_NOT_FOUND");
     }
-    private EnterpriseDtos.VatInvoiceRequest vatRequest(){return new EnterpriseDtos.VatInvoiceRequest(invoice,"INDIVIDUAL","A & B <guest>",null,null,null,null);}
-    private EnterpriseDtos.AttendanceInput attendance(String employee){return new EnterpriseDtos.AttendanceInput(employee,day,day.atTime(8,0),day.atTime(17,0),"PRESENT","MANUAL","event-1",null);}
+    private BackofficeDtos.VatInvoiceRequest vatRequest(){return new BackofficeDtos.VatInvoiceRequest(invoice,"INDIVIDUAL","A & B <guest>",null,null,null,null);}
+    private BackofficeDtos.AttendanceInput attendance(String employee){return new BackofficeDtos.AttendanceInput(employee,day,day.atTime(8,0),day.atTime(17,0),"PRESENT","MANUAL","event-1",null);}
     private void code(Runnable operation,String expected){assertThatThrownBy(operation::run).isInstanceOf(DomainException.class).extracting("code").isEqualTo(expected);}
     private List<String> race(Callable<String> operation)throws Exception {
         var start=new CountDownLatch(1);

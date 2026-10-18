@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { summarizeAttendance } from "./attendanceSummary";
-import type { AttendanceRecord, LeaveRequest } from "../../shared/types/enterprise";
+import type { AttendanceRecord, LeaveRequest } from "../../shared/types/backoffice";
 
 const leave = (start: string, end: string, changes: Partial<LeaveRequest> = {}): LeaveRequest => ({
   id: 1, employee_id: "FD1", leave_type: "SICK", start_date: start, end_date: end,

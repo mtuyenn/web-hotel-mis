@@ -1,9 +1,9 @@
 package com.hospitality.mis.service.operations;
 
 import com.hospitality.mis.common.exception.DomainException;
-import com.hospitality.mis.dto.operations.EnterpriseDtos;
+import com.hospitality.mis.dto.operations.BackofficeDtos;
 import com.hospitality.mis.persistence.VietnameseCodeConverters;
-import com.hospitality.mis.dao.operations.EnterpriseDatabase;
+import com.hospitality.mis.dao.operations.BackofficeDatabase;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,9 +15,13 @@ import java.util.UUID;
 import java.util.LinkedHashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/** Các use case mở rộng phục vụ màn hình kế toán, HR, kho và kỹ thuật. */
+/**
+ * Compatibility facade for the legacy back-office contract.
+ * New controllers use the finance, identity and technical-asset services;
+ * keeping this facade avoids breaking existing integrations and test fixtures.
+ */
 @Service
-public class EnterpriseExtensionService {
+public class BackofficeService {
     private static final BigDecimal VAT_RATE = new BigDecimal("8.00");
     private static final VietnameseCodeConverters.OtaReconciliationStatusConverter OTA_STATUS = new VietnameseCodeConverters.OtaReconciliationStatusConverter();
     private static final VietnameseCodeConverters.VatCustomerTypeConverter VAT_CUSTOMER_TYPE = new VietnameseCodeConverters.VatCustomerTypeConverter();
@@ -29,20 +33,20 @@ public class EnterpriseExtensionService {
     private static final VietnameseCodeConverters.LeaveStatusConverter LEAVE_STATUS = new VietnameseCodeConverters.LeaveStatusConverter();
     private static final VietnameseCodeConverters.TechnicalAssetStatusConverter ASSET_STATUS = new VietnameseCodeConverters.TechnicalAssetStatusConverter();
     private static final VietnameseCodeConverters.TechnicalAssetLocationTypeConverter ASSET_LOCATION_TYPE = new VietnameseCodeConverters.TechnicalAssetLocationTypeConverter();
-    private final EnterpriseDatabase database;
+    private final BackofficeDatabase database;
     private final com.hospitality.mis.service.governance.AuditService audit;
 
-    public EnterpriseExtensionService(EnterpriseDatabase database,com.hospitality.mis.service.governance.AuditService audit) { this.database = database;this.audit=audit; }
+    public BackofficeService(BackofficeDatabase database,com.hospitality.mis.service.governance.AuditService audit) { this.database = database;this.audit=audit; }
 
     @Transactional(readOnly = true)
-    public List<EnterpriseDtos.OtaReconciliationResponse> ota() {
-        return database.ota((rs, n) -> new EnterpriseDtos.OtaReconciliationResponse(rs.getLong(1), rs.getString(2), rs.getString(3),
+    public List<BackofficeDtos.OtaReconciliationResponse> ota() {
+        return database.ota((rs, n) -> new BackofficeDtos.OtaReconciliationResponse(rs.getLong(1), rs.getString(2), rs.getString(3),
                 new VietnameseCodeConverters.BookingSourceConverter().convertToEntityAttribute(rs.getString(4)), rs.getBigDecimal(5), rs.getBigDecimal(6), rs.getBigDecimal(7), OTA_STATUS.convertToEntityAttribute(rs.getString(8)),
                 rs.getTimestamp(9).toLocalDateTime()));
     }
 
     @Transactional
-    public EnterpriseDtos.OtaReconciliationResponse updateOtaStatus(long reservationId, String status) {
+    public BackofficeDtos.OtaReconciliationResponse updateOtaStatus(long reservationId, String status) {
         if(!java.util.Set.of("PENDING","MATCHED","DISPUTED").contains(status))
             throw new DomainException("INVALID_OTA_STATUS","Trạng thái đối soát OTA không hợp lệ");
         var before=ota().stream().filter(row->row.reservationId().equals(reservationId)).findFirst()
@@ -55,12 +59,12 @@ public class EnterpriseExtensionService {
     }
 
     @Transactional(readOnly = true)
-    public List<EnterpriseDtos.VatInvoiceResponse> vatInvoices() {
+    public List<BackofficeDtos.VatInvoiceResponse> vatInvoices() {
         return database.vatInvoices((rs,n)->vat(rs));
     }
 
     @Transactional
-    public EnterpriseDtos.VatInvoiceResponse createVat(EnterpriseDtos.VatInvoiceRequest request, String actor) {
+    public BackofficeDtos.VatInvoiceResponse createVat(BackofficeDtos.VatInvoiceRequest request, String actor) {
         String principal=com.hospitality.mis.middleware.security.SecurityActor.requireBoundActor(actor);
         if("COMPANY".equals(request.customerType())&&(request.taxCode()==null||request.taxCode().isBlank()||request.companyName()==null||request.companyName().isBlank()||request.companyAddress()==null||request.companyAddress().isBlank()))
             throw new DomainException("VAT_COMPANY_DETAILS_REQUIRED","Hóa đơn doanh nghiệp cần mã số thuế, tên và địa chỉ công ty");
@@ -84,11 +88,11 @@ public class EnterpriseExtensionService {
     }
 
     @Transactional(readOnly = true)
-    public List<EnterpriseDtos.AttendanceResponse> attendance(LocalDate date) {
+    public List<BackofficeDtos.AttendanceResponse> attendance(LocalDate date) {
         return database.attendance(date,this::attendanceRow);
     }
 
-    public List<EnterpriseDtos.AttendanceResponse> importAttendance(EnterpriseDtos.AttendanceImportRequest request, String actor) {
+    public List<BackofficeDtos.AttendanceResponse> importAttendance(BackofficeDtos.AttendanceImportRequest request, String actor) {
         var records=new java.util.ArrayList<LinkedHashMap<String,Object>>();
         for (var row : request.records()) {
             var data=new LinkedHashMap<String,Object>();
@@ -126,48 +130,48 @@ public class EnterpriseExtensionService {
     }
 
     @Transactional(readOnly = true)
-    public List<EnterpriseDtos.LeaveResponse> leaves(String status) {
+    public List<BackofficeDtos.LeaveResponse> leaves(String status) {
         return database.leaves(status==null||status.isBlank()?null:LEAVE_STATUS.convertToDatabaseColumn(code(status)),this::leaveRow);
     }
 
-    public EnterpriseDtos.LeaveResponse createLeave(EnterpriseDtos.LeaveRequest request, String actor) {
+    public BackofficeDtos.LeaveResponse createLeave(BackofficeDtos.LeaveRequest request, String actor) {
         if (request.endDate().isBefore(request.startDate())) throw new DomainException("INVALID_LEAVE_PERIOD", "Khoảng nghỉ không hợp lệ");
         long id = database.createLeave(request,LEAVE_TYPE.convertToDatabaseColumn(code(request.leaveType())),actor);
         return leaves(null).stream().filter(row -> row.id().equals(id)).findFirst().orElseThrow();
     }
 
-    public EnterpriseDtos.LeaveResponse decideLeave(long id, boolean approve, String actor) {
+    public BackofficeDtos.LeaveResponse decideLeave(long id, boolean approve, String actor) {
         database.decideLeave(id,approve,actor);
         return leaves(null).stream().filter(row -> row.id().equals(id)).findFirst().orElseThrow();
     }
 
     @Transactional(readOnly = true)
-    public List<EnterpriseDtos.TechnicalAssetResponse> assets() {
+    public List<BackofficeDtos.TechnicalAssetResponse> assets() {
         return database.assets(this::assetRow);
     }
 
-    public EnterpriseDtos.TechnicalAssetResponse createAsset(EnterpriseDtos.TechnicalAssetRequest request) {
+    public BackofficeDtos.TechnicalAssetResponse createAsset(BackofficeDtos.TechnicalAssetRequest request) {
         database.createAsset(request,ASSET_LOCATION_TYPE.convertToDatabaseColumn(code(request.locationType())),ASSET_STATUS.convertToDatabaseColumn(request.status()==null?"GOOD":code(request.status())));
         return assets().stream().filter(row -> row.id().equals(request.id())).findFirst().orElseThrow();
     }
 
-    public EnterpriseDtos.TechnicalAssetResponse updateAssetStatus(String id, String status) {
+    public BackofficeDtos.TechnicalAssetResponse updateAssetStatus(String id, String status) {
         database.updateAsset(id,ASSET_STATUS.convertToDatabaseColumn(code(status)));
         return assets().stream().filter(row -> row.id().equals(id)).findFirst().orElseThrow();
     }
 
-    private EnterpriseDtos.VatInvoiceResponse vat(java.sql.ResultSet rs) throws java.sql.SQLException {
+    private BackofficeDtos.VatInvoiceResponse vat(java.sql.ResultSet rs) throws java.sql.SQLException {
         BigDecimal rate = rs.getBigDecimal(4);
         BigDecimal taxable = rs.getBigDecimal(5);
         BigDecimal tax = taxable.multiply(rate).divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
-        return new EnterpriseDtos.VatInvoiceResponse(rs.getLong(1), rs.getLong(2), rs.getString(3), rate, taxable, tax,
+        return new BackofficeDtos.VatInvoiceResponse(rs.getLong(1), rs.getLong(2), rs.getString(3), rate, taxable, tax,
                 taxable.add(tax), VAT_CUSTOMER_TYPE.convertToEntityAttribute(rs.getString(6)), rs.getString(7),
                 rs.getString(8), rs.getString(9), rs.getString(10), VAT_STATUS.convertToEntityAttribute(rs.getString(11)),
                 VAT_XML_STATUS.convertToEntityAttribute(rs.getString(12)), rs.getTimestamp(13).toLocalDateTime(), rs.getString(14));
     }
-    private EnterpriseDtos.AttendanceResponse attendanceRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException { return new EnterpriseDtos.AttendanceResponse(rs.getLong(1), rs.getString(2), rs.getDate(3).toLocalDate(), ts(rs, 4), ts(rs, 5), ATTENDANCE_STATUS.convertToEntityAttribute(rs.getString(6)), ATTENDANCE_SOURCE.convertToEntityAttribute(rs.getString(7)), rs.getString(8), rs.getString(9)); }
-    private EnterpriseDtos.LeaveResponse leaveRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException { return new EnterpriseDtos.LeaveResponse(rs.getLong(1), rs.getString(2), LEAVE_TYPE.convertToEntityAttribute(rs.getString(3)), rs.getDate(4).toLocalDate(), rs.getDate(5).toLocalDate(), rs.getString(6), rs.getString(7), LEAVE_STATUS.convertToEntityAttribute(rs.getString(8)), rs.getString(9), rs.getString(10), ts(rs, 11), ts(rs, 12)); }
-    private EnterpriseDtos.TechnicalAssetResponse assetRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException { return new EnterpriseDtos.TechnicalAssetResponse(rs.getString(1), rs.getString(2), rs.getString(3), ASSET_LOCATION_TYPE.convertToEntityAttribute(rs.getString(4)), rs.getString(5), (Integer) rs.getObject(6), rs.getString(7), rs.getString(8), date(rs, 9), date(rs, 10), ASSET_STATUS.convertToEntityAttribute(rs.getString(11)), rs.getBigDecimal(12), rs.getString(13), rs.getBoolean(14)); }
+    private BackofficeDtos.AttendanceResponse attendanceRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException { return new BackofficeDtos.AttendanceResponse(rs.getLong(1), rs.getString(2), rs.getDate(3).toLocalDate(), ts(rs, 4), ts(rs, 5), ATTENDANCE_STATUS.convertToEntityAttribute(rs.getString(6)), ATTENDANCE_SOURCE.convertToEntityAttribute(rs.getString(7)), rs.getString(8), rs.getString(9)); }
+    private BackofficeDtos.LeaveResponse leaveRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException { return new BackofficeDtos.LeaveResponse(rs.getLong(1), rs.getString(2), LEAVE_TYPE.convertToEntityAttribute(rs.getString(3)), rs.getDate(4).toLocalDate(), rs.getDate(5).toLocalDate(), rs.getString(6), rs.getString(7), LEAVE_STATUS.convertToEntityAttribute(rs.getString(8)), rs.getString(9), rs.getString(10), ts(rs, 11), ts(rs, 12)); }
+    private BackofficeDtos.TechnicalAssetResponse assetRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException { return new BackofficeDtos.TechnicalAssetResponse(rs.getString(1), rs.getString(2), rs.getString(3), ASSET_LOCATION_TYPE.convertToEntityAttribute(rs.getString(4)), rs.getString(5), (Integer) rs.getObject(6), rs.getString(7), rs.getString(8), date(rs, 9), date(rs, 10), ASSET_STATUS.convertToEntityAttribute(rs.getString(11)), rs.getBigDecimal(12), rs.getString(13), rs.getBoolean(14)); }
     private static String code(String value) { return value == null ? null : value.trim().toUpperCase(java.util.Locale.ROOT); }
     private static LocalDateTime ts(java.sql.ResultSet rs, int index) throws java.sql.SQLException { var value = rs.getTimestamp(index); return value == null ? null : value.toLocalDateTime(); }
     private static LocalDate date(java.sql.ResultSet rs, int index) throws java.sql.SQLException { var value = rs.getDate(index); return value == null ? null : value.toLocalDate(); }

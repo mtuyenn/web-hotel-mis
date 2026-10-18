@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
-import type { RestaurantBooking } from "../../shared/types/kitchenAccounting";
+import type { RestaurantBooking } from "../../shared/types/hotelOperations";
 
 export function ServiceCoordination({ bookings, items, date, loading, error, busyId, searchQuery, onDateChange, onRefresh, onMarkUsed }: {
   bookings: RestaurantBooking[];

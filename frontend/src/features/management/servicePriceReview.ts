@@ -1,4 +1,4 @@
-import type { Service } from "../../shared/types/kitchenAccounting";
+import type { Service } from "../../shared/types/hotelOperations";
 import { formatVnd } from "../../shared/utils/money";
 
 type PriceApproval = { amount?: number | null; payload: string; target_id: string; requester: string; reason: string; expires_at?: string | null };

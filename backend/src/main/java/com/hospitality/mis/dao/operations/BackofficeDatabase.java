@@ -11,13 +11,14 @@ import java.util.List;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
-import com.hospitality.mis.dto.operations.EnterpriseDtos;
+import com.hospitality.mis.dto.operations.BackofficeDtos;
 
-/** Explicit enterprise read models and procedure calls. No generated entity writes. */
+/** Shared SQL gateway for the back-office read models and procedures. Domain services
+ * expose the finance, HR and technical boundaries above this gateway. */
 @Repository
-public class EnterpriseDatabase {
+public class BackofficeDatabase {
     private final JdbcTemplate jdbc;
-    public EnterpriseDatabase(JdbcTemplate jdbc) { this.jdbc=jdbc; }
+    public BackofficeDatabase(JdbcTemplate jdbc) { this.jdbc=jdbc; }
 
     private <T> List<T> read(String sql, RowMapper<T> mapper, Object... args) {
         return jdbc.query(sql,mapper,args);
@@ -35,7 +36,7 @@ public class EnterpriseDatabase {
     public void updateOta(long id,String status){command("EXEC dbo.uspCapNhatDoiSoatOta ?,?",id,status);}
     public <T> List<T> vatInvoices(RowMapper<T> mapper){return read(VAT+" ORDER BY thoiDiemPhatHanh DESC",mapper);}
     public <T> List<T> vatInvoice(long id,RowMapper<T> mapper){return read(VAT+" WHERE maHoaDonGiaTriGiaTang=?",mapper,id);}
-    public long createVat(EnterpriseDtos.VatInvoiceRequest request,String number,BigDecimal rate,String customerType,String actor){
+    public long createVat(BackofficeDtos.VatInvoiceRequest request,String number,BigDecimal rate,String customerType,String actor){
         return create("EXEC dbo.uspPhatHanhHoaDonVat ?,?,?,?,?,?,?,?,?,?",request.invoiceId(),number,rate,request.taxableAmount(),customerType,request.customerName().trim(),request.taxCode(),request.companyName(),request.companyAddress(),actor);
     }
     public void saveVatXml(long id,String xml){command("EXEC dbo.uspLuuXmlHoaDonVat ?,?",id,xml);}
@@ -48,10 +49,10 @@ public class EnterpriseDatabase {
         String sql="SELECT maDonNghiPhep,maNhanVien,loaiNghiPhep,ngayBatDau,ngayKetThuc,lyDo,maNhanVienDoiCa,trangThai,nguoiYeuCau,nguoiPheDuyet,thoiDiemQuyetDinh,thoiDiemTao FROM dbo.vwDonNghiPhep";
         return status==null?read(sql+" ORDER BY thoiDiemTao DESC",mapper):read(sql+" WHERE trangThai=? ORDER BY thoiDiemTao DESC",mapper,status);
     }
-    public long createLeave(EnterpriseDtos.LeaveRequest request,String type,String actor){return create("EXEC dbo.uspTaoDonNghiPhep ?,?,?,?,?,?,?",request.employeeId(),type,request.startDate(),request.endDate(),request.reason().trim(),request.shiftSwapWith(),actor);}
+    public long createLeave(BackofficeDtos.LeaveRequest request,String type,String actor){return create("EXEC dbo.uspTaoDonNghiPhep ?,?,?,?,?,?,?",request.employeeId(),type,request.startDate(),request.endDate(),request.reason().trim(),request.shiftSwapWith(),actor);}
     public void decideLeave(long id,boolean approve,String actor){command("EXEC dbo.uspQuyetDinhNghiPhep ?,?,?",id,approve,actor);}
     public <T> List<T> assets(RowMapper<T> mapper){return read("SELECT maTaiSanKyThuat,ten,danhMuc,loaiViTri,maPhong,tang,viTri,thuongHieuMau,ngayLapDat,ngayBaoTriTiepTheo,trangThai,giaTriBanDau,ghiChu,dangHoatDong FROM dbo.vwTaiSanKyThuat WHERE dangHoatDong=1 ORDER BY COALESCE(tang,0),ten",mapper);}
-    public void createAsset(EnterpriseDtos.TechnicalAssetRequest request,String locationType,String status){command("EXEC dbo.uspTaoTaiSanKyThuat ?,?,?,?,?,?,?,?,?,?,?,?,?",request.id(),request.name(),request.category(),locationType,request.roomId(),request.floor(),request.location(),request.brandModel(),request.installedOn(),request.nextMaintenance(),status,request.originalValue()==null?BigDecimal.ZERO:request.originalValue(),request.note());}
+    public void createAsset(BackofficeDtos.TechnicalAssetRequest request,String locationType,String status){command("EXEC dbo.uspTaoTaiSanKyThuat ?,?,?,?,?,?,?,?,?,?,?,?,?",request.id(),request.name(),request.category(),locationType,request.roomId(),request.floor(),request.location(),request.brandModel(),request.installedOn(),request.nextMaintenance(),status,request.originalValue()==null?BigDecimal.ZERO:request.originalValue(),request.note());}
     public void updateAsset(String id,String status){command("EXEC dbo.uspCapNhatTaiSanKyThuat ?,?",id,status);}
     private RuntimeException translate(DataAccessException error) {
         for(Throwable cause=error;cause!=null;cause=cause.getCause()) {
