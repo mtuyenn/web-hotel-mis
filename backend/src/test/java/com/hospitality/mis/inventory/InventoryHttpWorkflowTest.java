@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 class InventoryHttpWorkflowTest {
+    private static final String KITCHEN_ACTOR = "INV-KITCHEN";
     @Autowired MockMvc mvc;
     @Autowired ServiceRepository services;
     @Autowired InventoryMovementRepository movements;
@@ -41,7 +42,7 @@ class InventoryHttpWorkflowTest {
 
     @org.junit.jupiter.api.AfterEach
     void cleanup() {
-        jdbc.update("DELETE FROM BanGhiChongTrung WHERE nguoiThucHien='kitchen' AND phamViLenh IN('inventory-movement','service-stock')");
+        jdbc.update("DELETE FROM BanGhiChongTrung WHERE nguoiThucHien=? AND phamViLenh IN('inventory-movement','service-stock')",KITCHEN_ACTOR);
         jdbc.update("DELETE FROM BienDongKhoDichVu WHERE maDichVu IN('MINI','OPEN')");
         jdbc.update("DELETE FROM LichSuGiaDichVu WHERE maDichVu IN('MINI','OPEN')");
         jdbc.update("DELETE FROM YeuCauPheDuyet WHERE maDoiTuong IN('MINI','OPEN')");
@@ -59,7 +60,7 @@ class InventoryHttpWorkflowTest {
     }
 
     @Test
-    @WithMockUser(username = "kitchen", roles = "KITCHEN")
+    @WithMockUser(username = KITCHEN_ACTOR, roles = "KITCHEN")
     void canonicalMovementsAreDurableAndReportIsAggregatedFromStoredRows() throws Exception {
         String receive = "{\"service_id\":\"MINI\",\"type\":\"RECEIVE\",\"quantity\":3,\"reason\":\"delivery\"}";
         String first = mvc.perform(post("/api/services/MINI/inventory-movements")
@@ -90,7 +91,7 @@ class InventoryHttpWorkflowTest {
     }
 
     @Test
-    @WithMockUser(username = "kitchen", roles = "KITCHEN")
+    @WithMockUser(username = KITCHEN_ACTOR, roles = "KITCHEN")
     void issueAndAdjustCannotLeaveNegativeStock() throws Exception {
         mvc.perform(post("/api/services/MINI/inventory-movements")
                         .header("Idempotency-Key", "too-many").contentType(APPLICATION_JSON)
@@ -105,7 +106,7 @@ class InventoryHttpWorkflowTest {
     }
 
     @Test
-    @WithMockUser(username = "kitchen", roles = "KITCHEN")
+    @WithMockUser(username = KITCHEN_ACTOR, roles = "KITCHEN")
     void stockEndpointUsesCanonicalReceiveAndDurableReplay() throws Exception {
         String body = "{\"quantity\":3}";
         String first = mvc.perform(post("/api/services/MINI/stock")
@@ -125,12 +126,12 @@ class InventoryHttpWorkflowTest {
                 .singleElement().satisfies(movement -> {
                     assertThat(movement.getType()).isEqualTo(InventoryMovement.MovementType.RECEIVE);
                     assertThat(movement.getQuantity()).isEqualTo(3);
-                    assertThat(movement.getActorId()).isEqualTo("kitchen");
+                    assertThat(movement.getActorId()).isEqualTo(KITCHEN_ACTOR);
                 });
     }
 
     @Test
-    @WithMockUser(username = "kitchen", roles = "KITCHEN")
+    @WithMockUser(username = KITCHEN_ACTOR, roles = "KITCHEN")
     void stockEndpointRequiresPositiveCanonicalMovement() throws Exception {
         mvc.perform(post("/api/services/MINI/stock")
                         .header("Idempotency-Key", "stock-zero")
@@ -144,7 +145,7 @@ class InventoryHttpWorkflowTest {
     }
 
     @Test
-    @WithMockUser(username = "kitchen", roles = "KITCHEN")
+    @WithMockUser(username = KITCHEN_ACTOR, roles = "KITCHEN")
     void directCreationCannotBypassCatalogProposalApproval() throws Exception {
         mvc.perform(post("/api/services").contentType(APPLICATION_JSON)
             .content("{\"id\":\"OPEN\",\"name\":\"Opening stock\",\"price\":10,\"unit\":\"đơn vị\",\"opening_stock\":4,\"safety_threshold\":1}"))
@@ -154,21 +155,21 @@ class InventoryHttpWorkflowTest {
     }
 
     @Test
-    @WithMockUser(username = "kitchen", roles = "KITCHEN")
+    @WithMockUser(username = KITCHEN_ACTOR, roles = "KITCHEN")
     void kitchenCanReadOnlyItsOwnServicePriceRequestHistory() throws Exception {
         Instant now = Instant.now();
-        ApprovalRequest ownPending = approval("kitchen", "SERVICE_PRICE_CHANGE", "MINI", "{\"price\":12000}", "kitchen-price-pending", now);
-        ApprovalRequest ownApproved = approval("kitchen", "SERVICE_PRICE_CHANGE", "MINI", "{\"price\":13000}", "kitchen-price-approved", now);
+        ApprovalRequest ownPending = approval(KITCHEN_ACTOR, "SERVICE_PRICE_CHANGE", "MINI", "{\"price\":12000}", "kitchen-price-pending", now);
+        ApprovalRequest ownApproved = approval(KITCHEN_ACTOR, "SERVICE_PRICE_CHANGE", "MINI", "{\"price\":13000}", "kitchen-price-approved", now);
         ownApproved.approve("manager", now);
         approvals.saveAllAndFlush(java.util.List.of(ownPending, ownApproved,
                 approval("another-kitchen", "SERVICE_PRICE_CHANGE", "MINI", "{\"price\":14000}", "other-price", now),
-                approval("kitchen", "PAYMENT_REFUND", "MINI", "{\"amount\":100}", "other-action", now)));
+                approval(KITCHEN_ACTOR, "PAYMENT_REFUND", "MINI", "{\"amount\":100}", "other-action", now)));
 
         mvc.perform(get("/api/services/price-requests"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].requester").value("kitchen"))
-                .andExpect(jsonPath("$[1].requester").value("kitchen"));
+                .andExpect(jsonPath("$[0].requester").value(KITCHEN_ACTOR))
+                .andExpect(jsonPath("$[1].requester").value(KITCHEN_ACTOR));
     }
 
     @Test
