@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { CheckCircle2, X, Zap } from "lucide-react";
+import { useState } from "react";
 import { formatVnd } from "../../shared/utils/money";
-import type { PriceRequest, PriceStatus } from "./WarehouseServices";
+import type { PriceRequest, PriceStatus } from "./types";
 
 export function PriceProposalResultModal({
   request,

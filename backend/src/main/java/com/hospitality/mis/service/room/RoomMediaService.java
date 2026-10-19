@@ -3,11 +3,13 @@ package com.hospitality.mis.service.room;
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dao.room.RoomMediaDatabase;
 import com.hospitality.mis.dto.room.RoomMediaDtos;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 /** Files remain outside SQL; procedures own metadata, limits, mappings and audit. */
@@ -21,7 +23,7 @@ public class RoomMediaService {
         if(database.imageCount(room)>=10)throw new DomainException("ROOM_IMAGE_LIMIT","Mỗi phòng chỉ được tối đa 10 ảnh");
         var stored=storage.store(room,file);
         try{
-            var result=database.upload(room,stored,actor);
+            var result=database.upload(room,stored.relativePath(),stored.contentType(),stored.sizeBytes(),actor);
             if(TransactionSynchronizationManager.isSynchronizationActive())TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
                 @Override public void afterCompletion(int status){if(status!=STATUS_COMMITTED)storage.delete(stored.relativePath());}
             });

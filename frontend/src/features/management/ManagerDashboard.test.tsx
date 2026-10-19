@@ -1,15 +1,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ManagerDashboard from "./ManagerDashboard";
-import { authApi } from "../../shared/api/auth";
-import { hrGovernanceApi } from "../../shared/api/hrGovernance";
-import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
-import { frontDeskApi } from "../../shared/api/frontDesk";
 import { approvalsApi } from "../../shared/api/approvals";
+import { authApi } from "../../shared/api/auth";
 import { financeApi } from "../../shared/api/finance";
-import { warehouseServicesApi } from "../../shared/api/warehouseServices";
+import { frontDeskApi } from "../../shared/api/frontDesk";
+import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
 import { hrApi } from "../../shared/api/hr";
+import { hrGovernanceApi } from "../../shared/api/hrGovernance";
 import { personnelApi } from "../../shared/api/personnel";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
+import ManagerDashboard from "./ManagerDashboard";
 
 describe("ManagerDashboard Interface and Acceptance Workflow", () => {
   const onBack = vi.fn();
@@ -47,7 +47,6 @@ describe("ManagerDashboard Interface and Acceptance Workflow", () => {
     });
 
     // Mock empty approvals by default
-    vi.spyOn(hrGovernanceApi, "approvals").mockResolvedValue([]);
 
     // Mock rooms
     vi.spyOn(housekeepingTechnicalApi, "rooms").mockResolvedValue([

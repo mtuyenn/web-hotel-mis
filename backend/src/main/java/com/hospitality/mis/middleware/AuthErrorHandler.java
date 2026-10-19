@@ -1,18 +1,19 @@
 package com.hospitality.mis.middleware;
 
 import com.hospitality.mis.common.api.ApiError;
-import com.hospitality.mis.service.auth.AuthFailureException;
+import com.hospitality.mis.common.exception.AuthFailureException;
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.controller.auth.AuthController;
+
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.time.Instant;
 import java.util.List;

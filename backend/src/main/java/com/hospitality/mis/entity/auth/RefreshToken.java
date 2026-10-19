@@ -1,6 +1,5 @@
 package com.hospitality.mis.entity.auth;
 
-import com.hospitality.mis.service.auth.JwtTokenService;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -98,20 +97,20 @@ public class RefreshToken {
 
     /** Trả về ID chủ thể theo đúng loại owner đã được xác thực. */
     public String getPrincipalId() {
-        return principalType() == JwtTokenService.PrincipalType.EMPLOYEE
+        return principalType() == PrincipalType.EMPLOYEE
                 ? employeeId : String.valueOf(customerAccountId);
     }
 
     /** Xác định owner và fail-fast nếu token có 0 hoặc 2 owner. */
-    public JwtTokenService.PrincipalType principalType() {
-        if (employeeId != null && customerAccountId == null) return JwtTokenService.PrincipalType.EMPLOYEE;
-        if (employeeId == null && customerAccountId != null) return JwtTokenService.PrincipalType.CUSTOMER;
+    public PrincipalType principalType() {
+        if (employeeId != null && customerAccountId == null) return PrincipalType.EMPLOYEE;
+        if (employeeId == null && customerAccountId != null) return PrincipalType.CUSTOMER;
         throw new IllegalStateException("Refresh token owner is invalid");
     }
 
     /** Tạo định danh actor ổn định để ghi audit cho cả hai loại chủ thể. */
     public String auditActor() {
-        return principalType() == JwtTokenService.PrincipalType.EMPLOYEE
+        return principalType() == PrincipalType.EMPLOYEE
                 ? employeeId : "customer:" + customerAccountId;
     }
 

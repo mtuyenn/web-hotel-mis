@@ -1,20 +1,22 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ManagerDashboard from "./ManagerDashboard";
-import { authApi } from "../../shared/api/auth";
-import { hrGovernanceApi } from "../../shared/api/hrGovernance";
-import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
-import { frontDeskApi } from "../../shared/api/frontDesk";
 import { approvalsApi } from "../../shared/api/approvals";
-import { financeApi } from "../../shared/api/finance";
-import { warehouseServicesApi } from "../../shared/api/warehouseServices";
-import { hrApi } from "../../shared/api/hr";
+import { authApi } from "../../shared/api/auth";
 import { ApiError } from "../../shared/api/client";
+import { financeApi } from "../../shared/api/finance";
+import { frontDeskApi } from "../../shared/api/frontDesk";
+import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
+import { hrApi } from "../../shared/api/hr";
+import { hrGovernanceApi } from "../../shared/api/hrGovernance";
+import { personnelApi } from "../../shared/api/personnel";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
+import ManagerDashboard from "./ManagerDashboard";
 
 describe("Service price approval workflow", () => {
   const onBack=vi.fn();
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(personnelApi, "requests").mockResolvedValue([]);
 
     // Mock manager profile
     vi.spyOn(authApi, "employeeProfile").mockResolvedValue({
@@ -23,9 +25,6 @@ describe("Service price approval workflow", () => {
       role: "MANAGER",
       permissions: ["APPROVAL_APPROVE", "TECHNICAL_WORK_ORDER_READ", "TECHNICAL_WORK_ORDER_ACCEPT"],
     });
-
-    // Mock empty approvals by default
-    vi.spyOn(hrGovernanceApi, "approvals").mockResolvedValue([]);
 
     // Mock rooms
     vi.spyOn(housekeepingTechnicalApi, "rooms").mockResolvedValue([
@@ -66,9 +65,10 @@ describe("Service price approval workflow", () => {
   it("keeps approval separate from activation and retains the approved proposal after an activation failure", async () => {
     const proposal = {id:81,requester:"KITCHEN",action:"SERVICE_PRICE_CHANGE",target_id:"COURT",payload:"180000",amount:180000,reason:"Chi phí tăng",risk:"LOW",status:"PENDING",approver:null,requested_at:"2035-01-01T08:00:00",expires_at:"2035-02-01T08:00:00",decided_at:null,consumed_at:null,idempotency_key:null} as const;
     let approved=false;
-    vi.mocked(hrGovernanceApi.approvals).mockImplementation(async () => approved ? [] : [proposal]);
-    vi.spyOn(hrGovernanceApi,"approve").mockImplementation(async () => { approved=true; return {...proposal,status:"APPROVED",approver:"EMP_MGR"}; });
-    vi.mocked(approvalsApi.approvals).mockImplementation(async () => approved ? [{...proposal,status:"APPROVED",approver:"EMP_MGR"}] : []);
+    vi.spyOn(approvalsApi,"approve").mockImplementation(async () => { approved=true; return {...proposal,status:"APPROVED",approver:"EMP_MGR"}; });
+    vi.mocked(approvalsApi.approvals).mockImplementation(async (status) => status === "PENDING"
+      ? approved ? [] : [proposal]
+      : approved ? [{...proposal,status:"APPROVED",approver:"EMP_MGR"}] : []);
     vi.mocked(warehouseServicesApi.services).mockResolvedValue([{id:"COURT",name:"Cầu lông",price:150000,unit:"giờ",stock:10,safety_threshold:0,low_stock:false}]);
     const activate=vi.spyOn(warehouseServicesApi,"activatePrice").mockRejectedValue(new ApiError(503,{code:"BUSY",message:"Máy chủ bận"}));
     render(<ManagerDashboard role="manager" onBack={onBack} />);

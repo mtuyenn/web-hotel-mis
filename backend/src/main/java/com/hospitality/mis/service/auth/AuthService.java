@@ -1,17 +1,19 @@
 package com.hospitality.mis.service.auth;
 
+import com.hospitality.mis.common.exception.AuthFailureException;
 import com.hospitality.mis.common.exception.DomainException;
-import com.hospitality.mis.dao.auth.CustomerAccountDatabase;
 import com.hospitality.mis.common.validation.PhoneNumberNormalizer;
+import com.hospitality.mis.dao.auth.CustomerAccountDatabase;
 import com.hospitality.mis.dao.auth.RefreshTokenDatabase;
+import com.hospitality.mis.dao.identity.EmployeeDatabase.Snapshot;
 import com.hospitality.mis.dto.auth.AuthDtos;
 import com.hospitality.mis.dto.auth.CustomerAccountDtos;
-
-import com.hospitality.mis.dao.identity.EmployeeDatabase.Snapshot;
-import com.hospitality.mis.middleware.security.SecurityActor;
+import com.hospitality.mis.entity.auth.PrincipalType;
 import com.hospitality.mis.middleware.security.EmployeeUserDetailsService;
+import com.hospitality.mis.middleware.security.SecurityActor;
 import com.hospitality.mis.service.governance.AuditService;
 import com.hospitality.mis.service.identity.EmployeeService;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -72,7 +74,7 @@ public class AuthService {
                     UsernamePasswordAuthenticationToken.unauthenticated(request.employeeId(), request.password()));
             UserDetails user = (UserDetails) authentication.getPrincipal();
             employeeService.recordLoginSuccess(user.getUsername());
-            return issueAndStore(JwtTokenService.PrincipalType.EMPLOYEE, user.getUsername(), user,
+            return issueAndStore(PrincipalType.EMPLOYEE, user.getUsername(), user,
                     tokenService.generateFamilyId());
         } catch (DisabledException exception) {
             throw new AuthFailureException("ACCOUNT_DISABLED");
@@ -128,7 +130,7 @@ public class AuthService {
                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")).build();
         audit.record("customer:" + account.id(), "LOGIN_SUCCEEDED", "CUSTOMER_ACCOUNT",
                 String.valueOf(account.id()), null, null, null);
-        return issueAndStore(JwtTokenService.PrincipalType.CUSTOMER, String.valueOf(account.id()), user,
+        return issueAndStore(PrincipalType.CUSTOMER, String.valueOf(account.id()), user,
                 tokenService.generateFamilyId());
     }
 
@@ -160,9 +162,9 @@ public class AuthService {
         }
 
         UserDetails user;
-        JwtTokenService.PrincipalType type = current.principalType();
+        PrincipalType type = current.principalType();
         try {
-            if (type == JwtTokenService.PrincipalType.EMPLOYEE) {
+            if (type == PrincipalType.EMPLOYEE) {
                 user = userDetailsService.loadUserByUsername(current.principalId());
             } else {
                 CustomerAccountDatabase.Snapshot account = customerAccounts.find(current.customerAccountId())
@@ -191,7 +193,7 @@ public class AuthService {
         String principalId = current.principalId();
         JwtTokenService.IssuedTokens issued = tokenService.issue(type, principalId, user.getAuthorities(),
                 current.familyId());
-        refreshTokens.rotate(current, issued, now);
+        refreshTokens.rotate(current, issued.refreshTokenHash(), issued.issuedAt(), issued.refreshExpiresAt(), now);
         audit.record(current.auditActor(), "REFRESH_ROTATED", "REFRESH_TOKEN", current.familyId(),
                 null, issued.refreshTokenHash(), null);
         return issued.response();
@@ -265,7 +267,7 @@ public class AuthService {
     }
 
     /** Cấp token và lưu refresh token tương ứng trước khi trả response. */
-    private AuthDtos.TokenResponse issueAndStore(JwtTokenService.PrincipalType type, String principalId,
+    private AuthDtos.TokenResponse issueAndStore(PrincipalType type, String principalId,
                                                  UserDetails user, String familyId) {
         JwtTokenService.IssuedTokens issued = tokenService.issue(type, principalId, user.getAuthorities(), familyId);
         saveRefreshToken(type, principalId, issued, familyId);
@@ -273,9 +275,11 @@ public class AuthService {
     }
 
     /** Chọn cách lưu token theo loại principal, giữ liên kết cùng familyId. */
-    private void saveRefreshToken(JwtTokenService.PrincipalType type, String principalId,
+    private void saveRefreshToken(PrincipalType type, String principalId,
                                   JwtTokenService.IssuedTokens issued, String familyId) {
-        refreshTokens.issue(type, principalId, issued, familyId);
+        refreshTokens.issue(type == PrincipalType.EMPLOYEE ? principalId : null,
+                type == PrincipalType.CUSTOMER ? Long.valueOf(principalId) : null,
+                issued.refreshTokenHash(), issued.issuedAt(), issued.refreshExpiresAt(), familyId);
     }
 
     /** Chuyển tài khoản khách thành UserDetails để kiểm tra quyền và trạng thái. */

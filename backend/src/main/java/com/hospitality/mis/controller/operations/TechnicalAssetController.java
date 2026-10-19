@@ -1,7 +1,8 @@
 package com.hospitality.mis.controller.operations;
 
-import com.hospitality.mis.dto.operations.BackofficeDtos;
+import com.hospitality.mis.dto.operations.TechnicalAssetDtos;
 import com.hospitality.mis.service.operations.TechnicalAssetService;
+
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -14,13 +15,13 @@ public class TechnicalAssetController {
 
     @GetMapping("/api/operations/assets")
     @PreAuthorize("@departmentAccess.allows(authentication, 'EQUIPMENT_READ')")
-    public java.util.List<BackofficeDtos.TechnicalAssetResponse> assets() { return service.assets(); }
+    public java.util.List<TechnicalAssetDtos.TechnicalAssetResponse> assets() { return service.assets(); }
 
     @PostMapping("/api/operations/assets")
     @PreAuthorize("@departmentAccess.allows(authentication, 'EQUIPMENT_WRITE')")
-    public BackofficeDtos.TechnicalAssetResponse createAsset(@Valid @RequestBody BackofficeDtos.TechnicalAssetRequest request) { return service.createAsset(request); }
+    public TechnicalAssetDtos.TechnicalAssetResponse createAsset(@Valid @RequestBody TechnicalAssetDtos.TechnicalAssetRequest request) { return service.createAsset(request); }
 
     @PatchMapping("/api/operations/assets/{id}/status")
     @PreAuthorize("@departmentAccess.allows(authentication, 'EQUIPMENT_WRITE')")
-    public BackofficeDtos.TechnicalAssetResponse updateAsset(@PathVariable String id, @Valid @RequestBody BackofficeDtos.TechnicalAssetStatusRequest request) { return service.updateAssetStatus(id, request.status()); }
+    public TechnicalAssetDtos.TechnicalAssetResponse updateAsset(@PathVariable String id, @Valid @RequestBody TechnicalAssetDtos.TechnicalAssetStatusRequest request) { return service.updateAssetStatus(id, request.status()); }
 }

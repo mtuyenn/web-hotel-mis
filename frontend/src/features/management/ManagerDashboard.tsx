@@ -1,38 +1,50 @@
-import ShiftRosterPanel from "./ShiftRosterPanel";
-import { useEffect, useState, useMemo } from "react";
-import { hrGovernanceApi } from "../../shared/api/hrGovernance";
-import { hrApi } from "../../shared/api/hr";
-import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
-import { frontDeskApi } from "../../shared/api/frontDesk";
+import {
+  AlertTriangle,
+  ArrowRight,
+  BarChart2,
+  Bell,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ConciergeBell,
+  Home,
+  LayoutGrid,
+  LogOut,
+  Search,
+  Sparkles,
+  Users,
+  UtensilsCrossed, Wrench,
+  X,
+  Zap
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { approvalsApi } from "../../shared/api/approvals";
-import { financeApi } from "../../shared/api/finance";
-import { warehouseServicesApi } from "../../shared/api/warehouseServices";
 import { authApi } from "../../shared/api/auth";
 import { apiErrorMessage } from "../../shared/api/client";
+import { financeApi } from "../../shared/api/finance";
+import { frontDeskApi } from "../../shared/api/frontDesk";
+import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
+import { hrApi } from "../../shared/api/hr";
+import { hrGovernanceApi } from "../../shared/api/hrGovernance";
+import { personnelApi, type OnboardingDecision, type OnboardingRequest } from "../../shared/api/personnel";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
 import { EmployeeProfileDropdown } from "../../shared/components/EmployeeProfileDropdown";
-import type { Approval as ApiApproval, EmployeeAdmin } from "../../shared/types/hrGovernance";
-import type { LeaveRequest } from "../../shared/types/backoffice";
-import type { EquipmentIncident, HousekeepingTask, Room as ApiRoom, TechnicalWorkOrder } from "../../shared/types/housekeepingTechnical";
-import type { Invoice as ApiInvoice } from "../../shared/types/frontDesk";
-import type { Expense, Approval as WarehouseApproval } from "../../shared/types/hotelOperations";
-import { useManagementFinance, type ManagementFinance } from "./managementFinance";
-import { PersonnelWorkspace, OnboardingReviewDialog } from "../hr/PersonnelWorkspace";
-import { personnelApi, type OnboardingRequest, type OnboardingDecision } from "../../shared/api/personnel";
-import { invoiceTotal } from "../accounting/accountingLogic";
-import { localDateValue } from "../../shared/utils/localDate";
-import "./management.css";
-import { formatVnd } from "../../shared/utils/money";
 import { employeeRoleLabel } from "../../shared/types/api";
-import {
-  Home, Zap, LayoutGrid, Users, AlertTriangle, BarChart2,
-  Search, Bell, ChevronDown, ArrowRight, Sun, CalendarDays,
-  Check, X, TrendingUp, ArrowUpRight, LogOut,
-  ConciergeBell, Sparkles, UtensilsCrossed, Wrench,
-} from "lucide-react";
+import type { LeaveRequest } from "../../shared/types/backoffice";
+import type { Invoice as ApiInvoice } from "../../shared/types/frontDesk";
+import type { Approval as ApiApproval, Expense, Approval as WarehouseApproval } from "../../shared/types/hotelOperations";
+import type { Room as ApiRoom, EquipmentIncident, HousekeepingTask, TechnicalWorkOrder } from "../../shared/types/housekeepingTechnical";
+import type { EmployeeAdmin } from "../../shared/types/hrGovernance";
+import { formatVnd } from "../../shared/utils/money";
+import { invoiceTotal } from "../accounting/accountingLogic";
+import { OnboardingReviewDialog, PersonnelWorkspace } from "../hr/PersonnelWorkspace";
+import ShiftRosterPanel from "./ShiftRosterPanel";
+import "./management.css";
+import { useManagementFinance, type ManagementFinance } from "./managementFinance";
 
-import { ServicePriceReviewContext, useServicePriceReview } from "./ServicePriceReviewContext";
-import { proposedPrice, priceReviewDetails } from "./servicePriceReview";
 import type { Service } from "../../shared/types/hotelOperations";
+import { ServicePriceReviewContext, useServicePriceReview } from "./ServicePriceReviewContext";
+import { priceReviewDetails, proposedPrice } from "./servicePriceReview";
 
 /* ══════════════════════════════════════════════════════════
    TYPES & DATA
@@ -791,7 +803,7 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
     personnelApi.requests().then(rows => { if (active) { setOnboardingRequests(rows); setPersonnelError(null); } }).catch(cause => { if (active) setPersonnelError(apiErrorMessage(cause, "Không tải được hàng chờ tiếp nhận nhân viên.")); });
 
     // Load governance approvals
-    hrGovernanceApi.approvals("PENDING")
+    approvalsApi.approvals("PENDING")
       .then(value => {
         const source = Array.isArray(value) ? value : value.items;
         if (!active) return;
@@ -1076,14 +1088,14 @@ export default function ManagerDashboard({ role, onBack }: { role: ManagerRole; 
     if (!Number.isInteger(numericId)) return true;
     try {
       if (action === "approved") {
-        await hrGovernanceApi.approve(numericId);
+        await approvalsApi.approve(numericId);
         const target = liveApprovals.find(item => item.id === id);
         if (target?.kind === "service-price") {
           setPriceError(null);
           setPriceNotice("Đã phê duyệt đề xuất. Giá hiện tại được giữ đến khi bấm Áp dụng giá ngay.");
         }
       } else {
-        await hrGovernanceApi.reject(numericId);
+        await approvalsApi.reject(numericId);
       }
       setLiveApprovals(previous => previous.filter(item => item.id !== id));
       setRefreshApprovalsCount(c => c + 1);

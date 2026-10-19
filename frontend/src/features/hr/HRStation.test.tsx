@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import HRStation from "./HRStation";
 import { authApi } from "../../shared/api/auth";
-import { hrApi } from "../../shared/api/hr";
 import { employeeProvisioningApi } from "../../shared/api/employeeProvisioning";
+import { hrApi } from "../../shared/api/hr";
 import { hrGovernanceApi } from "../../shared/api/hrGovernance";
-import { localDateValue } from "../../shared/utils/localDate";
 import { personnelApi } from "../../shared/api/personnel";
+import { localDateValue } from "../../shared/utils/localDate";
+import HRStation from "./HRStation";
 
 const weekAtOffset = (offset: number) => {
   const monday = new Date();
@@ -65,9 +65,6 @@ describe("HRStation weekly shift schedule", () => {
       permissions: [],
     });
     vi.spyOn(hrGovernanceApi, "employees").mockResolvedValue([]);
-    vi.spyOn(hrGovernanceApi, "approvals").mockResolvedValue({
-      items: [], page: 0, size: 20, total_elements: 0, total_pages: 0,
-    });
     vi.spyOn(hrApi, "attendance").mockResolvedValue([]);
     vi.spyOn(hrApi, "leaves").mockResolvedValue([]);
   });

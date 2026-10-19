@@ -1,6 +1,6 @@
-import { apiClient } from "./client";
 import type { EmployeeRole } from "../types/api";
-import type { Approval, AuditEntry, Collection, EmployeeAdmin, EmployeeSession, LoginHistoryPage, Shift, ShiftCoverage, ShiftInput, ShiftStatus, ShiftUpdateInput, EmploymentStatus } from "../types/hrGovernance";
+import type { AuditEntry, Collection, EmployeeAdmin, EmployeeSession, EmploymentStatus, LoginHistoryPage, Shift, ShiftCoverage, ShiftInput, ShiftStatus, ShiftUpdateInput } from "../types/hrGovernance";
+import { apiClient } from "./client";
 
 const query = (params: Record<string, string | number | undefined>) => {
   const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== "");
@@ -24,11 +24,7 @@ export const hrGovernanceApi = {
   assignShift: (body: ShiftInput) => apiClient.request<Shift>("/api/hr/shifts", { method: "POST", body }),
   updateShift: (id: number, body: ShiftUpdateInput) => apiClient.request<Shift>(`/api/hr/shifts/${id}`, { method: "PUT", body }),
   updateShiftStatus: (id: number, status: ShiftStatus) => apiClient.request<Shift>(`/api/hr/shifts/${id}/status`, { method: "PATCH", body: { status } }),
-  setShiftStatus: (id: number, status: ShiftStatus) => apiClient.request<Shift>(`/api/hr/shifts/${id}/status`, { method: "PATCH", body: { status } }),
 
-  approvals: (status = "PENDING") => apiClient.request<Collection<Approval>>(`/api/governance/approvals${query({ status })}`),
-  approve: (id: number) => apiClient.request<Approval>(`/api/governance/approvals/${id}/approve`, { method: "POST" }),
-  reject: (id: number) => apiClient.request<Approval>(`/api/governance/approvals/${id}/reject`, { method: "POST" }),
   audit: (params: { action?: string; entity_type?: string; entity_id?: string; correlation_key?: string; from?: string; to?: string; page?: number; size?: number } = {}) => apiClient.request<Collection<AuditEntry>>(`/api/governance/audit${query(params)}`),
 };
 

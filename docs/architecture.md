@@ -70,6 +70,17 @@ controllers do not access the database directly. DTOs are used at the HTTP
 boundary; entities remain for Hibernate schema validation, not runtime writes. Cross-module workflows are
 coordinated in services, not by controllers or direct database access.
 
+OTA reconciliation and VAT belong to `FinanceBackofficeService` and
+`FinanceBackofficeDatabase` in `finance`; attendance and leave belong to
+`AttendanceLeaveService` and `AttendanceLeaveDatabase` in `identity`; technical
+assets belong to `TechnicalAssetService` and `TechnicalAssetDatabase` in
+`operations`. Their request/response DTOs live in the corresponding domain
+packages. JDBC row mapping belongs in the database adapters.
+
+Frontend screens live under `src/features/`. Components within a feature share
+view-model types through that feature's `types.ts`, without importing types from
+their parent screen. API calls belong to the specific shared domain API module.
+
 Start as a modular monolith. Split services only after a measured operational
 need exists.
 

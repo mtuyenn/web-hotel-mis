@@ -1,10 +1,10 @@
-import {stockRequestsApi} from "../../shared/api/stockRequests";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { hotelOperationsApi } from "../../shared/api/hotelOperations";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import HousekeepingStation from "./HousekeepingStation";
-import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
 import { authApi } from "../../shared/api/auth";
+import { housekeepingTechnicalApi } from "../../shared/api/housekeepingTechnical";
+import { stockRequestsApi } from "../../shared/api/stockRequests";
+import { warehouseServicesApi } from "../../shared/api/warehouseServices";
+import HousekeepingStation from "./HousekeepingStation";
 
 describe("HousekeepingStation Operational Interface", () => {
   const onBack = vi.fn();
@@ -180,7 +180,7 @@ describe("HousekeepingStation Operational Interface", () => {
   });
 
   it("shows its own linen and minibar stock and refreshes approved allocations", async () => {
-    const centralStock=vi.spyOn(hotelOperationsApi,"services").mockResolvedValue(mockLinen.map(item=>({...item,stock:999})) as any);
+    const centralStock=vi.spyOn(warehouseServicesApi,"services").mockResolvedValue(mockLinen.map(item=>({...item,stock:999})) as any);
     const water={id:"WATER",name:"Nước suối",unit:"chai",stock:3,safety_threshold:2,category:"beverage",active:true};
     vi.mocked(stockRequestsApi.catalog).mockResolvedValue([{...mockLinen[0],stock:0},water] as any);
     render(<HousekeepingStation onBack={onBack} />);

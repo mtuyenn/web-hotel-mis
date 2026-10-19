@@ -8,6 +8,9 @@ import com.hospitality.mis.service.billing.ReceiptService;
 import com.hospitality.mis.service.billing.ServiceCatalogService;
 import com.hospitality.mis.service.billing.VnpayPaymentService;
 import com.hospitality.mis.service.finance.FinanceService;
+import com.hospitality.mis.service.finance.FinanceBackofficeService;
+import com.hospitality.mis.service.identity.AttendanceLeaveService;
+import com.hospitality.mis.service.operations.TechnicalAssetService;
 import com.hospitality.mis.service.governance.ApprovalService;
 import com.hospitality.mis.service.governance.AuditService;
 import com.hospitality.mis.service.guest.GuestService;
@@ -108,9 +111,12 @@ class DepartmentAuthorizationMatrixTest {
     @MockBean com.hospitality.mis.service.billing.CatalogProposalService mock34;
     @MockBean com.hospitality.mis.service.operations.StockRequestService mock35;
     @MockBean com.hospitality.mis.service.identity.PersonnelService mock36;
+    @MockBean FinanceBackofficeService financeBackoffice;
+    @MockBean AttendanceLeaveService attendanceLeave;
+    @MockBean TechnicalAssetService technicalAssets;
     @MockBean ApprovalAuthorization approvalAuthorization;
     /** Gom các business mock để reset invocation và chứng minh deny không gọi nghiệp vụ. */
-    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26, mock27, mock28, mock29, mock30, mock31, mock32, mock33, mock34, mock35, mock36); }
+    private List<Object> businessMocks() { return List.of(mock0, mock1, mock2, mock3, mock4, mock5, mock6, mock7, mock8, mock9, mock10, mock11, mock12, mock13, mock14, mock15, mock16, mock17, mock18, mock19, mock20, mock21, mock22, mock23, mock24, mock25, mock26, mock27, mock28, mock29, mock30, mock31, mock32, mock33, mock34, mock35, mock36, financeBackoffice, attendanceLeave, technicalAssets); }
 
     /** Stub response tối thiểu để matrix chỉ đo RBAC, không đo business rules. */
     @BeforeEach void responses() {
@@ -207,6 +213,20 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("PATCH", "/api/operations/technical/work-orders/1", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"status\":\"ACKNOWLEDGED\"}"),
             new Endpoint("POST", "/api/operations/technical/work-orders/1/accept", "ADMIN,DIRECTOR,MANAGER", "{\"acceptance_note\":\"Verified\"}"),
             new Endpoint("POST", "/api/operations/technical/work-orders/1/release", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{}"),
+            new Endpoint("GET", "/api/operations/assets", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK,HOUSEKEEPING,TECHNICAL", "{}"),
+            new Endpoint("POST", "/api/operations/assets", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"id\":\"ASSET1\",\"name\":\"TV\",\"category\":\"ELECTRONICS\",\"location_type\":\"ROOM\",\"room_id\":\"101\",\"location\":\"Room 101\"}"),
+            new Endpoint("PATCH", "/api/operations/assets/ASSET1/status", "ADMIN,DIRECTOR,MANAGER,TECHNICAL", "{\"status\":\"GOOD\"}"),
+            new Endpoint("GET", "/api/hr/attendance", "ADMIN,DIRECTOR,MANAGER,HR,ACCOUNTING", "{}"),
+            new Endpoint("POST", "/api/hr/attendance/import", "ADMIN,DIRECTOR,MANAGER,HR", "{\"records\":[{\"employee_id\":\"emp\",\"work_date\":\"2026-10-01\",\"status\":\"PRESENT\"}]}"),
+            new Endpoint("GET", "/api/hr/leave-requests", "ADMIN,DIRECTOR,MANAGER,HR,ACCOUNTING", "{}"),
+            new Endpoint("POST", "/api/hr/leave-requests", "ADMIN,DIRECTOR,MANAGER,HR", "{\"employee_id\":\"emp\",\"leave_type\":\"ANNUAL\",\"start_date\":\"2026-10-01\",\"end_date\":\"2026-10-02\",\"reason\":\"Annual leave\"}"),
+            new Endpoint("POST", "/api/hr/leave-requests/1/approve", "ADMIN,DIRECTOR,MANAGER", "{}"),
+            new Endpoint("POST", "/api/hr/leave-requests/1/reject", "ADMIN,DIRECTOR,MANAGER", "{}"),
+            new Endpoint("GET", "/api/finance/ota-reconciliation", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{}"),
+            new Endpoint("PATCH", "/api/finance/ota-reconciliation/1", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{\"status\":\"MATCHED\"}"),
+            new Endpoint("GET", "/api/finance/vat-invoices", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{}"),
+            new Endpoint("POST", "/api/finance/vat-invoices", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{\"invoice_id\":1,\"customer_type\":\"INDIVIDUAL\",\"customer_name\":\"Guest\"}"),
+            new Endpoint("GET", "/api/finance/vat-invoices/1/xml", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{}"),
             new Endpoint("GET", "/api/hr/shifts", "ADMIN,DIRECTOR,MANAGER,HR,FRONT_DESK", "{}"),
             new Endpoint("GET", "/api/hr/shifts/coverage?shiftCode=AM", "ADMIN,DIRECTOR,MANAGER,HR,FRONT_DESK", "{}"),
             new Endpoint("POST", "/api/hr/shifts", "ADMIN,DIRECTOR,MANAGER,HR", "{\"employee_id\":\"emp\",\"shift_date\":\"2026-10-01\",\"shift_code\":\"AM\",\"starts_at\":\"2026-10-01T08:00:00\",\"ends_at\":\"2026-10-01T16:00:00\"}"),

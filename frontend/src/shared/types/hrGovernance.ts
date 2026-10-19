@@ -2,7 +2,6 @@ import type { EmployeeRole } from "./api";
 
 export type EmploymentStatus = "WORKING" | "ON_LEAVE" | "TERMINATED";
 export type ShiftStatus = "ASSIGNED" | "STARTED" | "COMPLETED" | "CANCELLED";
-export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CONSUMED";
 
 export interface EmployeeAdmin {
   employee_id: string;
@@ -79,24 +78,6 @@ export interface ShiftCoverage {
   assigned_staff: number;
   shortage: number;
   understaffed: boolean;
-}
-
-export interface Approval {
-  id: number;
-  requester: string;
-  action: string;
-  target_id: string;
-  payload: string;
-  amount?: number | null;
-  reason: string;
-  risk: string;
-  status: ApprovalStatus;
-  approver?: string | null;
-  decided_at?: string | null;
-  expires_at: string;
-  consumed_at?: string | null;
-  requested_at: string;
-  idempotency_key?: string | null;
 }
 
 export interface AuditEntry {

@@ -2,10 +2,11 @@ package com.hospitality.mis.dao.room;
 
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dto.room.RoomMediaDtos;
-import com.hospitality.mis.service.room.RoomImageStorage;
+
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+
 import java.sql.SQLException;
 import java.util.List;
 import java.util.function.Supplier;
@@ -21,8 +22,8 @@ public class RoomMediaDatabase {
     public List<String> allPaths(){return jdbc.queryForList("SELECT duongDanTuongDoi FROM dbo.vwHinhAnhPhongNoiBo",String.class);}
     public List<RoomMediaDtos.ImageResponse> images(String room){return jdbc.query("SELECT maHinhAnhPhong,duongDanTuongDoi,thuTuHienThi,laAnhBia,loaiNoiDung,kichThuocByte FROM dbo.vwHinhAnhPhongNoiBo WHERE maPhong=? AND dangHoatDong=1 ORDER BY thuTuHienThi,maHinhAnhPhong",(r,n)->new RoomMediaDtos.ImageResponse(r.getLong(1),"/media/rooms/"+r.getString(2),r.getInt(3),r.getBoolean(4),r.getString(5),r.getLong(6)),room);}
     public List<String> amenityNames(String room){return jdbc.queryForList("SELECT a.ten FROM dbo.vwTienNghiTheoLoaiPhong a JOIN dbo.vwPhongNoiBo p ON p.maLoaiPhong=a.maLoaiPhong WHERE p.maPhong=? AND a.dangHoatDong=1 ORDER BY a.ten,a.maTienNghi",String.class,room);}
-    public RoomMediaDtos.ImageResponse upload(String room,RoomImageStorage.StoredImage stored,String actor){
-        long id=command(()->jdbc.queryForObject("EXEC dbo.uspThemAnhPhong ?,?,?,?,?",Long.class,room,stored.relativePath(),stored.contentType(),stored.sizeBytes(),actor));
+    public RoomMediaDtos.ImageResponse upload(String room,String relativePath,String contentType,long sizeBytes,String actor){
+        long id=command(()->jdbc.queryForObject("EXEC dbo.uspThemAnhPhong ?,?,?,?,?",Long.class,room,relativePath,contentType,sizeBytes,actor));
         return images(room).stream().filter(r->r.id()==id).findFirst().orElseThrow();
     }
     public String delete(String room,long image,String actor){return command(()->jdbc.queryForObject("EXEC dbo.uspXoaAnhPhong ?,?,?",String.class,room,image,actor));}

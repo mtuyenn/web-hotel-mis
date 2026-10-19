@@ -1,3 +1,4 @@
+import type { Room, OccStatus, CleanStatus, VipTier, FolioItem } from "./types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authApi } from "../../shared/api/auth";
 import { ApiError, apiErrorMessage } from "../../shared/api/client";
@@ -19,26 +20,7 @@ import {
 /* ══════════════════════════════════════════════════════════
    TYPES
 ══════════════════════════════════════════════════════════ */
-type OccStatus   = "vacant" | "reserved" | "occupied" | "dnd" | "ood";
-type CleanStatus = "clean" | "cleaning" | "dirty";
-type VipTier     = "silver" | "gold" | "platinum";
-type NavPage     = "overview" | "rooms" | "guests" | "shift";
-
-interface FolioItem { label: string; amount: number; }
-export interface Room {
-  id: string; number: string; floor: number;
-  operationalStatus: string;
-  type: string; beds: string;
-  occStatus: OccStatus; cleanStatus: CleanStatus;
-  guestName?: string; guestPhone?: string; checkIn?: string; checkOut?: string;
-  nationalId?: string; bookingId?: string;
-  folioItems?: FolioItem[];
-  folioTotal?: number; folioDeposit?: number;
-  folioCurrency?: "$" | "VND";
-  vipTier?: VipTier; notes?: string[];
-  reservationId?: number; guestId?: number; reservationStatus?: ReservationStatus;
-  depositPaymentStatus?: string;
-}
+type NavPage = "overview" | "rooms" | "guests" | "shift";
 
 interface ArrivingGuest {
   id: string; name: string; room: string; type: string; booking: string;

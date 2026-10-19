@@ -1,48 +1,26 @@
 package com.hospitality.mis.service.auth;
 
-
-
-
-
 import com.hospitality.mis.dto.auth.AuthDtos;
+import com.hospitality.mis.entity.auth.PrincipalType;
 
 import org.springframework.security.core.GrantedAuthority;
-
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-
 import org.springframework.security.oauth2.jwt.JwsHeader;
-
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
-
-
 import java.nio.charset.StandardCharsets;
-
 import java.security.MessageDigest;
-
 import java.security.NoSuchAlgorithmException;
-
 import java.security.SecureRandom;
-
 import java.time.Duration;
-
 import java.time.Instant;
-
 import java.util.Base64;
-
 import java.util.Collection;
-
 import java.util.List;
-
 import java.util.UUID;
-
-
 
 /** Chính sách về thời hạn, nội dung và mã hóa access/refresh token JWT. */
 @Service
@@ -206,8 +184,6 @@ public class JwtTokenService {
 
     }
 
-    public enum PrincipalType {
-        EMPLOYEE, CUSTOMER
-    }
+
 
 }

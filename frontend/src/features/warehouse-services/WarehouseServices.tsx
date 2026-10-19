@@ -1,3 +1,4 @@
+import type { PriceRequest, PriceStatus } from "./types";
 import "./warehouseServices.css";
 import { ServiceCapacityDialog } from "./ServiceCapacityDialog";
 import { ServiceCoordination } from "./ServiceCoordination";
@@ -35,7 +36,6 @@ import {
 type NavPage   = "restaurant" | "inventory" | "services" | "returns" | "transactions" | "pricing" | "reports";
 type StockStatus = "in-stock" | "low-stock" | "out-of-stock";
 type TxType    = "import" | "export" | "waste" | "adjustment";
-export type PriceStatus = "pending" | "approved" | "rejected" | "expired" | "consumed";
 type TxStatus  = "completed" | "pending" | "cancelled";
 
 interface InventoryItem {
@@ -48,15 +48,6 @@ interface Transaction extends VoucherMovement {
   id: string; serviceId: string; date: string; occurredAt: string; type: TxType; movementType: MovementType;
   item: string; qty: number; amount: number;
   staff: string; status: TxStatus; note?: string;
-}
-export interface PriceRequest {
-  id: string; item: string; sku: string;
-  currentPrice: number; newPrice: number;
-  requestedBy: string; requestedAt: string;
-  status: PriceStatus; reason?: string;
-  rawApproval?: Approval;
-  catalogAddition?: boolean;
-  catalogKind?: CatalogProposal["kind"];
 }
 
 /* ══════════════════════════════════════════════════════════

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { AlertTriangle, Plus, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiErrorMessage } from "../../shared/api/client";
 import StockRequestDialog from "../stock-requests/StockRequestDialog";
-import { AlertTriangle, Plus, Send } from "lucide-react";
-import type { LinenRow } from "./HousekeepingStation";
+import type { LinenRow } from "./types";
 
 export function LinenScreen({ stock = [], onMove }: { stock?: LinenRow[]; onMove?: (itemId: string, movementType: "RECEIVE" | "ISSUE" | "RETURN", quantity: number, reason: string) => Promise<void> }) {
   const [category, setCategory] = useState("all");

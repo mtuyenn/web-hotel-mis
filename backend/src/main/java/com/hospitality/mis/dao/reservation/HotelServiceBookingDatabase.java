@@ -2,11 +2,13 @@ package com.hospitality.mis.dao.reservation;
 
 import com.hospitality.mis.common.exception.DomainException;
 import com.hospitality.mis.dto.reservation.HotelServiceBookingDtos;
+
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,19 +31,19 @@ public class HotelServiceBookingDatabase {
 
     public List<HotelServiceBookingDtos.Response> reservationServices(long reservationId) {
         return jdbc.query(READ+" WHERE maPhieuDatPhong=? ORDER BY thoiDiemDuKien,maDatDichVuKhachSan",
-                (rs, n) -> HotelServiceBookingDtos.fromResultSet(rs), reservationId);
+                (rs, n) -> fromResultSet(rs), reservationId);
     }
 
     public List<HotelServiceBookingDtos.Response> coordinatedBookings(LocalDate date, String status) {
         return jdbc.query(READ+"""
                  WHERE CAST(thoiDiemDuKien AS DATE)=?
                 AND (? IS NULL OR trangThai=?) ORDER BY thoiDiemDuKien,maPhong,maDatDichVuKhachSan
-                """, (rs, n) -> HotelServiceBookingDtos.fromResultSet(rs), date, status, status);
+                """, (rs, n) -> fromResultSet(rs), date, status, status);
     }
 
     public HotelServiceBookingDtos.Response find(long id) {
         var rows = jdbc.query(READ+" WHERE maDatDichVuKhachSan=?",
-                (rs, n) -> HotelServiceBookingDtos.fromResultSet(rs), id);
+                (rs, n) -> fromResultSet(rs), id);
         if (rows.isEmpty()) throw new DomainException("SERVICE_BOOKING_NOT_FOUND", "Không tìm thấy dịch vụ");
         return rows.get(0);
     }
@@ -108,5 +110,43 @@ public class HotelServiceBookingDatabase {
             if (code != null) return new DomainException(code, sql.getMessage());
         }
         return error;
+    }
+    private static HotelServiceBookingDtos.Response fromResultSet(ResultSet rs) throws SQLException {
+        BigDecimal price = rs.getBigDecimal("donGia");
+        int quantity = rs.getInt("soLuong"), free = rs.getInt("soLuongMienPhi");
+        String name = rs.getString("tenDichVu");
+        if (name == null || name.isBlank()) name = rs.getString("maDichVu");
+        return new HotelServiceBookingDtos.Response(rs.getLong("maDatDichVuKhachSan"), rs.getLong("maPhieuDatPhong"), rs.getString("maPhong"),
+                rs.getString("maDichVu"), name, rs.getTimestamp("thoiDiemDuKien").toLocalDateTime(), quantity, free,
+                price, price.multiply(BigDecimal.valueOf(quantity - free)), mealPeriodCode(rs.getString("buoiAn")),
+                bookingStatusCode(rs.getString("trangThai")), rs.getString("ghiChu"), date(rs, "thoiDiemKetThuc"),
+                date(rs, "hanThanhToan"), rs.getBigDecimal("soTienDaThanhToan"), rs.getString("maThamChieuThanhToan"),
+                rs.getString("maPhanHoiThanhToan"));
+    }
+
+    private static LocalDateTime date(ResultSet rs, String name) throws SQLException {
+        var value = rs.getTimestamp(name);
+        return value == null ? null : value.toLocalDateTime();
+    }
+
+    private static String bookingStatusCode(String value) {
+        if (value == null) return null;
+        return switch (value) {
+            case "Chờ thanh toán" -> "PENDING_PAYMENT";
+            case "Hết hạn" -> "EXPIRED";
+            case "Đã xác nhận" -> "CONFIRMED";
+            case "Đã sử dụng" -> "USED";
+            case "Đã hủy" -> "CANCELLED";
+            default -> throw new IllegalArgumentException("Trạng thái đặt dịch vụ không hợp lệ: " + value);
+        };
+    }
+
+    private static String mealPeriodCode(String value) {
+        if (value == null) return null;
+        return switch (value) {
+            case "Bữa trưa" -> "LUNCH";
+            case "Bữa tối" -> "DINNER";
+            default -> throw new IllegalArgumentException("Buổi ăn không hợp lệ: " + value);
+        };
     }
 }

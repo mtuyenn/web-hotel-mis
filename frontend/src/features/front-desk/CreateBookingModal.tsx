@@ -1,10 +1,10 @@
+import { CheckCircle2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, apiErrorMessage } from "../../shared/api/client";
 import { frontDeskApi, newFrontDeskIdempotencyKey } from "../../shared/api/frontDesk";
 import type { Guest, Reservation } from "../../shared/types/frontDesk";
 import { localDateTimeValue } from "../../shared/utils/localDate";
-import { CheckCircle2, X } from "lucide-react";
-import type { Room } from "./FrontDeskPMS";
+import type { Room } from "./types";
 const roomTypeLabel = (type: string) => ({ "Standard Room":"Phòng tiêu chuẩn", "Deluxe King":"Deluxe giường King", "Deluxe Twin":"Deluxe hai giường", "Superior Queen":"Superior giường Queen", "Superior Twin":"Superior hai giường", "Executive Suite":"Suite điều hành" }[type] ?? type);
 const apiErrorText = (error: unknown) => error instanceof ApiError ? apiErrorMessage(error, "Không thể hoàn tất thao tác.") : "Không thể kết nối hệ thống. Vui lòng thử lại.";
 

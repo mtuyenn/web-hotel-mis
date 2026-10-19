@@ -1,11 +1,13 @@
 package com.hospitality.mis.dao.auth;
 
+import com.hospitality.mis.common.exception.AuthFailureException;
 import com.hospitality.mis.dto.auth.EmployeeAdminDtos;
-import com.hospitality.mis.service.auth.AuthFailureException;
-import com.hospitality.mis.service.auth.JwtTokenService;
-import org.springframework.stereotype.Repository;
-import org.springframework.jdbc.core.*;
+import com.hospitality.mis.entity.auth.PrincipalType;
+
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.*;
+import org.springframework.stereotype.Repository;
+
 import java.sql.*;
 import java.time.*;
 import java.util.*;
@@ -14,7 +16,7 @@ import java.util.*;
 public class RefreshTokenDatabase {
     public record Token(Long id,String employeeId,Long customerAccountId,String hash,String familyId,Instant issuedAt,Instant expiresAt,Instant revokedAt,String replacementHash){
         public Token{if((employeeId==null)==(customerAccountId==null))throw new IllegalStateException("Refresh token owner is invalid");}
-        public JwtTokenService.PrincipalType principalType(){return employeeId==null?JwtTokenService.PrincipalType.CUSTOMER:JwtTokenService.PrincipalType.EMPLOYEE;}
+        public PrincipalType principalType(){return employeeId==null?PrincipalType.CUSTOMER:PrincipalType.EMPLOYEE;}
         public String principalId(){return employeeId==null?customerAccountId.toString():employeeId;}
         public String auditActor(){return employeeId==null?"customer:"+customerAccountId:employeeId;}
     }
@@ -28,8 +30,8 @@ public class RefreshTokenDatabase {
     }
     public Optional<Token> find(Long id){return jdbc.query("SELECT maMaLamMoiDangNhap,maNhanVien,maTaiKhoanKhachHang,maBamToken,maNhomPhien,thoiDiemPhatHanh,thoiDiemHetHan,thoiDiemThuHoi,maBamThayThe FROM dbo.vwMaLamMoiDangNhap WHERE maMaLamMoiDangNhap=?",rows,id).stream().findFirst();}
     public List<Token> activeFamily(String family,Instant now){return jdbc.query("SELECT maMaLamMoiDangNhap,maNhanVien,maTaiKhoanKhachHang,maBamToken,maNhomPhien,thoiDiemPhatHanh,thoiDiemHetHan,thoiDiemThuHoi,maBamThayThe FROM dbo.vwMaLamMoiDangNhap WHERE maNhomPhien=? AND thoiDiemThuHoi IS NULL AND thoiDiemHetHan>?",rows,family,offset(now));}
-    public void issue(JwtTokenService.PrincipalType type,String principal,JwtTokenService.IssuedTokens issued,String family){command("issue",type==JwtTokenService.PrincipalType.EMPLOYEE?principal:null,type==JwtTokenService.PrincipalType.CUSTOMER?Long.valueOf(principal):null,null,issued.refreshTokenHash(),family,issued.issuedAt(),issued.refreshExpiresAt(),issued.issuedAt());}
-    public void rotate(Token current,JwtTokenService.IssuedTokens issued,Instant now){command("rotate",current.employeeId(),current.customerAccountId(),current.id(),issued.refreshTokenHash(),current.familyId(),issued.issuedAt(),issued.refreshExpiresAt(),now);}
+    public void issue(String employee,Long customer,String hash,Instant issued,Instant expires,String family){command("issue",employee,customer,null,hash,family,issued,expires,issued);}
+    public void rotate(Token current,String hash,Instant issued,Instant expires,Instant now){command("rotate",current.employeeId(),current.customerAccountId(),current.id(),hash,current.familyId(),issued,expires,now);}
     public void revoke(Token current,Instant now){command("revoke",current.employeeId(),current.customerAccountId(),current.id(),null,null,null,null,now);}
     public void revokeFamily(Token current,Instant now){command("family",current.employeeId(),current.customerAccountId(),null,null,current.familyId(),null,null,now);}
     public void revokeEmployee(String employee,Instant now){command("all",employee,null,null,null,null,null,null,now);}
