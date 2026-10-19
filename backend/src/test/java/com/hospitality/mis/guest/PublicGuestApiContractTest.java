@@ -14,8 +14,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import com.hospitality.mis.service.guest.PublicGuestPortalService;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,6 +47,7 @@ class PublicGuestApiContractTest {
     @Autowired RoomTypeRepository roomTypes;
     @Autowired ServiceRepository services;
     @Autowired JdbcTemplate jdbc;
+    @Autowired PublicGuestPortalService portal;
 
     @BeforeEach
     void seedPublicCatalog() {
@@ -132,6 +139,43 @@ class PublicGuestApiContractTest {
                 .andExpect(jsonPath("$[0].room_id").value("R101"))
                 .andExpect(jsonPath("$[0].current_status").value("available"))
                 .andExpect(jsonPath("$[0].available").value(true));
+    }
+
+    @Test
+    void roomListsAndAvailabilityPreservePublicMediaFallbacksAcrossTheCatalog() {
+        for (int number=102;number<=113;number++) {
+            jdbc.update("INSERT dbo.Phong(maPhong,maLoaiPhong) VALUES(?,N'STD')","R"+number);
+        }
+        jdbc.update("INSERT dbo.LoaiPhong(maLoaiPhong,ten,giaTheoNgay,duongDanAnhBia) VALUES(N'COVER',N'Cover',100000,N'https://example.test/cover.jpg'),(N'EMPTY',N'Empty',100000,NULL)");
+        jdbc.update("INSERT dbo.Phong(maPhong,maLoaiPhong) VALUES(N'R201',N'COVER'),(N'R202',N'EMPTY')");
+        jdbc.update("INSERT dbo.HinhAnhLoaiPhong(maLoaiPhong,duongDanAnh,thuTuHienThi) VALUES(N'STD',N'https://example.test/type.jpg',0)");
+        jdbc.update("INSERT dbo.HinhAnhPhong(maPhong,duongDanTuongDoi,thuTuHienThi,loaiNoiDung,kichThuocByte,dangHoatDong) VALUES(N'R101',N'inactive.jpg',0,N'image/jpeg',100,0),(N'R101',N'room.jpg',1,N'image/jpeg',100,1),(N'R101',N'https://example.test/room-second.jpg',2,N'image/jpeg',100,1)");
+        jdbc.update("INSERT dbo.TienNghi(ten,dangHoatDong) VALUES(N'Alpha test',1),(N'Zulu test',1),(N'Hidden test',0)");
+        jdbc.update("INSERT dbo.LoaiPhongTienNghi(maLoaiPhong,maTienNghi) SELECT N'STD',maTienNghi FROM dbo.TienNghi WHERE ten IN(N'Alpha test',N'Zulu test',N'Hidden test')");
+
+        var summaries=portal.rooms(null);
+        assertThat(summaries).hasSize(15);
+        var byId=summaries.stream().collect(Collectors.toMap(row->row.roomId(),Function.identity()));
+        assertThat(byId.get("R101").imageUrl()).isEqualTo("/media/rooms/room.jpg");
+        assertThat(byId.get("R102").imageUrl()).isEqualTo("https://example.test/type.jpg");
+        assertThat(byId.get("R201").imageUrl()).isEqualTo("https://example.test/cover.jpg");
+        assertThat(byId.get("R202").imageUrl()).isNull();
+        assertThat(byId.get("R101").amenities()).containsExactly("Alpha test","Zulu test");
+        for (var summary:summaries) {
+            var detail=portal.room(summary.roomId());
+            assertThat(summary.imageUrl()).isEqualTo(detail.imageUrls().stream().findFirst().orElse(null));
+            assertThat(summary.amenities()).isEqualTo(detail.amenities());
+        }
+        var availability=portal.availability(LocalDateTime.of(2031,1,10,14,0),LocalDateTime.of(2031,1,11,12,0),null);
+        assertThat(availability).hasSize(15);
+        for (var room:availability) {
+            assertThat(room.available()).isTrue();
+            assertThat(room.imageUrl()).isEqualTo(byId.get(room.roomId()).imageUrl());
+            assertThat(room.amenities()).isEqualTo(byId.get(room.roomId()).amenities());
+        }
+        assertThat(portal.rooms("STD")).hasSize(13);
+        assertThat(portal.availability(LocalDateTime.of(2031,1,10,14,0),LocalDateTime.of(2031,1,11,12,0),"COVER"))
+                .extracting(row->row.roomId()).containsExactly("R201");
     }
 
     @Test

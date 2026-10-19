@@ -22,10 +22,14 @@ public class PublicGuestPortalService {
     public PublicGuestPortalService(PublicCatalogDatabase catalog,RoomDatabase overlaps,java.time.Clock clock){this.catalog=catalog;this.overlaps=overlaps;this.clock=clock;}
 
     @Transactional(readOnly=true)
-    public List<PublicGuestDtos.RoomSummary> rooms(String type){return catalog.rooms(type).stream().map(r->
+    public List<PublicGuestDtos.RoomSummary> rooms(String type){
+        var rooms=catalog.rooms(type);
+        if(rooms.isEmpty())return List.of();
+        var media=catalog.listingMedia();
+        return rooms.stream().map(r->
             new PublicGuestDtos.RoomSummary(r.id(),r.name(),r.typeId(),r.typeCode(),r.typeName(),r.marketingName(),r.typeDescription(),r.tagline(),
                     r.marketingDescription(),r.description(),r.dailyPrice(),r.hourlyPrice(),r.area(),r.view(),r.bedType(),r.floor(),
-                    publicStatus(r.status()),catalog.images(r).stream().findFirst().orElse(null),catalog.amenities(r.typeId()),r.maxOccupancy())).toList();}
+                    publicStatus(r.status()),media.cover(r),media.amenitiesFor(r),r.maxOccupancy())).toList();}
 
     @Transactional(readOnly=true)
     public PublicGuestDtos.RoomDetail room(String id){
@@ -38,10 +42,14 @@ public class PublicGuestPortalService {
     @Transactional(readOnly=true)
     public List<PublicGuestDtos.RoomAvailability> availability(LocalDateTime from,LocalDateTime to,String type){
         try{availabilityPolicy.validateInterval(from,to);}catch(IllegalArgumentException error){throw new DomainException("INVALID_INTERVAL","Thời gian nhận phải trước thời gian trả");}
-        return catalog.rooms(type).stream().map(r->new PublicGuestDtos.RoomAvailability(r.id(),r.name(),r.typeId(),r.typeCode(),r.typeName(),r.marketingName(),
+        var rooms=catalog.rooms(type);
+        if(rooms.isEmpty())return List.of();
+        var media=catalog.listingMedia();
+        var availability=overlaps.publicAvailability(type,from,to,LocalDateTime.now(clock));
+        return rooms.stream().map(r->new PublicGuestDtos.RoomAvailability(r.id(),r.name(),r.typeId(),r.typeCode(),r.typeName(),r.marketingName(),
                 r.typeDescription(),r.tagline(),r.marketingDescription(),r.description(),r.dailyPrice(),r.hourlyPrice(),r.area(),r.view(),r.bedType(),r.floor(),
-                publicStatus(r.status()),!overlaps.overlap(r.id(),from,to,LocalDateTime.now(clock)),
-                catalog.images(r).stream().findFirst().orElse(null),catalog.amenities(r.typeId()),r.maxOccupancy())).toList();
+                publicStatus(r.status()),Boolean.TRUE.equals(availability.get(r.id())),
+                media.cover(r),media.amenitiesFor(r),r.maxOccupancy())).toList();
     }
 
     @Transactional(readOnly=true)

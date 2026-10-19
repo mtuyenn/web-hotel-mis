@@ -28,8 +28,22 @@ public class RoomDatabase {
     public Optional<Snapshot> lock(String id){return jdbc.query("EXEC dbo.uspKhoaPhongNoiBo ?",rows,id).stream().findFirst();}
     public void catalogLock(){jdbc.update("EXEC dbo.uspKhoaDanhMucPhong");}
     public boolean overlap(String id,LocalDateTime from,LocalDateTime to,LocalDateTime now){
-        LocalDateTime sqlFrom=from.truncatedTo(ChronoUnit.MICROS),sqlTo=to.truncatedTo(ChronoUnit.MICROS);if(!sqlTo.isAfter(sqlFrom))sqlTo=sqlFrom.plusNanos(1000);
-        return !Boolean.TRUE.equals(jdbc.queryForObject("SELECT dbo.fnKiemTraPhongTrong(?,?,?,?,NULL)",Boolean.class,id,sqlFrom,sqlTo,now));
+        var interval=sqlInterval(from,to);
+        return !Boolean.TRUE.equals(jdbc.queryForObject("SELECT dbo.fnKiemTraPhongTrong(?,?,?,?,NULL)",Boolean.class,id,interval.from(),interval.to(),now));
+    }
+    public Map<String,Boolean> publicAvailability(String type,LocalDateTime from,LocalDateTime to,LocalDateTime now){
+        var interval=sqlInterval(from,to);
+        return jdbc.query("SELECT maPhong,dbo.fnKiemTraPhongTrong(maPhong,?,?,?,NULL) FROM dbo.vwPhongCongKhai WHERE (? IS NULL OR maLoaiPhong=?)",rs->{
+            Map<String,Boolean> result=new LinkedHashMap<>();
+            while(rs.next())result.put(rs.getString(1),rs.getBoolean(2));
+            return result;
+        },interval.from(),interval.to(),now,type,type);
+    }
+    private record SqlInterval(LocalDateTime from,LocalDateTime to) {}
+    private static SqlInterval sqlInterval(LocalDateTime from,LocalDateTime to){
+        LocalDateTime sqlFrom=from.truncatedTo(ChronoUnit.MICROS),sqlTo=to.truncatedTo(ChronoUnit.MICROS);
+        if(!sqlTo.isAfter(sqlFrom))sqlTo=sqlFrom.plusNanos(1000);
+        return new SqlInterval(sqlFrom,sqlTo);
     }
     public Snapshot status(Snapshot old,RoomStatus next,boolean technical,boolean management,LocalDateTime now){
         try{jdbc.update("EXEC dbo.uspChuyenTrangThaiPhong ?,?,?,?,?,?",old.id(),statuses.convertToDatabaseColumn(next),old.version(),technical,management,now);}
