@@ -38,6 +38,9 @@ class FrontDeskDashboardQueryIntegrationTest {
                 BUSINESS_DATE.atTime(8, 0), BUSINESS_DATE.plusDays(1).atTime(12, 0));
         Reservation second = reservation(guest, room("FDQ-R102"), ReservationStatus.CONFIRMED,
                 BUSINESS_DATE.plusDays(1).atTime(8, 0), BUSINESS_DATE.plusDays(2).atTime(12, 0));
+        addRoom(second, room("FDQ-R104"), BUSINESS_DATE.plusDays(1).atTime(8, 0), BUSINESS_DATE.plusDays(2).atTime(12, 0));
+        addRoom(second, room("FDQ-R105"), BUSINESS_DATE.plusDays(1).atTime(8, 0), BUSINESS_DATE.plusDays(2).atTime(12, 0));
+        second.getRooms().get(2).setStatus(com.hospitality.mis.entity.reservation.ReservationRoomStatus.CANCELLED);
         reservation(guest("Other Guest", "0900000102", "010000000002"), room("FDQ-R103"),
                 ReservationStatus.CONFIRMED, BUSINESS_DATE.atTime(9, 0), BUSINESS_DATE.plusDays(1).atTime(12, 0));
         entityManager.flush();
@@ -49,6 +52,7 @@ class FrontDeskDashboardQueryIntegrationTest {
         assertThat(dashboard.count("target",null,BUSINESS_DATE.atStartOfDay(),BUSINESS_DATE.plusDays(1).atStartOfDay())).isEqualTo(2);
         assertThat(page).extracting(FrontDeskDashboardDtos.ReservationItem::reservationId).containsExactly(second.getId());
         assertThat(page).extracting(FrontDeskDashboardDtos.ReservationItem::guestName).containsExactly("Target Guest");
+        assertThat(page.get(0).roomIds()).containsExactly("FDQ-R102", "FDQ-R104");
         assertThat(first.getId()).isNotEqualTo(second.getId());
     }
 

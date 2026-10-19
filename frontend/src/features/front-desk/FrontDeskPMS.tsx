@@ -1360,7 +1360,7 @@ function OverviewScreen({ arrivals, departures, alerts = [], activities = [], pe
 /* ══════════════════════════════════════════════════════════
    ROOM MAP SCREEN
 ══════════════════════════════════════════════════════════ */
-function RoomMapScreen({ rooms = [], focusRoomId, onRefresh, onCheckIn, onCreateBooking }: { rooms?: Room[]; focusRoomId?: string | null; onRefresh: () => Promise<void> | void; onCheckIn?: (resId: number) => Promise<void>; onCreateBooking: (room?: Room) => void }) {
+function RoomMapScreen({ rooms = [], dataState, focusRoomId, onRefresh, onCheckIn, onCreateBooking }: { rooms?: Room[]; dataState: "loading" | "live" | "fallback"; focusRoomId?: string | null; onRefresh: () => Promise<void> | void; onCheckIn?: (resId: number) => Promise<void>; onCreateBooking: (room?: Room) => void }) {
   const [selectedRoom, setSelectedRoom] = useState<Room|null>(null);
   const settlementActive = useRef(false);
   const selectRoom = (next: Room | null) => { settlementActive.current = false; setSelectedRoom(next); };
@@ -1478,12 +1478,12 @@ function RoomMapScreen({ rooms = [], focusRoomId, onRefresh, onCheckIn, onCreate
 
         {/* Room grid or list */}
         <div style={{ padding:"0 20px 20px" }}>
-          {rooms.length === 0 ? (
+          {rooms.length === 0 && dataState === "live" ? (
             <div style={{ textAlign:"center",padding:"48px 0",color:"#94A3B8" }}>
               <BedDouble size={32} style={{ margin:"0 auto 10px",opacity:.3 }} />
               <p style={{ fontSize:13 }}>Chưa có dữ liệu phòng từ hệ thống</p>
             </div>
-          ) : floors.length===0 ? (
+          ) : rooms.length > 0 && floors.length===0 ? (
             <div style={{ textAlign:"center",padding:"48px 0",color:"#94A3B8" }}>
               <Search size={28} style={{ margin:"0 auto 10px",opacity:.3 }} />
               <p style={{ fontSize:13 }}>Không tìm thấy phòng phù hợp</p>
@@ -2597,7 +2597,11 @@ export default function FrontDeskPMS({ onBack }: { onBack: () => void }) {
         </section>}
         {settlementError && <p role="alert" style={{padding:12,color:"#BE123C"}}>{settlementError}</p>}
         {page==="overview" && <OverviewScreen arrivals={displayOverviewArrivals} departures={displayDepartures} alerts={displayAlerts} activities={displayActivities} pendingAtHotelRequests={pendingAtHotelRequests} requestDataError={requestDataError} requestActionError={requestActionError} confirmingRequestId={confirmingRequestId} onConfirmBookingRequest={id=>void handleConfirmAtHotelRequest(id)} dataState={dataState} dataError={dataError} onRetry={()=>void loadDashboard(search)} onOpenRoom={openRoom} actorName={actorName} />}
-        {page==="rooms"    && <RoomMapScreen rooms={displayRooms} focusRoomId={focusRoomId} onRefresh={()=>loadDashboard(search)} onCheckIn={handleCheckInById} onCreateBooking={openCreateBooking} />}
+        {(page==="rooms" || page==="guests") && dataState!=="live" && <div role={dataState==="fallback"?"alert":"status"} style={{padding:"12px 20px",background:dataState==="fallback"?"#FFFBEB":"#EFF6FF",color:"#334155",fontSize:13}}>
+          <span>{dataState==="loading"?"Đang tải thông tin vận hành…":`Không tải được thông tin vận hành. ${dataError??""}`}</span>
+          {dataState==="fallback" && <button onClick={()=>void loadDashboard(search)} style={{marginLeft:12,fontWeight:700,color:"#1D4ED8"}}>Thử lại</button>}
+        </div>}
+        {page==="rooms"    && <RoomMapScreen rooms={displayRooms} dataState={dataState} focusRoomId={focusRoomId} onRefresh={()=>loadDashboard(search)} onCheckIn={handleCheckInById} onCreateBooking={openCreateBooking} />}
         {page==="guests"   && <GuestsScreen staying={displayStaying} arriving={displayArriving} departures={displayDepartures} onCheckIn={handleCheckIn} onOpenRoom={openRoom} onRefresh={()=>void loadDashboard(search)} onCreateBooking={()=>openCreateBooking()} />}
         {page==="shift"    && <ShiftScreen actorId={actorId} arrivalCount={displayArriving.length} departureCount={displayDepartures.length} />}
       </div>

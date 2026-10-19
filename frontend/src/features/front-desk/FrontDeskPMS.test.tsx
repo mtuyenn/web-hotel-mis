@@ -657,11 +657,16 @@ describe("FrontDeskPMS Reception Interface", () => {
     expect(await screen.findByRole("alert")).toBeDefined();
     expect(screen.getByText(/Không tải được thông tin vận hành/i)).toBeDefined();
 
+    fireEvent.click(screen.getByRole("button", { name: /Sơ đồ phòng/i }));
+    expect(screen.getByRole("alert").textContent).toContain("Không tải được thông tin vận hành");
+    expect(screen.queryByText("Chưa có dữ liệu phòng từ hệ thống")).toBeNull();
+
     const retryBtn = screen.getByRole("button", { name: /Thử lại/i });
     expect(retryBtn).toBeDefined();
 
     // Clicking retry calls dashboard again
     fireEvent.click(retryBtn);
     expect(errorSpy).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole("button", { name: "Tất cả (5)" })).toBeDefined();
   });
 });
