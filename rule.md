@@ -91,7 +91,7 @@
 - HOUSEKEEPING thực hiện dọn phòng, checklist, cập nhật trạng thái vệ sinh và báo sự cố; HOUSEKEEPING không tự đưa phòng sang `AVAILABLE`.
 - TECHNICAL tạo phòng, loại phòng, thiết bị và cấu hình kỹ thuật ở trạng thái `DRAFT`; giá phòng/thay đổi giá chưa có hiệu lực cho tới khi MANAGER hoặc DIRECTOR duyệt; TECHNICAL không tự duyệt cấu hình/giá của mình.
 - KITCHEN quản lý dịch vụ, minibar, kho tổng và tồn minibar từng phòng; đổi giá dịch vụ cần MANAGER duyệt.
-- ACCOUNTING độc lập quản lý hóa đơn, thanh toán, thu/chi và công nợ; ACCOUNTING không sửa reservation hoặc trạng thái phòng, kể cả sau approval. Chỉ FRONT_DESK hoặc MANAGER mới sửa reservation/phòng; ACCOUNTING chỉ ghi nhận tài chính.
+- FRONT_DESK thu tiền trực tiếp từ khách và phát hành phiếu thu tại luồng thu tiền. ACCOUNTING nhận bàn giao, đối soát, tra cứu/in phiếu thu đã có, tra cứu hóa đơn/xuất XML, ghi khoản chi và công nợ, thực hiện hoàn tiền đã được Giám đốc phê duyệt; không lập phiếu thu mới hoặc ghi giao dịch thu tiền khách (PAYMENT), kể cả gọi API trực tiếp. ACCOUNTING không sửa reservation hoặc trạng thái phòng, kể cả sau approval. Chỉ FRONT_DESK hoặc MANAGER mới sửa reservation/phòng.
 - Khách chưa đăng nhập trên public portal chỉ được xem DTO công khai của phòng, trạng thái phòng và các dịch vụ đang hoạt động. Không được xem PII, người đặt/đang ở, booking, invoice, payment, receipt, ghi chú hoặc dữ liệu nội bộ. CUSTOMER đã đăng nhập được phép tạo booking cho chính mình và nhận mã/hướng dẫn thanh toán tiền cọc; chỉ được xem tóm tắt booking và trạng thái thanh toán của chính mình, không được xem dữ liệu của khách khác hoặc giao diện quản trị.
 - Không ai tự đổi role, tự cấp quyền vượt ceiling hoặc tự khóa tài khoản.
 

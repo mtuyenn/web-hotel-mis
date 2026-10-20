@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowUpRight } from "lucide-react";
 import type { FnbService } from "./LuxuryFnBView";
+import { ServiceImage } from "./ServiceImage";
 
 interface CuratedServicesSectionProps {
   onBookSpa?: () => void;
@@ -42,7 +43,7 @@ export const CuratedServicesSection: React.FC<CuratedServicesSectionProps> = ({
           <div className="lg:col-span-7 flex flex-col gap-6">
             {/* Top Large Photo (Spa Massage / Herbal compress hands) */}
             <div className="relative w-full h-[360px] sm:h-[440px] rounded-2xl overflow-hidden shadow-sm group">
-              {featured?.img && <img src={featured.img} alt={title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
+              {featured?.img && <ServiceImage src={featured.img} alt={title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60" />
               <div className="absolute bottom-6 left-6 text-white">
                 <span className="text-xs uppercase tracking-[0.2em] font-medium bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
@@ -103,7 +104,7 @@ export const CuratedServicesSection: React.FC<CuratedServicesSectionProps> = ({
             {/* Bottom: second database-backed spa service */}
             <div className="bg-[#FAF8F5] rounded-2xl overflow-hidden border border-[#DDD6C8] shadow-sm flex flex-col flex-1">
               <div className="relative w-full h-[220px] sm:h-[260px] overflow-hidden group">
-                {secondary?.img && <img src={secondary.img} alt={secondary?.title || "Dịch vụ spa"} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
+                {secondary?.img && <ServiceImage src={secondary.img} alt={secondary?.title || "Dịch vụ spa"} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
               </div>
               <div className="p-8 flex flex-col justify-between flex-1">
                 <div>

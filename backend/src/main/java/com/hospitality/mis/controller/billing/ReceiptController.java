@@ -36,11 +36,11 @@ public class ReceiptController {
     /**
      * Phát hành biên lai qua POST /api/invoices/{invoiceId}/receipts.
      * invoiceId là path parameter, body tạo biên lai được {@code @Valid} kiểm tra, actor được lấy từ security context,
-     * response là biên lai mới. Chỉ PAYMENT_WRITE được phép; Idempotency-Key là bắt buộc để retry không phát hành trùng,
+     * response là biên lai mới. Chỉ RECEIPT_WRITE được phép; Idempotency-Key là bắt buộc để retry không phát hành trùng,
      * còn trạng thái không hợp lệ do dịch vụ trả lỗi nghiệp vụ.
      */
     @PostMapping 
-    @PreAuthorize("@departmentAccess.allows(authentication, 'PAYMENT_WRITE')")
+    @PreAuthorize("@departmentAccess.allows(authentication, 'RECEIPT_WRITE')")
     public ReceiptDtos.Response issue(@PathVariable Long invoiceId, @Valid @RequestBody ReceiptDtos.CreateRequest request,
                                      @RequestHeader("Idempotency-Key") String key) {
         return service.issue(invoiceId, request, SecurityActor.currentActor(), key);

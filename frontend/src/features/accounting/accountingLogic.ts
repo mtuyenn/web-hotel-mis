@@ -14,6 +14,9 @@ export const businessDateValue = (date = new Date()) => new Intl.DateTimeFormat(
 export const invoiceTotal = (invoice: Invoice) => Math.max(0, Math.round((invoice.room_total + invoice.service_total
   + invoice.late_surcharge + invoice.compensation + invoice.extension_total + invoice.adjustment_total - invoice.discount)/1000)*1000);
 
+export const invoiceStatusLabel = (invoice: Invoice) => invoice.deposit_refunded ? "Đã hoàn cọc"
+  : invoice.status === "DU_KIEN" ? "Dự kiến" : invoice.status === "DA_THANH_TOAN" ? "Đã thanh toán" : "Còn công nợ";
+
 export const parseCashCount = (text: string, amount: number): CashDenomination[] => {
   if (!text.trim()) return [];
   const lines = text.split(",").map(token => {

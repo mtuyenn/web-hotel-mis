@@ -33,7 +33,7 @@ suy đoán và sẽ hướng khách liên hệ khách sạn để xác nhận.
   được tính tiền 3 giờ. Thời lượng có phút lẻ được làm tròn lên giờ kế tiếp:
   ví dụ 4 giờ 15 phút tính thành 5 giờ; đúng 4 giờ tính 4 giờ.
 - Khách có thể yêu cầu gia hạn nếu không ảnh hưởng lượt đặt kế tiếp và gửi yêu
-  cầu ít nhất 1 giờ trước giờ trả phòng dự kiến.
+  cầu ít nhất trước 48 giờ trước giờ checkin dự kiến.
 - Khách sạn không phục vụ nhận phòng sớm. Thời gian nhận phòng áp dụng theo
   giờ đã xác nhận trong booking.
 - Ví dụ: nếu booking ghi nhận phòng lúc 14:00 mà khách đến lúc 08:00, khách

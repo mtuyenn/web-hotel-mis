@@ -2,6 +2,7 @@ package com.hospitality.mis.middleware.security;
 
 import com.hospitality.mis.entity.identity.EmployeeRole;
 import com.hospitality.mis.entity.identity.Permission;
+import com.hospitality.mis.entity.billing.PaymentTransaction.TransactionType;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -9,6 +10,15 @@ import org.springframework.stereotype.Component;
 @Component("departmentAccess")
 /** Kiểm tra capability dựa trên authority của authentication hiện tại, không dựa vào input request. */
 public class DepartmentAccess {
+    /** Quyền thu tiền không được suy ra từ quyền hoàn tiền hoặc lập phiếu thu. */
+    public boolean allowsPayment(Authentication authentication, TransactionType type) {
+        if (type == null) return false;
+        return allows(authentication, switch (type) {
+            case PAYMENT -> "PAYMENT_COLLECT";
+            case REFUND -> "PAYMENT_WRITE";
+        });
+    }
+
     /**
      * Từ chối anonymous/chưa xác thực, sau đó đối chiếu capability với quyền của từng role.
      * Role lạ bị bỏ qua thay vì được suy diễn thành quyền; đây là điểm kiểm soát fail-closed.

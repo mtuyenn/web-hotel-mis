@@ -78,7 +78,8 @@ là `ADMIN`, `DIRECTOR`, `MANAGER`, `FRONT_DESK`, `HOUSEKEEPING`, `TECHNICAL`,
 - `FRONT_DESK`: đọc/ghi guest, room, reservation, dashboard, billing read,
   payment, service read, inventory read/write, incident, maintenance read,
   approval request, notification read, shift read.
-- `ACCOUNTING`: employee read, reservation read, billing read/write, payment,
+- `ACCOUNTING`: employee read, reservation read, billing read/write, hoàn tiền
+  qua `PAYMENT_WRITE`; không có `PAYMENT_COLLECT` hoặc `RECEIPT_WRITE`. Giữ
   service read/write, inventory read/write, finance read/write, approval request,
   audit read.
 - `HOUSEKEEPING`: room read/write, equipment read, reservation read, housekeeping
@@ -222,9 +223,9 @@ nhận.
 | `GET /api/invoices` | Query `status`, `reservation_id`, `from`, `to`, `page` default 0, `size` default 20 | `BILLING_READ` |
 | `GET /api/invoices/reservation/{reservationId}` | Path `reservationId` | `BILLING_READ` |
 | `GET /api/invoices/{invoiceId}/payments` | Query tùy chọn `page`, `size`; không query trả array, có query trả page | `BILLING_READ` |
-| `POST /api/invoices/{invoiceId}/payments` | Body `amount`, `method`, `type`, `reference`; header bắt buộc `Idempotency-Key` (1–35 ký tự) | `PAYMENT_WRITE`; cùng actor + key + payload replay giao dịch, khác payload bị `IDEMPOTENCY_MISMATCH` |
+| `POST /api/invoices/{invoiceId}/payments` | Body `amount`, `method`, `type`, `reference`; header bắt buộc `Idempotency-Key` (1–35 ký tự) | `PAYMENT_COLLECT` cho `PAYMENT`, `PAYMENT_WRITE` cho `REFUND`; kế toán chỉ hoàn tiền đã duyệt. Cùng actor + key + payload replay giao dịch, khác payload bị `IDEMPOTENCY_MISMATCH` |
 | `GET /api/invoices/{invoiceId}/receipts` | Query tùy chọn `page`, `size`; không query trả array, có query trả page | `BILLING_READ` |
-| `POST /api/invoices/{invoiceId}/receipts` | Body `receipt_number`, `amount`, `method`; header bắt buộc `Idempotency-Key` | `PAYMENT_WRITE` |
+| `POST /api/invoices/{invoiceId}/receipts` | Body `receipt_number`, `amount`, `method`; header bắt buộc `Idempotency-Key` | `RECEIPT_WRITE`; kế toán chỉ tra cứu/in biên lai có sẵn |
 | `POST /api/invoices/reservation/{reservationId}/deposit/refund` | Không body | `PAYMENT_WRITE`; luồng approval refund phải do Director xử lý |
 | `POST /api/invoices/{invoiceId}/adjust` | Body `delta`, `reason`; header bắt buộc `Idempotency-Key` | `BILLING_WRITE`; exact approval payload cần khớp |
 

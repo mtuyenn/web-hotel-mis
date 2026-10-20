@@ -32,6 +32,9 @@ BEGIN TRY
  DECLARE @now DATETIME2(6)=CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time' AS DATETIME2(6)),
     @today DATE,@shiftStart DATETIME2(6),@shift NVARCHAR(20),@hash NVARCHAR(64),@key NVARCHAR(100),@reason NVARCHAR(500);
  SET @today=CAST(@now AS DATE);
+ DECLARE @reportDate DATE=COALESCE(TRY_CONVERT(DATE,SESSION_CONTEXT(N'demo_report_date')),DATEADD(DAY,1,@today));
+ IF @reportDate<@today OR @reportDate>DATEADD(DAY,7,@today)
+    THROW 51000,N'Ngày báo cáo phải từ hôm nay đến bảy ngày tới.',1;
  SET @shift=CASE WHEN DATEPART(HOUR,@now) BETWEEN 6 AND 13 THEN N'Ca sáng'
     WHEN DATEPART(HOUR,@now) BETWEEN 14 AND 21 THEN N'Ca chiều' ELSE N'Ca đêm' END;
  SET @shiftStart=DATEADD(HOUR,CASE WHEN DATEPART(HOUR,@now)<6 THEN -2 WHEN DATEPART(HOUR,@now)<14 THEN 6
@@ -46,9 +49,9 @@ BEGIN TRY
  SELECT CONCAT(s.ho,N' ',g.ten),c.diaChi,CONCAT(N'0899',RIGHT(N'000000'+CONVERT(NVARCHAR(6),n.n),6)),
     CONCAT(N'ops.guest.',n.n,N'@example.test'),CONCAT(N'079100',RIGHT(N'000000'+CONVERT(NVARCHAR(6),n.n),6)),1970+n.n%32
  FROM @numbers n
- JOIN (VALUES(0,N'Nguyễn'),(1,N'Trần'),(2,N'Lê'),(3,N'Phạm'),(4,N'Hoàng'),(5,N'Võ'),(6,N'Đặng'),(7,N'Bùi')) s(i,ho) ON s.i=(n.n-1)%8
- JOIN (VALUES(0,N'Minh Anh'),(1,N'Quốc Bảo'),(2,N'Thùy Dương'),(3,N'Gia Huy'),(4,N'Ngọc Linh'),
-    (5,N'Thanh Mai'),(6,N'Hoàng Nam'),(7,N'Bảo Ngọc'),(8,N'Đức Phúc'),(9,N'Phương Thảo')) g(i,ten) ON g.i=(n.n-1)/8
+ JOIN (VALUES(0,N'Đỗ'),(1,N'Phan'),(2,N'Ngô'),(3,N'Dương'),(4,N'Lý'),(5,N'Trịnh'),(6,N'Đinh'),(7,N'Hồ')) s(i,ho) ON s.i=(n.n-1)%8
+ JOIN (VALUES(0,N'Khánh An'),(1,N'Tuấn Kiệt'),(2,N'Hải Yến'),(3,N'Nhật Minh'),(4,N'Quỳnh Chi'),
+    (5,N'Thành Đạt'),(6,N'Bảo Trâm'),(7,N'Đức Duy'),(8,N'Thảo Vy'),(9,N'Hoài Phương')) g(i,ten) ON g.i=(n.n-1)/8
  JOIN (VALUES(0,N'Quận 1, TP.HCM'),(1,N'Hà Nội'),(2,N'Đà Nẵng'),(3,N'Cần Thơ'),(4,N'Đà Lạt'),
     (5,N'Biên Hòa, Đồng Nai'),(6,N'Nha Trang'),(7,N'Hải Phòng')) c(i,diaChi) ON c.i=n.n%8
  WHERE n.n<=80;
@@ -88,6 +91,19 @@ BEGIN TRY
  FROM (VALUES(N'FRONTDESK'),(N'HOUSEKEEP'),(N'TECHNICAL'),(N'KITCHEN'),(N'ACCOUNTING'),(N'HR'),(N'MANAGER')) v(id)
  WHERE NOT EXISTS(SELECT 1 FROM dbo.CaLamViecNhanVien c WHERE c.maNhanVien=v.id AND c.trangThai<>N'Đã hủy'
     AND c.thoiDiemBatDau<DATEADD(HOUR,8,@shiftStart) AND c.thoiDiemKetThuc>@shiftStart);
+ -- Các tài khoản dùng thuyết trình có đủ ba ca đến sau ngày báo cáo một tuần.
+ -- Đây là lịch minh họa, không tạo chấm công trước thời điểm thực tế.
+ INSERT dbo.CaLamViecNhanVien(maNhanVien,ngayLamCa,maCa,thoiDiemBatDau,thoiDiemKetThuc,trangThai,nguoiTao)
+ SELECT e.maNhanVien,CAST(s.starts AS DATE),v.code,s.starts,DATEADD(HOUR,8,s.starts),
+    CASE WHEN DATEADD(HOUR,8,s.starts)<=@now THEN N'Đã hoàn thành'
+         WHEN s.starts<=@now THEN N'Đã bắt đầu' ELSE N'Đã phân công' END,N'HR'
+ FROM dbo.NhanVien e CROSS JOIN @numbers n
+ CROSS JOIN (VALUES(N'Ca sáng',6),(N'Ca chiều',14),(N'Ca đêm',22)) v(code,hourOfDay)
+ CROSS APPLY(SELECT DATEADD(HOUR,v.hourOfDay,CAST(DATEADD(DAY,n.n-3,@today) AS DATETIME2)) starts) s
+ WHERE e.maNhanVien IN(N'FRONTDESK',N'HOUSEKEEP',N'TECHNICAL',N'KITCHEN',N'ACCOUNTING',N'HR',N'MANAGER')
+ AND s.starts<DATEADD(DAY,8,CAST(@reportDate AS DATETIME2))
+ AND NOT EXISTS(SELECT 1 FROM dbo.CaLamViecNhanVien c WHERE c.maNhanVien=e.maNhanVien AND c.trangThai<>N'Đã hủy'
+    AND c.thoiDiemBatDau<DATEADD(HOUR,8,s.starts) AND c.thoiDiemKetThuc>s.starts);
  INSERT dbo.ChamCong(maNhanVien,ngayLamViec,thoiDiemVaoCa,thoiDiemRaCa,trangThai,nguonDuLieu,ghiChu,nguoiNhap)
  SELECT c.maNhanVien,c.ngayLamCa,DATEADD(MINUTE,CASE WHEN (s.n+DAY(c.ngayLamCa))%9=0 THEN 12 ELSE -4 END,c.thoiDiemBatDau),
     CASE WHEN c.thoiDiemKetThuc<@now THEN DATEADD(MINUTE,3,c.thoiDiemKetThuc) END,
@@ -154,11 +170,13 @@ BEGIN TRY
        CASE WHEN @i<=50 THEN -3-3*@i WHEN @i<=75 THEN -5-5*(@i-50) WHEN @i<=85 THEN -5-7*(@i-75)
        WHEN @i<=160 THEN -5-(@i%80) WHEN @i<=180 THEN -1-(@i%3) WHEN @i<=188 THEN 0
        WHEN @i<=220 THEN 1+(@i%21) WHEN @i<=226 THEN 1+(@i%4) ELSE -3-(@i%10) END,@today) AS DATETIME2));
+    -- Tám khách đến đúng ngày báo cáo, không phụ thuộc ngày chạy seed.
+    IF @i BETWEEN 189 AND 196 SET @start=DATEADD(HOUR,14,CAST(@reportDate AS DATETIME2));
     SET @finish=CASE WHEN @rental=N'Theo giờ' THEN DATEADD(HOUR,3,@start)
-       WHEN @category=N'IN_HOUSE' THEN DATEADD(HOUR,12,CAST(DATEADD(DAY,CASE WHEN @i%5=0 THEN 0 ELSE 1+@i%3 END,@today) AS DATETIME2))
+       WHEN @category=N'IN_HOUSE' THEN DATEADD(HOUR,12,CAST(DATEADD(DAY,CASE WHEN @i<=170 THEN 0 ELSE 1+@i%3 END,@reportDate) AS DATETIME2))
        ELSE DATEADD(HOUR,-2,DATEADD(DAY,1+@i%3,@start)) END;
     SET @room=NULL;
-    IF @category IN(N'IN_HOUSE',N'ARRIVAL',N'HOLD')
+    IF @category IN(N'IN_HOUSE',N'ARRIVAL',N'HOLD') OR @i BETWEEN 189 AND 196
        SELECT TOP(1) @room=r.id FROM @rooms r JOIN dbo.Phong p ON p.maPhong=r.id
        WHERE p.trangThai=N'Sẵn sàng'
        AND NOT EXISTS(SELECT 1 FROM dbo.NhiemVuBuongPhong h WHERE h.maPhong=r.id AND h.trangThai<>N'Sẵn sàng')
@@ -188,6 +206,7 @@ BEGIN TRY
     SET @serviceTotal=CASE WHEN @category IN(N'HISTORY',N'IN_HOUSE') THEN (1+@i%3)*15000+@i%2*30000 ELSE 0 END;
     SET @total=ROUND((@roomTotal+@serviceTotal)/1000,0)*1000;
     SET @booked=DATEADD(DAY,-(2+@i%8),CASE WHEN @start<@now THEN @start ELSE @now END);
+    IF @category=N'HOLD' SET @booked=@now;
     SET @depositState=CASE WHEN @category=N'HOLD' THEN N'Chờ thanh toán' WHEN @category=N'CANCELLED' THEN N'Đã hết hạn' ELSE N'Đã thanh toán' END;
     SET @key=CONCAT(N'OPS-DEMO-RES-',@i);
     INSERT dbo.PhieuDatPhong(maKhachLuuTru,maNhanVien,maTaiKhoanKhachHang,thoiDiemDat,tienDatCoc,trangThai,hinhThucThue,
@@ -303,7 +322,7 @@ BEGIN TRY
  CROSS JOIN (VALUES(N'Điều hòa',12000000),(N'Tivi',8500000),(N'Khóa cửa điện tử',2500000),(N'Máy sấy tóc',900000)) v(name,price)
  WHERE NOT EXISTS(SELECT 1 FROM dbo.ThietBiPhong t WHERE t.maPhong=r.id AND t.ten=v.name);
  INSERT dbo.NhiemVuBuongPhong(maPhong,nguoiDuocPhanCong,trangThai,daHoanThanhChecklist,coSuCoChan,ghiChu,nguoiPhanCong,thoiDiemCapNhat)
- SELECT room,CASE WHEN n<=5 THEN N'HOUSEKEEP' ELSE CONCAT(N'OPSHK',RIGHT(N'00'+CONVERT(NVARCHAR(2),n-5),2)) END,
+ SELECT room,CASE WHEN n<=8 THEN N'HOUSEKEEP' ELSE CONCAT(N'OPSHK',RIGHT(N'00'+CONVERT(NVARCHAR(2),n-5),2)) END,
     CASE WHEN n<=3 THEN N'Cần dọn phòng' WHEN n<=5 THEN N'Đang thực hiện' WHEN n<=7 THEN N'Đã dọn xong' ELSE N'Chờ kỹ thuật' END,
     CASE WHEN n>=6 THEN 1 ELSE 0 END,CASE WHEN n>=8 THEN 1 ELSE 0 END,
     CONCAT(N'OPS-DEMO: ',CASE WHEN n<=3 THEN N'khách vừa trả, chờ nhận việc' WHEN n<=5 THEN N'đang dọn, kiểm tra minibar'
@@ -311,12 +330,15 @@ BEGIN TRY
  UPDATE r SET task=t.maNhiemVuBuongPhong FROM @workRooms r JOIN dbo.NhiemVuBuongPhong t ON t.maPhong=r.room WHERE t.ghiChu LIKE N'OPS-DEMO:%';
  INSERT dbo.KetQuaChecklistBuongPhong(maNhiemVuBuongPhong,hangMuc,datYeuCau,ghiChu,nguoiHoanThanh,thoiDiemHoanThanh)
  SELECT r.task,t.ten,CASE WHEN r.n>=6 OR (r.n>=4 AND t.maMauChecklist%2=0) THEN 1 ELSE 0 END,
-    N'OPS-DEMO: kiểm tra theo checklist ca',N'HOUSEKEEP',@now FROM @workRooms r CROSS JOIN dbo.MauChecklistBuongPhong t WHERE t.dangHoatDong=1;
+    N'OPS-DEMO: kiểm tra theo checklist ca',h.nguoiDuocPhanCong,@now FROM @workRooms r
+ JOIN dbo.NhiemVuBuongPhong h ON h.maNhiemVuBuongPhong=r.task
+ CROSS JOIN dbo.MauChecklistBuongPhong t WHERE t.dangHoatDong=1;
  UPDATE p SET trangThai=CASE WHEN r.n>=8 THEN N'Đang bảo trì' ELSE N'Đang dọn phòng' END,phienBan=phienBan+1
  FROM dbo.Phong p JOIN @workRooms r ON r.room=p.maPhong;
  INSERT dbo.KiemTraBuongPhong(maNhiemVuBuongPhong,loaiKiemTra,hangMuc,soLuong,tinhTrangHangMuc,ghiChu,nguoiHoanThanh,thoiDiemHoanThanh)
  SELECT task,N'Minibar',N'Nước khoáng minibar',2+n%3,CASE WHEN n%2=0 THEN N'Đã bổ sung' ELSE N'Bình thường' END,
-    N'OPS-DEMO: đối chiếu số lượng minibar trong phòng',N'HOUSEKEEP',@now FROM @workRooms;
+    N'OPS-DEMO: đối chiếu số lượng minibar trong phòng',h.nguoiDuocPhanCong,@now FROM @workRooms r
+ JOIN dbo.NhiemVuBuongPhong h ON h.maNhiemVuBuongPhong=r.task;
  INSERT dbo.SuCoThietBi(maPhong,tenThietBi,giaTriBanDau,ngayMua,soLuong,tienBoiThuong,mucDoNghiemTrong,trangThaiBanGiao,ghiChuBanGiao)
  SELECT room,N'Điều hòa',12000000,DATEADD(YEAR,-2,@today),1,0,N'Cao',CASE WHEN n=8 THEN N'Đang mở' ELSE N'Đã tiếp nhận' END,
     N'OPS-DEMO: điều hòa không lạnh, không quy trách nhiệm khách' FROM @workRooms WHERE n>=8;
@@ -384,6 +406,19 @@ BEGIN TRY
  END;
  EXEC dbo.uspLenhYeuCauKho N'create',NULL,N'OPSWATER',2,NULL,N'HOUSEKEEP',N'OPS-DEMO: hàng nguyên chai chưa sử dụng',N'OPS-STOCK-RETURN',@now,N'Trả hàng';
  EXEC dbo.uspLenhYeuCauKho N'create',NULL,N'OPSGLOVE',1,NULL,N'HOUSEKEEP',N'OPS-DEMO: găng tay rách trong ca',N'OPS-STOCK-DAMAGE',@now,N'Báo hỏng';
+ -- Kho bộ phận có đồ vải thực nhận để các phiếu trả/hỏng có thể xử lý ngay.
+ DECLARE linen_cursor CURSOR LOCAL FAST_FORWARD FOR
+ SELECT id FROM (VALUES(N'PILLOW'),(N'TOWELCLEAN'),(N'LINENKING'),(N'LINENTWIN')) l(id);
+ OPEN linen_cursor;FETCH NEXT FROM linen_cursor INTO @sku;
+ WHILE @@FETCH_STATUS=0
+ BEGIN
+    SET @key=CONCAT(N'OPS-LINEN-ISSUE-',@sku);
+    EXEC dbo.uspLenhYeuCauKho N'create',NULL,@sku,20,NULL,N'HOUSEKEEP',N'OPS-DEMO: nhận đồ vải sạch chuẩn bị ca báo cáo',@key,@requestTime,N'Cấp hàng';
+    SELECT @requestId=maYeuCauKho FROM dbo.YeuCauKho WHERE nguoiGui=N'HOUSEKEEP' AND khoaChongTrung=@key;
+    EXEC dbo.uspLenhYeuCauKho N'approve',@requestId,NULL,NULL,NULL,N'KITCHEN',N'Đã kiểm đếm và bàn giao đồ vải',NULL,@requestTime,NULL;
+    FETCH NEXT FROM linen_cursor INTO @sku;
+ END;
+ CLOSE linen_cursor;DEALLOCATE linen_cursor;
 
  -- 7. Kế toán: chi phí, công nợ, thanh toán nhà cung cấp và bàn giao tiền theo sổ thu.
  INSERT dbo.KhoanChi(danhMuc,moTa,soTien,phuongThucThanhToan,nguoiChiTra,thoiDiemChiTra,trangThai)
@@ -452,6 +487,10 @@ BEGIN TRY
  VALUES(N'DEMO_SEED',N'OPERATING_DEMO_POPULATED',N'DEMO_DATA',N'OPERATING-DEMO-V1',
     N'80 guests; 24 employees; 238 reservations; linked invoices, payments, stock, housekeeping, technical and HR',
     N'Chủ repo yêu cầu bổ sung dữ liệu hệ thống đang hoạt động',N'OPERATING-DEMO-V1-COMPLETE');
+ INSERT dbo.NhatKyKiemSoat(nguoiThucHien,hanhDong,loaiDoiTuong,maDoiTuong,duLieuSau,lyDo,khoaLienKet)
+ VALUES(N'DEMO_SEED',N'REPORT_DEMO_PREPARED',N'DEMO_DATA',N'REPORT-DEMO',
+    (SELECT @today AS seed_date,@reportDate AS report_date FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),
+    N'Chuẩn bị dữ liệu lễ tân, buồng phòng và các bộ phận cho ngày báo cáo',N'REPORT-DEMO-COMPLETE');
  COMMIT;
  SELECT kind AS Scenario,COUNT(*) AS Reservations FROM @stays GROUP BY kind;
  PRINT N'Đã bổ sung dữ liệu hoạt động; giữ nguyên các hồ sơ có sẵn.';

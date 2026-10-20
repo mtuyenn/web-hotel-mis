@@ -26,6 +26,7 @@ import ServicePaymentResultPage from "./components/ServicePaymentResultPage";
 import { VnpayPaymentResultPage } from "./components/VnpayPaymentResultPage";
 import { localDateValue } from "../../shared/utils/localDate";
 import { getRoomFullName } from "./roomProfiles";
+import { serviceImageSource } from "./serviceImages";
 
 interface CustomerPortalProps {
   onBack: () => void;
@@ -241,7 +242,7 @@ export default function CustomerPortal({ onBack, onLogin, onLogout, isAuthentica
             unit: service.unit,
             durationMinutes:service.duration_minutes,
             desc: service.description ?? "",
-            img: service.image_url || "",
+            img: serviceImageSource(service.service_id, service.image_url),
             tag: service.price === 0 ? "Chưa niêm yết" : service.unit || "Dịch vụ",
             tagColor: serviceTagColor[service.category] ?? "#B8944A",
           };

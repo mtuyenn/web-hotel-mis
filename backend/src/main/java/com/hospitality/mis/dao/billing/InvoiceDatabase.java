@@ -17,12 +17,14 @@ import java.util.*;
 public class InvoiceDatabase {
     public record Snapshot(InvoiceDtos.Response response,String employeeId,Long customerId){}
     public record Deposit(long sourceId,BigDecimal amount){}
-    private static final String COLUMNS="maHoaDon,maPhieuDatPhong,thoiDiemPhatHanh,tongTienPhong,tongTienDichVu,tienPhuThu,tienBoiThuong,phiGiaHan,tongTienDieuChinh,tienGiamGia,tienDatCocDaTra,soDuConLai,phuongThucThanhToan,trangThai,maNhanVien,maTaiKhoanKhachHang";
+    private static final String COLUMNS="maHoaDon,maPhieuDatPhong,thoiDiemPhatHanh,tongTienPhong,tongTienDichVu,tienPhuThu,tienBoiThuong,phiGiaHan,tongTienDieuChinh,tienGiamGia,tienDatCocDaTra,soDuConLai,phuongThucThanhToan,trangThai,maNhanVien,maTaiKhoanKhachHang," +
+        "CAST(CASE WHEN tienDatCocDaTra=0 AND EXISTS (SELECT 1 FROM dbo.PhieuDatPhong p WHERE p.maPhieuDatPhong=vwHoaDonChiTiet.maPhieuDatPhong AND p.trangThai=N'Đã hủy' AND p.ketQuaHuy=N'Hoàn tiền') " +
+        "AND EXISTS (SELECT 1 FROM dbo.vwSoDuTienCoc d WHERE d.maHoaDon=vwHoaDonChiTiet.maHoaDon AND d.soDu=0) THEN 1 ELSE 0 END AS BIT) AS daHoanCoc";
     private final JdbcTemplate jdbc;
     private final PaymentMethodConverter methods=new PaymentMethodConverter();
     private final PaymentStatusConverter statuses=new PaymentStatusConverter();
     private final RowMapper<Snapshot> rows=(r,n)->new Snapshot(new InvoiceDtos.Response(r.getLong(1),r.getLong(2),r.getTimestamp(3).toLocalDateTime(),r.getBigDecimal(4),r.getBigDecimal(5),r.getBigDecimal(6),r.getBigDecimal(7),r.getBigDecimal(8),r.getBigDecimal(9),r.getBigDecimal(10),r.getBigDecimal(11),r.getBigDecimal(12),methods.convertToEntityAttribute(r.getString(13)),
-        "Dự kiến".equals(r.getString(14))?PaymentStatus.DU_KIEN:r.getBigDecimal(12).signum()==0?PaymentStatus.DA_THANH_TOAN:PaymentStatus.CHUA_THANH_TOAN),r.getString(15),r.getObject(16,Long.class));
+        "Dự kiến".equals(r.getString(14))?PaymentStatus.DU_KIEN:r.getBigDecimal(12).signum()==0?PaymentStatus.DA_THANH_TOAN:PaymentStatus.CHUA_THANH_TOAN,r.getBoolean(17)),r.getString(15),r.getObject(16,Long.class));
     public InvoiceDatabase(JdbcTemplate jdbc){this.jdbc=jdbc;}
     public Snapshot get(long id){return find("maHoaDon",id);}
     public Snapshot reservation(long id){return find("maPhieuDatPhong",id);}

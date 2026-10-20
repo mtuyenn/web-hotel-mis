@@ -7,6 +7,31 @@ router. Business screens and their colocated tests live under `src/features/`.
 Shared API callers, reusable components, types, utilities, and assets live under
 `src/shared/`. Customer session restoration is in `src/app/session/`.
 
+## Screens
+
+`ScreenRouter.tsx` selects the station from the authenticated role. The
+`staffAccounts` lookup supports demo account navigation; backend permissions
+remain authoritative. HTTP paths, payloads and capabilities belong to the
+[API contract](../docs/api-contract.md).
+
+| Screen | Source under `src/features/` | User |
+|---|---|---|
+| Customer portal | `customer/CustomerPortal.tsx` | Public visitor or customer |
+| Front desk | `front-desk/FrontDeskPMS.tsx` | `FRONT_DESK` |
+| Housekeeping | `housekeeping/HousekeepingStation.tsx` | `HOUSEKEEPING` |
+| Warehouse/services | `warehouse-services/WarehouseServices.tsx` | `KITCHEN` |
+| Maintenance | `maintenance/MaintenanceStation.tsx` | `TECHNICAL` |
+| Accounting | `accounting/AccountingStation.tsx` | `ACCOUNTING` |
+| Management | `management/ManagerDashboard.tsx` | `MANAGER`, `DIRECTOR` |
+| HR | `hr/HRStation.tsx` | `HR` |
+| Administration | `admin/AdminStation.tsx` | `ADMIN` |
+
+`auth/LoginPage.tsx` serves employee/customer login. Colocated component and
+API tests cover their named interactions with controlled fixtures. The live
+HTTP suite below checks backend behavior; it does not exercise a browser.
+
+## Development
+
 Run locally from this directory:
 
 ```powershell

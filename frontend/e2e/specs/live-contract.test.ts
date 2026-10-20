@@ -502,23 +502,34 @@ describe("live backend E2E contract proof", () => {
     expect(Number(jsonObject(activated.body, "manager price activation response").price)).toBe(newPrice);
   });
 
-  liveTest("Accounting payment, Director-approved refund, and replay", true, [
+  liveTest("Front Desk collection, Accounting collection denial, Director-approved refund, and replay", true, [
     "E2E_API_BASE_URL", "E2E_ACCOUNTING_EMPLOYEE_ID", "E2E_ACCOUNTING_PASSWORD", "E2E_ACCOUNTING_INVOICE_ID",
     "E2E_ACCOUNTING_PAYMENT_AMOUNT", "E2E_ACCOUNTING_REFUND_AMOUNT", "E2E_DIRECTOR_EMPLOYEE_ID", "E2E_DIRECTOR_PASSWORD",
+    "E2E_FRONT_DESK_EMPLOYEE_ID", "E2E_FRONT_DESK_PASSWORD",
   ], async () => {
-    const label = "accounting payment/refund";
+    const label = "collection permissions and accounting refund";
     distinct(label, "E2E_ACCOUNTING_EMPLOYEE_ID", "E2E_DIRECTOR_EMPLOYEE_ID");
+    distinct(label, "E2E_FRONT_DESK_EMPLOYEE_ID", "E2E_ACCOUNTING_EMPLOYEE_ID");
     const accountingId = value("E2E_ACCOUNTING_EMPLOYEE_ID")!;
     const invoiceId = positiveInteger(label, "E2E_ACCOUNTING_INVOICE_ID");
     const paymentAmount = positiveNumber(label, "E2E_ACCOUNTING_PAYMENT_AMOUNT");
     const refundAmount = positiveNumber(label, "E2E_ACCOUNTING_REFUND_AMOUNT");
     if (refundAmount > paymentAmount) block(label, "E2E_ACCOUNTING_REFUND_AMOUNT cannot exceed the new payment amount");
     const accountingToken = await employeeToken("E2E_ACCOUNTING_EMPLOYEE_ID", "E2E_ACCOUNTING_PASSWORD", label, "ACCOUNTING");
-    const payment = await mutation(`/api/invoices/${invoiceId}/payments`, accountingToken, idempotencyKey("acct-pay"), "accounting payment", {
+    const deniedCollection = await mutation(`/api/invoices/${invoiceId}/payments`, accountingToken, idempotencyKey("acct-denied"), "accounting collection denial", {
+      amount: paymentAmount, method: "CASH", type: "PAYMENT", reference: `E2E-ACCOUNTING-DENIED-${invoiceId}`,
+    });
+    expectStatus(deniedCollection, 403, "accounting cannot collect customer payments");
+    const deniedReceipt = await mutation(`/api/invoices/${invoiceId}/receipts`, accountingToken, idempotencyKey("acct-receipt-denied"), "accounting receipt denial", {
+      receipt_number: `E2E-DENIED-${invoiceId}-${Date.now()}`, amount: paymentAmount, method: "CASH",
+    });
+    expectStatus(deniedReceipt, 403, "accounting cannot issue customer receipts");
+    const frontDeskToken = await employeeToken("E2E_FRONT_DESK_EMPLOYEE_ID", "E2E_FRONT_DESK_PASSWORD", label, "FRONT_DESK");
+    const payment = await mutation(`/api/invoices/${invoiceId}/payments`, frontDeskToken, idempotencyKey("acct-funding"), "Front Desk collection before accounting refund", {
       amount: paymentAmount, method: "CASH", type: "PAYMENT", reference: `E2E-ACCOUNTING-${invoiceId}`,
     });
-    expectStatus(payment, 200, "accounting payment");
-    const paymentRow = assertActor(payment, "actor_id", accountingId, "accounting payment");
+    expectStatus(payment, 200, "Front Desk collection before accounting refund");
+    const paymentRow = assertActor(payment, "actor_id", value("E2E_FRONT_DESK_EMPLOYEE_ID")!, "Front Desk collection");
     expect(paymentRow.type).toBe("PAYMENT");
     expect(Number(paymentRow.amount)).toBe(paymentAmount);
 

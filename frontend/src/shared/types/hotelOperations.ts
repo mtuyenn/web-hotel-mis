@@ -22,7 +22,7 @@ export interface InventoryReport { service_id: string; from: string | null; to: 
 export interface Approval { id: number; requester: string; action: string; target_id: string; payload: string; amount: number | null; reason: string; risk: string; status: ApprovalStatus; approver: string | null; decided_at: string | null; expires_at: string | null; consumed_at: string | null; requested_at: string; idempotency_key: string | null; }
 export interface Page<T> { items: T[]; page: number; size: number; totalElements: number; totalPages: number; }
 
-export interface Invoice { id: number; reservation_id: number; issued_at: string; room_total: number; service_total: number; late_surcharge: number; compensation: number; extension_total: number; adjustment_total: number; discount: number; deposit: number; payable: number; payment_method: PaymentMethod | null; status: InvoiceStatus; }
+export interface Invoice { id: number; reservation_id: number; issued_at: string; room_total: number; service_total: number; late_surcharge: number; compensation: number; extension_total: number; adjustment_total: number; discount: number; deposit: number; payable: number; payment_method: PaymentMethod | null; status: InvoiceStatus; deposit_refunded: boolean; }
 export interface Payment { id: number; invoice_id: number; amount: number; method: PaymentMethod; type: PaymentTransactionType; status: PaymentTransactionStatus; reference: string | null; occurred_at: string; actor_id: string; }
 export interface LedgerPayment extends Payment { reservation_id: number; service_total: number; }
 export interface PaymentPage extends Page<LedgerPayment> { methodCounts: Partial<Record<PaymentMethod, number>>; }

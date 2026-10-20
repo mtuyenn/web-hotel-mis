@@ -1,4 +1,4 @@
-# Live E2E contract
+# Live HTTP E2E
 
 `e2e/specs/live-contract.test.ts` is a real HTTP contract suite. It calls the
 running backend and does not mock `fetch`, the application, or backend
@@ -33,6 +33,7 @@ production schema containing data that must be preserved.
   `E2E_ACCOUNTING_PASSWORD`, `E2E_ACCOUNTING_INVOICE_ID`,
   `E2E_ACCOUNTING_PAYMENT_AMOUNT`, `E2E_ACCOUNTING_REFUND_AMOUNT`,
   `E2E_DIRECTOR_EMPLOYEE_ID`, `E2E_DIRECTOR_PASSWORD`,
+  `E2E_FRONT_DESK_EMPLOYEE_ID`, `E2E_FRONT_DESK_PASSWORD`,
   `E2E_SQLSERVER_DATABASE`, and `E2E_SQLSERVER_DISPOSABLE=true`.
 - HR/Admin: `E2E_API_BASE_URL`, `E2E_ADMIN_EMPLOYEE_ID`,
   `E2E_ADMIN_PASSWORD`, `E2E_HR_EMPLOYEE_ID`, and `E2E_HR_PASSWORD`.
@@ -87,7 +88,7 @@ SELECT maPhieuCongViecKyThuat FROM PhieuCongViecKyThuat
 WHERE vatTuSuDung = 'E2E_FIXTURE_TECHNICAL_ORDER';
 ```
 
-`frontend/e2e/specs/live-contract.test.ts` exercises eight live HTTP scenarios
+`frontend/e2e/specs/live-contract.test.ts` exercises seven live HTTP scenarios
 covering public/customer, front desk, housekeeping/technical/manager, kitchen,
 accounting/director and HR/admin behavior. It is not a browser-driven UI
 suite; report it as live HTTP/role E2E, not UI E2E.
@@ -167,7 +168,7 @@ $env:E2E_NEW_SERVICE_PRICE = "<positive-new-price>"
 $env:E2E_ACCOUNTING_EMPLOYEE_ID = "<real-accounting-employee-id>"
 $env:E2E_ACCOUNTING_PASSWORD = "<real-accounting-password>"
 $env:E2E_ACCOUNTING_INVOICE_ID = "<real-invoice-id>"
-$env:E2E_ACCOUNTING_PAYMENT_AMOUNT = "<positive-payment-amount>"
+$env:E2E_ACCOUNTING_PAYMENT_AMOUNT = "<positive-front-desk-funding-amount>"
 $env:E2E_ACCOUNTING_REFUND_AMOUNT = "<positive-refund-amount>"
 $env:E2E_DIRECTOR_EMPLOYEE_ID = "<real-director-employee-id>"
 $env:E2E_DIRECTOR_PASSWORD = "<real-director-password>"
@@ -182,12 +183,13 @@ npm run test:e2e
 
 The exact test command is run from `frontend` while the backend is running
 against the same schema. A truthful successful result has
-`configured=8 skipped=0 blocked=0` and all eight tests pass. A missing variable
+`configured=7 skipped=0 blocked=0` and all seven tests pass. A missing variable
 produces `[E2E][SKIP]`; skipped tests are not passes. An unavailable configured
 backend or response/state mismatch fails the relevant test. Do not report live
 E2E proof unless the command actually ran with no skips and passed. The
-accounting flow proves both rejection without approval and the real
-request/Director-approval/refund/replay flow; it never bypasses approval.
+accounting flow rejects collection and receipt issuance by Accounting, funds
+the invoice through Front Desk, and exercises the real
+request/Director-approval/refund/replay flow, including rejection without approval.
 
 ## Cleanup
 

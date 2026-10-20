@@ -37,11 +37,12 @@ public class PaymentController {
     /**
      * Ghi nhận thanh toán qua POST /api/invoices/{invoiceId}/payments.
      * invoiceId là path parameter, body tạo giao dịch được {@code @Valid} kiểm tra; actor hiện tại được truyền cho dịch vụ,
-     * response là giao dịch đã ghi. Chỉ PAYMENT_WRITE được gọi; Idempotency-Key là bắt buộc
+     * response là giao dịch đã ghi. Thu tiền yêu cầu PAYMENT_COLLECT, hoàn tiền yêu cầu PAYMENT_WRITE;
+     * hoàn tiền vẫn phải có phê duyệt tại service. Idempotency-Key là bắt buộc
      * để retry/double-click không ghi thêm giao dịch.
      */
     @PostMapping 
-    @PreAuthorize("@departmentAccess.allows(authentication, 'PAYMENT_WRITE')")
+    @PreAuthorize("@departmentAccess.allowsPayment(authentication, #request.type())")
     public PaymentTransactionDtos.Response record(@PathVariable Long invoiceId,
                                                   @Valid @RequestBody PaymentTransactionDtos.CreateRequest request,
                                                   @RequestHeader("Idempotency-Key") String idempotencyKey) {

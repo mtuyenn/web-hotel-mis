@@ -13,6 +13,7 @@ import type { CustomerReservation, HotelServiceBooking, HotelServiceBookingReque
 import { ApiError, apiErrorMessage } from "../../../shared/api/client";
 import {customerApi} from "../../../shared/api/customer";
 import { localDateValue } from "../../../shared/utils/localDate";
+import { ServiceImage } from "./ServiceImage";
 
 export interface FnbService {
   id: string;
@@ -325,7 +326,7 @@ export const LuxuryFnBView: React.FC<LuxuryFnBViewProps> = ({
             {/* Ảnh lớn bên trái */}
             <div className="lg:col-span-6 relative min-h-[360px] sm:min-h-[440px] lg:min-h-[500px] overflow-hidden group">
               {featuredService?.img ? (
-                <img src={featuredService.img} alt={featuredService.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
+                <ServiceImage src={featuredService.img} alt={featuredService.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-sm text-[#78716C]">Hình ảnh dịch vụ đang được cập nhật</div>
               )}
@@ -454,7 +455,7 @@ export const LuxuryFnBView: React.FC<LuxuryFnBViewProps> = ({
             >
               {/* Image Container */}
               <div className="relative h-[250px] overflow-hidden bg-[#EAE6DF]">
-                <img
+                <ServiceImage
                   src={svc.img}
                   alt={svc.title}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
@@ -569,7 +570,7 @@ export const LuxuryFnBView: React.FC<LuxuryFnBViewProps> = ({
               <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
                 <aside className="relative min-h-[360px] overflow-hidden bg-[#151A20] text-white lg:min-h-[680px]">
                   {selectedService?.img && (
-                    <img src={selectedService.img} alt={selectedService.title} className="absolute inset-0 h-full w-full object-cover opacity-55" />
+                    <ServiceImage src={selectedService.img} alt={selectedService.title} className="absolute inset-0 h-full w-full object-cover opacity-55" />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
                   <div className="relative flex h-full flex-col justify-end p-7 sm:p-9">

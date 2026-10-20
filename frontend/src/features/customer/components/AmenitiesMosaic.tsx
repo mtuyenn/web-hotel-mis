@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronRight } from "lucide-react";
 import type { FnbService } from "./LuxuryFnBView";
+import { ServiceImage } from "./ServiceImage";
 
 interface AmenitiesMosaicProps {
   onSelectCategory?: (category: string, itemId?: string) => void;
@@ -106,7 +107,7 @@ export const AmenitiesMosaic: React.FC<AmenitiesMosaicProps> = ({ onSelectCatego
               onClick={() => onSelectCategory?.(dining.linkCategory, dining.id)}
               className="group relative h-[380px] sm:h-[440px] rounded-2xl overflow-hidden cursor-pointer border border-white/10 shadow-lg"
             >
-              {dining.image && <img src={dining.image} alt={dining.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
+              {dining.image && <ServiceImage src={dining.image} alt={dining.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20 group-hover:from-black/90 transition-all duration-300" />
 
               <div className="absolute inset-0 p-8 sm:p-10 flex flex-col justify-end items-start text-left z-10">
@@ -138,7 +139,7 @@ export const AmenitiesMosaic: React.FC<AmenitiesMosaicProps> = ({ onSelectCatego
                 onClick={() => onSelectCategory?.(item.linkCategory, item.id)}
                 className="group relative h-[320px] sm:h-[360px] rounded-2xl overflow-hidden cursor-pointer border border-white/10 shadow-lg"
               >
-                {item.image && <img src={item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
+                {item.image && <ServiceImage src={item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20 group-hover:from-black/90 transition-all duration-300" />
 
                 <div className="absolute inset-0 p-6 sm:p-8 flex flex-col justify-end items-start text-left z-10">

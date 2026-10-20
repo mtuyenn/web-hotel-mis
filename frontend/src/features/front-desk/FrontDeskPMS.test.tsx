@@ -126,6 +126,7 @@ describe("FrontDeskPMS Reception Interface", () => {
       discount: 0,
       payment_method: null,
       status: "CHUA_THANH_TOAN",
+      deposit_refunded: false,
     });
 
     vi.spyOn(frontDeskApi, "checkIn").mockResolvedValue({
@@ -160,6 +161,7 @@ describe("FrontDeskPMS Reception Interface", () => {
       discount: 0,
       payment_method: null,
       status: "DA_THANH_TOAN",
+      deposit_refunded: false,
     });
 
     vi.spyOn(frontDeskApi, "cashHandover").mockResolvedValue({

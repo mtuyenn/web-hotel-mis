@@ -21,13 +21,12 @@ mvn spring-boot:run
 
 `JWT_SECRET` is optional for local/demo startup; if omitted, the backend uses
 its built-in demo key. Set a private, stable value for shared or deployed
-environments. Changing the key invalidates existing JWTs. Keep sandbox merchant
-values and callback URLs in environment variables, not in this file or source
-control.
+environments. Changing the key invalidates existing JWTs. The owner's local
+SMTP and VNPay configuration is governed by [AGENTS.md](../AGENTS.md).
 
 Flyway applies exactly six demo-baseline files from
 `src/main/resources/db/migration/`: V1 schema, V2 indexes, V3 functions,
-V4 views, V5 stored procedures/business transactions, and V6 minimal triggers. Edit the owning file;
+V4 views, V5 stored procedures/business transactions, and V6 triggers. Edit the owning file;
 never add V7+ or auxiliary DDL files. After checksum changes, recreate only an
 authorized demo/disposable test database; never repair checksums or rewrite
 Flyway history. Root `AGENTS.md` owns this rule. Hibernate uses
@@ -60,3 +59,27 @@ setup and safety guide at [`frontend/e2e/README.md`](../frontend/e2e/README.md).
 
 The backend is the only business-data writer. Frontend, agent, and operational
 clients must use authorized backend use cases rather than direct SQL Server writes.
+
+## VNPay sandbox
+
+For an environment override, set these variables before starting the backend:
+
+```powershell
+$env:VNPAY_TMN_CODE = "<vnp_TmnCode>"
+$env:VNPAY_HASH_SECRET = "<vnp_HashSecret>"
+$env:VNPAY_RETURN_URL = "https://<public-backend-host>/api/public/payments/vnpay/return"
+$env:VNPAY_FRONTEND_RESULT_URL = "http://localhost:5173/payment/vnpay-result"
+mvn spring-boot:run
+```
+
+The public backend URL must be reachable by VNPay. A local Cloudflare tunnel
+can expose port 8080 with `cloudflared tunnel --url http://localhost:8080`;
+use the resulting HTTPS origin for the Return URL above and configure the
+sandbox IPN URL as `/api/public/payments/vnpay/ipn` on that same origin.
+Restart the backend after changing process environment variables. A named
+tunnel provides a stable hostname when needed; keep temporary tunnel URLs
+out of tracked configuration.
+
+The backend leaves `vnp_BankCode` unset so VNPay presents its supported methods.
+Customer deposit amounts, deadlines and cancellation terms belong to
+[customer-policy.md](../customer-policy.md), not to setup instructions.

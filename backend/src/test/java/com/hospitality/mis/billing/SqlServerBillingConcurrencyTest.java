@@ -10,6 +10,8 @@ import com.hospitality.mis.service.reservation.ReservationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Xác minh tính idempotent và khóa hóa đơn bằng các giao dịch SQL Server thực tế. */
 @SpringBootTest(properties = {
@@ -43,6 +46,8 @@ class SqlServerBillingConcurrencyTest {
     @Autowired JdbcTemplate jdbc;
     /** Service thanh toán thật, dùng transaction SQL Server và idempotency production. */
     @Autowired PaymentTransactionService payments;
+    @Autowired com.hospitality.mis.service.billing.ReceiptService receipts;
+    @Autowired com.hospitality.mis.service.governance.ApprovalService approvals;
     /** Service đặt phòng thật, dùng lock phòng để chống overbooking. */
     @Autowired ReservationService reservations;
 
@@ -65,6 +70,7 @@ class SqlServerBillingConcurrencyTest {
     /** Xóa theo actor/ID sau test để retry suite không bị dữ liệu cũ làm sai kết quả. */
     @AfterEach
     void cleanup() {
+        SecurityContextHolder.clearContext();
         jdbc.update("delete from BienLai where maHoaDon in (select maHoaDon from HoaDon where maPhieuDatPhong in (select maPhieuDatPhong from PhieuDatPhong where maNhanVien = ?))", ACTOR);
         jdbc.update("delete from GiaoDichThanhToan where maHoaDon in (select maHoaDon from HoaDon where maPhieuDatPhong in (select maPhieuDatPhong from PhieuDatPhong where maNhanVien = ?))", ACTOR);
         jdbc.update("delete from DieuChinhHoaDon where maHoaDon in (select maHoaDon from HoaDon where maPhieuDatPhong in (select maPhieuDatPhong from PhieuDatPhong where maNhanVien = ?))", ACTOR);
@@ -76,6 +82,65 @@ class SqlServerBillingConcurrencyTest {
         jdbc.update("delete from Phong where maPhong = ?", "C9001");
         jdbc.update("delete from LoaiPhong where maLoaiPhong = ?", "CTEST");
         jdbc.update("delete from NhanVien where maNhanVien = ?", ACTOR);
+    }
+
+    @ParameterizedTest @EnumSource(PaymentMethod.class)
+    void accountingCannotCollectThroughServiceForAnyTender(PaymentMethod method) {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_ACCOUNTING"));
+        var request = new PaymentTransactionDtos.CreateRequest(new BigDecimal("10000"), method,
+                PaymentTransaction.TransactionType.PAYMENT, "Guest collection");
+        assertThatThrownBy(() -> payments.record(ID, request, ACTOR, "accounting-collection"))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThat(jdbc.queryForObject("select count(*) from GiaoDichThanhToan where maHoaDon = ?", Integer.class, ID)).isZero();
+        assertThat(jdbc.queryForObject("select soTienPhaiTra from HoaDon where maHoaDon = ?", BigDecimal.class, ID))
+                .isEqualByComparingTo("100000");
+    }
+
+    @Test
+    void accountingCannotIssueReceiptThroughService() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_ACCOUNTING"));
+        var request = new com.hospitality.mis.dto.billing.ReceiptDtos.CreateRequest("ACCOUNTING-RECEIPT", new BigDecimal("10000"), PaymentMethod.CASH);
+        assertThatThrownBy(() -> receipts.issue(ID, request, ACTOR, "accounting-receipt"))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThat(jdbc.queryForObject("select count(*) from BienLai where maHoaDon = ?", Integer.class, ID)).isZero();
+    }
+
+    @Test
+    void accountingCannotRefundWithoutDirectorApproval() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_FRONT_DESK"));
+        payments.record(ID, new PaymentTransactionDtos.CreateRequest(new BigDecimal("10000"), PaymentMethod.CASH,
+                PaymentTransaction.TransactionType.PAYMENT, "Guest collection"), ACTOR, "before-unapproved-refund");
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_ACCOUNTING"));
+        var refund = new PaymentTransactionDtos.CreateRequest(new BigDecimal("5000"), PaymentMethod.CASH,
+                PaymentTransaction.TransactionType.REFUND, "Guest refund");
+        assertThatThrownBy(() -> payments.record(ID, refund, ACTOR, "unapproved-refund"))
+                .isInstanceOf(DomainException.class).extracting("code").isEqualTo("APPROVAL_REQUIRED");
+        assertThat(jdbc.queryForObject("select count(*) from GiaoDichThanhToan where maHoaDon = ?", Integer.class, ID)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select soTienPhaiTra from HoaDon where maHoaDon = ?", BigDecimal.class, ID))
+                .isEqualByComparingTo("90000");
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void accountingRefundConsumesDirectorApproval() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_FRONT_DESK"));
+        payments.record(ID, new PaymentTransactionDtos.CreateRequest(new BigDecimal("10000"), PaymentMethod.CASH,
+                PaymentTransaction.TransactionType.PAYMENT, "Guest collection"), ACTOR, "before-refund");
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_ACCOUNTING"));
+        var refund = new PaymentTransactionDtos.CreateRequest(new BigDecimal("5000"), PaymentMethod.CASH,
+                PaymentTransaction.TransactionType.REFUND, "Guest refund");
+        String payload = refund.approvalPayload(ID, "approved-refund");
+        var approval = approvals.request(ACTOR, "PAYMENT_REFUND", String.valueOf(ID), payload,
+                refund.amount(), "Guest refund", "request-approved-refund");
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("director", "", "ROLE_DIRECTOR"));
+        approvals.approve(approval.id(), "director", "approve-refund");
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(ACTOR, "", "ROLE_ACCOUNTING"));
+        var result = payments.record(ID, refund, ACTOR, "approved-refund");
+        assertThat(result.type()).isEqualTo(PaymentTransaction.TransactionType.REFUND);
+        assertThat(jdbc.queryForObject("select count(*) from GiaoDichThanhToan where maHoaDon = ?", Integer.class, ID)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select soTienPhaiTra from HoaDon where maHoaDon = ?", BigDecimal.class, ID))
+                .isEqualByComparingTo("95000");
+        assertThat(approvals.findRequired(approval.id()).status()).isEqualTo("CONSUMED");
     }
 
     /** Given hai retry cùng key, When chạy đồng thời, Then cùng trả một ledger id và amount due giảm một lần. */

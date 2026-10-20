@@ -1,6 +1,6 @@
 # Web Hotel MIS architecture
 
-## Target boundary
+## Runtime boundary
 
 ```text
 Public portal --------> public read controllers/DTO
@@ -24,15 +24,12 @@ structured business data and must be read or changed through allow-listed
 backend APIs. Customer answers retrieve only the approved root
 `customer-policy.md`; internal operating rules are not indexed for customers.
 
-## Flyway schema history
+## Database ownership
 
-The owner fixed the demo baseline to exactly six files under
-`backend/src/main/resources/db/migration/`: V1 tables/constraints, V2 indexes,
-V3 functions, V4 views, V5 stored procedures/business transactions, and V6 triggers.
-Edit the owning file, keeping one final definition per object; never add V7+
-or auxiliary DDL files. After checksum changes, recreate only the authorized
-demo/disposable test database and apply V1–V6 from scratch. Do not repair
-checksums or rewrite Flyway history. The binding rule is in root `AGENTS.md`.
+[AGENTS.md](../AGENTS.md) owns the six-file Flyway baseline and database
+rebuild rules. The [migration guide](../backend/src/main/resources/db/migration/README.md)
+describes SQL object organization; the [access matrix](database-access-matrix.md)
+maps runtime callers to those objects and their focused tests.
 
 Hibernate is configured with `ddl-auto=validate`. It validates the schema
 created by Flyway and is not permitted to create, update or otherwise mutate
@@ -81,15 +78,8 @@ Frontend screens live under `src/features/`. Components within a feature share
 view-model types through that feature's `types.ts`, without importing types from
 their parent screen. API calls belong to the specific shared domain API module.
 
-Start as a modular monolith. Split services only after a measured operational
-need exists.
-
-## Non-negotiable safety rules
-
-- All writes use application use cases with transaction boundaries.
-- Sensitive actions (invoice deletion, deposit refund, price override) require
-  RBAC, explicit confirmation, approver identity and audit log.
-- Tools are allow-listed, typed and idempotent.
-- The model may propose an action; the backend decides whether it is valid and
-  authorized.
-- Secrets come from environment/secret management, never source control.
+Business transitions, approvals and actor permissions are governed by
+[rule.md](../rule.md). Customer-facing terms belong to
+[customer-policy.md](../customer-policy.md), and transport behavior belongs to
+the [API contract](api-contract.md). Local/demo configuration exceptions are
+owned by AGENTS.md.

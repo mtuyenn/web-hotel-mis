@@ -57,26 +57,15 @@ Set-Location C:\web-hotel-mis\agent
 The indexer is delta-based: unchanged content hashes are not re-embedded,
 changed/new chunks are embedded, and chunks removed from `customer-policy.md`
 are deleted from Qdrant. `rule.md` is never indexed. A valid Gemini account and
-key must authenticate before indexing or serving; the current environment's
-401 credential is not assumed to work, and startup fails visibly instead of
-falling back.
+key must authenticate before indexing or serving; authentication errors fail
+visibly instead of falling back.
 
-Run the services in separate terminals:
-
-```powershell
-Set-Location C:\web-hotel-mis\backend
-mvn spring-boot:run
-```
+Run the agent locally in its own terminal. Backend/frontend startup is in the
+[repository quickstart](../README.md#chạy-local).
 
 ```powershell
 Set-Location C:\web-hotel-mis\agent
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8090
-```
-
-```powershell
-Set-Location C:\web-hotel-mis\frontend
-npm ci
-npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 The FastAPI app is `app.main:app`, the backend listens on 8080, the agent on

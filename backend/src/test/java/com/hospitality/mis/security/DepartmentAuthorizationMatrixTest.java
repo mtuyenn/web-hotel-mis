@@ -259,8 +259,8 @@ class DepartmentAuthorizationMatrixTest {
             new Endpoint("POST", "/api/invoices/1/adjust", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING", "{\"delta\":1,\"reason\":\"Correction\"}"),
             new Endpoint("GET", "/api/invoices/1/payments", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK", "{}"),
             new Endpoint("GET", "/api/invoices/1/receipts", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK", "{}"),
-            new Endpoint("POST", "/api/invoices/1/payments", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK", "{\"amount\":100,\"method\":\"CASH\",\"type\":\"PAYMENT\"}"),
-            new Endpoint("POST", "/api/invoices/1/receipts", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK", "{\"receipt_number\":\"R1\",\"amount\":100,\"method\":\"CASH\"}"),
+            new Endpoint("POST", "/api/invoices/1/payments", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{\"amount\":100,\"method\":\"CASH\",\"type\":\"PAYMENT\"}"),
+            new Endpoint("POST", "/api/invoices/1/receipts", "ADMIN,DIRECTOR,MANAGER,FRONT_DESK", "{\"receipt_number\":\"R1\",\"amount\":100,\"method\":\"CASH\"}"),
             new Endpoint("GET", "/api/services", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{}"),
             new Endpoint("POST", "/api/services/S1/stock", "ADMIN,DIRECTOR,MANAGER,KITCHEN", "{\"quantity\":1}"),
             new Endpoint("GET", "/api/services/low-stock", "ADMIN,DIRECTOR,MANAGER,ACCOUNTING,FRONT_DESK,HOUSEKEEPING,KITCHEN", "{}"),
@@ -371,6 +371,18 @@ class DepartmentAuthorizationMatrixTest {
                 .isEqualTo(role.equals("ANONYMOUS") ? 401 : 403);
             businessMocks().forEach(x -> verifyNoInteractions(x));
         }
+    }
+
+    /** Cùng endpoint nhưng REFUND giữ quyền kế toán; loại PAYMENT đã bị chặn trong matrix. */
+    @Test void accountingCanSubmitRefundsToTheApprovalProtectedService() throws Exception {
+        mvc.perform(request(HttpMethod.POST, "/api/invoices/1/payments")
+            .contentType("application/json")
+            .content("{\"amount\":100,\"method\":\"CASH\",\"type\":\"REFUND\",\"reference\":\"Guest refund\"}")
+            .header("Idempotency-Key", "approved-refund")
+            .with(jwt().jwt(token -> token.subject("accountant").claim("principal_id", "accountant").claim("principal_type", "EMPLOYEE"))
+                .authorities(new SimpleGrantedAuthority("ROLE_ACCOUNTING"))))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        verify(mock3).record(eq(1L), argThat(body -> body.type() == com.hospitality.mis.entity.billing.PaymentTransaction.TransactionType.REFUND), eq("accountant"), eq("approved-refund"));
     }
 
     /** Given handler mappings production, When đối chiếu matrix, Then không protected endpoint bị bỏ sót. */

@@ -15,6 +15,10 @@ public enum Permission {
     TECHNICAL_WORK_ORDER_READ, TECHNICAL_WORK_ORDER_WRITE, TECHNICAL_WORK_ORDER_ACCEPT, TECHNICAL_WORK_ORDER_RELEASE,
     /** Đọc hóa đơn và ghi giao dịch thanh toán. */
     BILLING_READ, BILLING_WRITE, PAYMENT_WRITE,
+    /** Thu trực tiếp từ khách; tách khỏi hoàn tiền và lập chứng từ cho tiền đã thu. */
+    PAYMENT_COLLECT,
+    /** Phát hành phiếu cho khoản thu; tách khỏi quyền lập hoàn tiền và xem chứng từ. */
+    RECEIPT_WRITE,
     /** Đọc/cập nhật dịch vụ và tồn kho. */
     SERVICE_READ, SERVICE_WRITE, INVENTORY_READ, INVENTORY_WRITE,
     SERVICE_PRICE_REQUEST, SERVICE_PRICE_ACTIVATE, NOTIFICATION_READ, NOTIFICATION_WRITE,

@@ -5,6 +5,7 @@ import com.hospitality.mis.dao.billing.PaymentDatabase;
 import com.hospitality.mis.dto.billing.PaymentTransactionDtos;
 import com.hospitality.mis.entity.billing.*;
 import com.hospitality.mis.middleware.security.SecurityActor;
+import com.hospitality.mis.middleware.security.DepartmentAccess;
 import com.hospitality.mis.service.governance.*;
 import com.hospitality.mis.service.reservation.IdempotencySupport;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,14 +23,17 @@ public class PaymentTransactionService {
     private final AuditService audit;
     private final DurableIdempotencyService durable;
     private final Clock clock;
-    public PaymentTransactionService(PaymentDatabase database,ApprovalService approvals,AuditService audit,DurableIdempotencyService durable,Clock clock){
-        this.database=database;this.approvals=approvals;this.audit=audit;this.durable=durable;this.clock=clock;
+    private final DepartmentAccess access;
+    public PaymentTransactionService(PaymentDatabase database,ApprovalService approvals,AuditService audit,DurableIdempotencyService durable,Clock clock,DepartmentAccess access){
+        this.database=database;this.approvals=approvals;this.audit=audit;this.durable=durable;this.clock=clock;this.access=access;
     }
     @Transactional
     public PaymentTransactionDtos.Response record(Long invoiceId,PaymentTransactionDtos.CreateRequest request,String actor,String key){
         if(request==null||request.amount()==null||request.amount().signum()<=0||request.method()==null||request.type()==null)
             throw new DomainException("INVALID_TRANSACTION","Giao dịch phải có số tiền, phương thức và loại");
         String principal=SecurityActor.requireBoundActor(actor);
+        if(!access.allowsPayment(SecurityContextHolder.getContext().getAuthentication(),request.type()))
+            throw new AccessDeniedException("Không được phép thực hiện loại giao dịch này");
         PaymentDatabase.InvoiceScope scope=database.invoice(invoiceId);requireScope(scope,principal);
         String normalized=IdempotencySupport.requireKey(key);
         if(normalized.length()>35||!normalized.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,34}"))

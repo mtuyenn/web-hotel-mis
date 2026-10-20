@@ -46,7 +46,7 @@ public final class InvoiceDtos {
                            BigDecimal adjustmentTotal,
                            /** Khoản giảm giá. */
                            BigDecimal discount,
-                           /** Tiền đặt cọc đã ghi nhận. */
+                           /** Tiền đặt cọc còn giữ sau các giao dịch hoàn đã hoàn tất. */
                            BigDecimal deposit,
 
                            /** Số tiền còn phải thanh toán. */
@@ -54,7 +54,9 @@ public final class InvoiceDtos {
                            /** Phương thức thanh toán được chọn. */
                            PaymentMethod paymentMethod,
                            /** Trạng thái vòng đời hóa đơn. */
-                           PaymentStatus status) {}
+                           PaymentStatus status,
+                           /** Booking đã hủy và toàn bộ cọc đã được ghi nhận hoàn trong sổ giao dịch. */
+                           boolean depositRefunded) {}
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record PageResponse(java.util.List<Response> items, int page, int size, long totalElements, int totalPages) {}
 }

@@ -5,6 +5,7 @@ import com.hospitality.mis.dao.billing.*;
 import com.hospitality.mis.dto.billing.ReceiptDtos;
 import com.hospitality.mis.entity.billing.PaymentMethod;
 import com.hospitality.mis.middleware.security.SecurityActor;
+import com.hospitality.mis.middleware.security.DepartmentAccess;
 import com.hospitality.mis.service.governance.*;
 import com.hospitality.mis.service.reservation.IdempotencySupport;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,13 +22,17 @@ public class ReceiptService {
     private final AuditService audit;
     private final DurableIdempotencyService durable;
     private final Clock clock;
-    public ReceiptService(ReceiptDatabase database,AuditService audit,DurableIdempotencyService durable,Clock clock){this.database=database;this.audit=audit;this.durable=durable;this.clock=clock;}
+    private final DepartmentAccess access;
+    public ReceiptService(ReceiptDatabase database,AuditService audit,DurableIdempotencyService durable,Clock clock,DepartmentAccess access){this.database=database;this.audit=audit;this.durable=durable;this.clock=clock;this.access=access;}
     @Transactional public ReceiptDtos.Response issue(Long invoice,ReceiptDtos.CreateRequest request,String actor){return issue(invoice,request,actor,null);}
     @Transactional
     public ReceiptDtos.Response issue(Long invoice,ReceiptDtos.CreateRequest request,String actor,String key){
         if(request==null||request.receiptNumber()==null||request.receiptNumber().isBlank()||request.amount()==null||request.amount().signum()<=0||request.method()==null)
             throw new DomainException("INVALID_RECEIPT","Biên lai phải có số, số tiền và phương thức");
-        String principal=SecurityActor.requireBoundActor(actor);var scope=database.invoice(invoice);requireScope(scope,principal);
+        String principal=SecurityActor.requireBoundActor(actor);
+        if(!access.allows(SecurityContextHolder.getContext().getAuthentication(),"RECEIPT_WRITE"))
+            throw new AccessDeniedException("Không được phép phát hành biên lai");
+        var scope=database.invoice(invoice);requireScope(scope,principal);
         String hash=IdempotencySupport.fingerprint("RECEIPT|"+invoice+"|"+request.receiptNumber().trim()+"|"+request.amount()+"|"+request.method());
         return durable.execute("receipt-issue",key,principal,hash,ReceiptDtos.Response.class,()->{
             var saved=database.issue(invoice,request.receiptNumber().trim(),request.amount(),request.method(),principal,LocalDateTime.now(clock));
